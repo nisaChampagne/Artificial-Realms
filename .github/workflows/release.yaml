@@ -54,7 +54,7 @@ jobs:
           Write-Host "Package version: $VERSION"
           
           Write-Host "Checking for Windows installer"
-          $installerPath = "./out/make/squirrel.windows/x64/goodville-devops-tools-$VERSION Setup.exe"
+          $installerPath = "./out/make/squirrel.windows/x64/ArtificialRealms-$VERSION Setup.exe"
           
           # Try to find the installer file if it's not in the expected location
           if (-not (Test-Path -Path $installerPath)) {
@@ -85,7 +85,7 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ${{ steps.check-win-artifact.outputs.setup_path }}
-          asset_name: goodville-devops-tools-${{ steps.get-version.outputs.version }}-Setup.exe
+          asset_name: ArtificialRealms-${{ steps.get-version.outputs.version }}-Setup.exe
           asset_content_type: application/octet-stream
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
