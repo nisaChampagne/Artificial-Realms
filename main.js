@@ -1,0 +1,159 @@
+const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const https = require('https');
+
+let mainWindow;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1200,
+    minHeight: 750,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false
+    },
+    frame: false,
+    backgroundColor: '#0a0a0f',
+    titleBarStyle: 'hidden',
+  });
+
+  mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+}
+
+app.whenReady().then(() => {
+  // Restore clipboard shortcuts that are lost with frame: false
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+  ]);
+  Menu.setApplicationMenu(menu);
+
+  createWindow();
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+// ── AI Chat ──────────────────────────────────────────────────────────────────
+ipcMain.handle('ai:chat', async (_event, messages, apiKey, model) => {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      model: model || 'gpt-4o',
+      messages,
+      max_tokens: 1200,
+      temperature: 0.85,
+    });
+
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization:  `Bearer ${apiKey}`,
+      'Content-Length': Buffer.byteLength(body),
+    };
+
+    const req = https.request({ hostname: 'api.openai.com', path: '/v1/chat/completions', method: 'POST', headers }, (res) => {
+      let data = '';
+      res.on('data', c => { data += c; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) {
+            const msg = parsed.error.message || JSON.stringify(parsed.error);
+            if (msg.includes('quota') || msg.includes('billing') || res.statusCode === 429) {
+              return reject(`Quota / billing error. Add a payment method at: platform.openai.com/settings/billing`);
+            }
+            if (res.statusCode === 401) return reject('Invalid API key. Double-check the key in Settings.');
+            return reject(msg);
+          }
+          resolve(parsed.choices[0].message.content);
+        } catch { reject('Failed to parse AI response'); }
+      });
+    });
+    req.on('error', err => reject(err.message));
+    req.write(body);
+    req.end();
+  });
+});
+
+// ── Save / Load ───────────────────────────────────────────────────────────────
+const savesDir = () => path.join(app.getPath('userData'), 'saves');
+
+ipcMain.handle('save:write', (_e, slot, data) => {
+  const dir = savesDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `save_${slot}.json`), JSON.stringify(data, null, 2));
+  return { success: true };
+});
+
+ipcMain.handle('save:read', (_e, slot) => {
+  const fp = path.join(savesDir(), `save_${slot}.json`);
+  if (!fs.existsSync(fp)) return null;
+  return JSON.parse(fs.readFileSync(fp, 'utf8'));
+});
+
+ipcMain.handle('save:list', () => {
+  const dir = savesDir();
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter(f => f.startsWith('save_') && f.endsWith('.json'))
+    .map(f => {
+      try {
+        const d = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+        return {
+          slot: f.replace('save_', '').replace('.json', ''),
+          character: d.character?.name || 'Unknown',
+          level: d.character?.level || 1,
+          class: d.character?.class || '',
+          race: d.character?.race || '',
+          savedAt: d.savedAt || 'Unknown',
+          scene: d.currentScene || 'Unknown',
+        };
+      } catch { return null; }
+    }).filter(Boolean);
+});
+
+ipcMain.handle('save:delete', (_e, slot) => {
+  const fp = path.join(savesDir(), `save_${slot}.json`);
+  if (fs.existsSync(fp)) fs.unlinkSync(fp);
+  return { success: true };
+});
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
+
+ipcMain.handle('settings:get', () => {
+  const fp = settingsPath();
+  if (!fs.existsSync(fp)) return {};
+  try { return JSON.parse(fs.readFileSync(fp, 'utf8')); } catch { return {}; }
+});
+
+ipcMain.handle('settings:set', (_e, settings) => {
+  fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2));
+  return { success: true };
+});
+
+// ── Window Controls ───────────────────────────────────────────────────────────
+ipcMain.on('window:minimize', () => mainWindow?.minimize());
+ipcMain.on('window:maximize', () => {
+  if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+  else mainWindow?.maximize();
+});
+ipcMain.on('window:close', () => mainWindow?.close());

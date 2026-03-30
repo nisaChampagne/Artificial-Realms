@@ -1,0 +1,21 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  // AI
+  sendToAI: (messages, apiKey, model) => ipcRenderer.invoke('ai:chat', messages, apiKey, model),
+
+  // Saves
+  saveGame:   (slot, data) => ipcRenderer.invoke('save:write', slot, data),
+  loadGame:   (slot)       => ipcRenderer.invoke('save:read', slot),
+  listSaves:  ()           => ipcRenderer.invoke('save:list'),
+  deleteSave: (slot)       => ipcRenderer.invoke('save:delete', slot),
+
+  // Settings
+  getSettings:  ()         => ipcRenderer.invoke('settings:get'),
+  saveSettings: (s)        => ipcRenderer.invoke('settings:set', s),
+
+  // Window
+  minimizeWindow: () => ipcRenderer.send('window:minimize'),
+  maximizeWindow: () => ipcRenderer.send('window:maximize'),
+  closeWindow:    () => ipcRenderer.send('window:close'),
+});

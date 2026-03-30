@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artificial Realms</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════ TITLE BAR ════════════════════════════════ -->
+<div id="titlebar">
+  <span class="titlebar-title">⚔ Artificial Realms</span>
+  <div class="window-controls">
+    <button class="wc-btn" onclick="electronAPI.minimizeWindow()">─</button>
+    <button class="wc-btn" onclick="electronAPI.maximizeWindow()">⬜</button>
+    <button class="wc-btn wc-close" onclick="electronAPI.closeWindow()">✕</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ SCREEN: MENU ════════════════════════════ -->
+<div id="screen-menu" class="screen active">
+  <canvas id="menu-canvas" class="bg-canvas"></canvas>
+  <div class="menu-veil"></div>
+  <div class="menu-content">
+    <div class="menu-crest">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" class="d20-logo">
+        <polygon points="60,5 115,35 115,85 60,115 5,85 5,35" fill="none" stroke="#c9a227" stroke-width="2"/>
+        <polygon points="60,5 115,35 60,50" fill="rgba(201,162,39,0.08)" stroke="#c9a227" stroke-width="1"/>
+        <polygon points="115,35 115,85 60,50" fill="rgba(201,162,39,0.05)" stroke="#c9a227" stroke-width="1"/>
+        <polygon points="115,85 60,115 60,50" fill="rgba(201,162,39,0.08)" stroke="#c9a227" stroke-width="1"/>
+        <polygon points="60,115 5,85 60,50" fill="rgba(201,162,39,0.05)" stroke="#c9a227" stroke-width="1"/>
+        <polygon points="5,85 5,35 60,50" fill="rgba(201,162,39,0.08)" stroke="#c9a227" stroke-width="1"/>
+        <polygon points="5,35 60,5 60,50" fill="rgba(201,162,39,0.05)" stroke="#c9a227" stroke-width="1"/>
+        <text x="60" y="62" text-anchor="middle" fill="#c9a227" font-size="22" font-family="Cinzel" font-weight="700">20</text>
+      </svg>
+    </div>
+    <h1 class="menu-title">ARTIFICIAL REALMS</h1>
+    <p class="menu-subtitle">An AI-Powered Dungeons &amp; Dragons Experience</p>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btn-new-game">⚔&nbsp; New Adventure</button>
+      <button class="btn btn-secondary" id="btn-load-game">📜&nbsp; Load Game</button>
+      <button class="btn btn-outline" id="btn-settings">⚙&nbsp; Settings</button>
+    </div>
+    <p class="menu-version">v1.0.0 — Powered by OpenAI</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ SCREEN: SETTINGS ════════════════════════ -->
+<div id="screen-settings" class="screen">
+  <div class="screen-content narrow">
+    <h2 class="screen-title">⚙ Settings</h2>
+    <div class="form-group form-group-toggle">
+      <div class="toggle-row">
+        <div>
+          <label class="toggle-label-text" for="demo-mode-toggle">Demo Mode</label>
+          <small>Use scripted D&amp;D responses — no API key required</small>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="demo-mode-toggle" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>API Key</label>
+      <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" />
+      <small>Paste your OpenAI key above. Get one at <a href="#" id="link-provider">platform.openai.com/api-keys</a></small>
+    </div>
+    <div class="form-group">
+      <label>AI Model</label>
+      <select id="model-select">
+        <option value="gpt-4o">GPT-4o (Recommended)</option>
+        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+        <option value="gpt-4">GPT-4</option>
+        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Faster / Cheaper)</option>
+      </select>
+      <small>Requires billing at platform.openai.com/settings/billing</small>
+    </div>
+    <div class="form-group">
+      <label>Master Volume — <span id="vol-label">70%</span></label>
+      <input type="range" id="settings-volume" min="0" max="100" value="70" />
+    </div>
+    <div class="form-group">
+      <label>Text Speed</label>
+      <select id="text-speed">
+        <option value="30">Slow (Atmospheric)</option>
+        <option value="15" selected>Normal</option>
+        <option value="5">Fast</option>
+        <option value="0">Instant</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+      <button class="btn btn-outline" id="btn-back-settings">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ SCREEN: CHARACTER CREATION ══════════════ -->
+<div id="screen-character" class="screen">
+  <div class="screen-content char-creation-content">
+    <div class="step-bar" id="step-bar"></div>
+
+    <!-- Step 1: Name -->
+    <div class="char-step active" id="step-name">
+      <h2 class="step-title">Who are you, Adventurer?</h2>
+      <p class="step-hint">Every legend begins with a name.</p>
+      <div class="name-input-group">
+        <input type="text" id="char-name" placeholder="Enter your name…" maxlength="30" />
+      </div>
+      <div class="portrait-area">
+        <div class="portrait-frame" id="portrait-preview">
+          <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="28" r="16" fill="#3a3020" stroke="#c9a227" stroke-width="1.5"/>
+            <path d="M10 80 Q40 52 70 80" fill="#3a3020" stroke="#c9a227" stroke-width="1.5"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Race -->
+    <div class="char-step hidden" id="step-race">
+      <h2 class="step-title">Choose Your Race</h2>
+      <p class="step-hint">Your heritage shapes your destiny.</p>
+      <div class="option-grid" id="race-grid"></div>
+    </div>
+
+    <!-- Step 3: Class -->
+    <div class="char-step hidden" id="step-class">
+      <h2 class="step-title">Choose Your Class</h2>
+      <p class="step-hint">Your path determines your power.</p>
+      <div class="option-grid" id="class-grid"></div>
+    </div>
+
+    <!-- Step 4: Background -->
+    <div class="char-step hidden" id="step-background">
+      <h2 class="step-title">Your Background</h2>
+      <p class="step-hint">Where you came from defines who you are.</p>
+      <div class="option-grid" id="background-grid"></div>
+    </div>
+
+    <!-- Step 5: Appearance -->
+    <div class="char-step hidden" id="step-appearance">
+      <h2 class="step-title">Your Appearance</h2>
+      <p class="step-hint">How does the world see you? (All choices are optional.)</p>
+      <div class="appearance-builder" id="appearance-builder"></div>
+    </div>
+
+    <!-- Step 6: Ability Scores -->
+    <div class="char-step hidden" id="step-stats">
+      <h2 class="step-title">Ability Scores</h2>
+      <p class="step-hint">Roll 4d6, drop the lowest — six times.</p>
+      <div class="stats-top">
+        <button class="btn btn-primary" id="btn-roll-stats">🎲 Roll All Stats</button>
+        <span class="stats-total-info" id="stats-total-info"></span>
+      </div>
+      <div class="stats-grid" id="stats-grid"></div>
+    </div>
+
+    <!-- Step 6: Review -->
+    <div class="char-step hidden" id="step-review">
+      <h2 class="step-title">Your Character</h2>
+      <p class="step-hint">Your legend is about to begin.</p>
+      <div class="review-sheet" id="review-sheet"></div>
+    </div>
+
+    <!-- Nav -->
+    <div class="char-nav">
+      <button class="btn btn-outline" id="btn-char-prev">← Previous</button>
+      <button class="btn btn-primary" id="btn-char-next">Next →</button>
+    </div>
+    <button class="btn-ghost back-btn" id="btn-char-back">← Main Menu</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ SCREEN: CAMPAIGN SELECT ═════════════════ -->
+<div id="screen-campaign" class="screen">
+  <div class="screen-content">
+    <h2 class="screen-title">Choose Your Adventure</h2>
+    <p class="screen-subtitle">How much time do you have today?</p>
+    <div class="campaign-cards">
+
+      <div class="campaign-card" data-type="quick">
+        <div class="card-glow"></div>
+        <div class="campaign-icon">⚡</div>
+        <h3>Quick Quest</h3>
+        <div class="campaign-time">~1 Hour</div>
+        <p>A focused, single-objective adventure. Fast action, tight story. Perfect for a quick fix.</p>
+        <ul>
+          <li>1–2 combat encounters</li>
+          <li>Single dungeon or location</li>
+          <li>Clear beginning &amp; end</li>
+        </ul>
+        <button class="btn btn-primary btn-full">Begin Quest</button>
+      </div>
+
+      <div class="campaign-card featured" data-type="standard">
+        <div class="card-glow"></div>
+        <div class="campaign-icon">⚔</div>
+        <h3>Standard Campaign</h3>
+        <div class="campaign-time">3–4 Hours</div>
+        <p>A full session with story, exploration, and multiple encounters. The classic experience.</p>
+        <ul>
+          <li>3–5 combat encounters</li>
+          <li>Multiple locations</li>
+          <li>Rich NPCs &amp; subplots</li>
+        </ul>
+        <button class="btn btn-primary btn-full">Begin Campaign</button>
+      </div>
+
+      <div class="campaign-card" data-type="epic">
+        <div class="card-glow"></div>
+        <div class="campaign-icon">🏆</div>
+        <h3>Epic Campaign</h3>
+        <div class="campaign-time">8+ Hours</div>
+        <p>An epic multi-act saga. Level up, make choices that matter, and forge your legend.</p>
+        <ul>
+          <li>Multiple acts &amp; leveling</li>
+          <li>Vast worldbuilding</li>
+          <li>Legendary encounters</li>
+        </ul>
+        <button class="btn btn-primary btn-full">Begin Epic</button>
+      </div>
+
+    </div>
+
+    <div class="custom-campaign-section">
+      <h3>✍ Custom Adventure</h3>
+      <p>Describe the adventure you want the DM to run.</p>
+      <textarea id="custom-campaign-desc" rows="3" placeholder="e.g. A pirate adventure in treacherous seas, hunting a mythical sea monster…"></textarea>
+      <button class="btn btn-outline" id="btn-custom-campaign">Start Custom Adventure</button>
+    </div>
+
+    <button class="btn-ghost back-btn" id="btn-back-campaign">← Back</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ SCREEN: GAME ════════════════════════════ -->
+<div id="screen-game" class="screen">
+
+  <!-- Game Header -->
+  <div class="game-header">
+    <div class="game-char-hud" id="game-char-hud">
+      <span class="hud-name" id="hud-name">Hero</span>
+      <span class="hud-divider">|</span>
+      <span class="hud-detail" id="hud-class">Warrior</span>
+      <span class="hud-detail">Lv.<span id="hud-level">1</span></span>
+      <div class="hp-pill">
+        <span class="hp-icon">♥</span>
+        <div class="hp-pill-bar-bg">
+          <div class="hp-pill-bar" id="hud-hp-bar" style="width:100%"></div>
+        </div>
+        <span class="hp-text"><span id="hud-hp">10</span>/<span id="hud-hp-max">10</span></span>
+      </div>
+    </div>
+    <div class="game-title-center">⚔ ARTIFICIAL REALMS</div>
+    <div class="game-header-actions">
+      <button class="hdr-btn" id="btn-game-save" title="Save Game">💾 Save</button>
+      <button class="hdr-btn" id="btn-quit-game" title="Return to Menu">🚪 Menu</button>
+    </div>
+  </div>
+
+  <!-- Game Body -->
+  <div class="game-layout">
+    <!-- Left: Map -->
+    <div class="game-map-panel">
+      <div class="map-topbar">
+        <span class="map-location" id="map-location">The Dungeon</span>
+        <button class="btn-xs" id="btn-fog-toggle" title="Toggle fog of war">👁 Fog</button>
+      </div>
+      <canvas id="map-canvas"></canvas>
+      <div class="map-legend">
+        <span class="legend-you">● You</span>
+        <span class="legend-enemy">● Enemy</span>
+        <span class="legend-item">✦ Item</span>
+        <span class="legend-door">▬ Door</span>
+      </div>
+    </div>
+
+    <!-- Right: Story -->
+    <div class="game-story-panel">
+      <div class="story-log" id="story-log"></div>
+      <div class="story-bottom">
+        <div class="dice-prompt hidden" id="dice-prompt">
+          <span class="dice-prompt-icon">🎲</span>
+          <span id="dice-prompt-text">Roll required!</span>
+          <button class="btn btn-primary btn-sm" id="btn-roll-prompted">Roll Now</button>
+        </div>
+        <div class="quick-actions" id="quick-actions">
+          <button class="quick-btn" data-action="I attack!">⚔ Attack</button>
+          <button class="quick-btn" data-action="I dodge and focus on defense.">🛡 Dodge</button>
+          <button class="quick-btn" data-action="I try to hide in the shadows.">👁 Hide</button>
+          <button class="quick-btn" data-action="I help an ally with their action.">🤝 Help</button>
+          <button class="quick-btn" data-action="I look around carefully and assess the situation.">🔍 Assess</button>
+          <button class="quick-btn" data-action="I try to persuade or reason with them.">💬 Persuade</button>
+        </div>
+        <div class="input-row">
+          <input type="text" id="player-input" placeholder="What do you do? (or choose a numbered option)" autocomplete="off" />
+          <button class="btn btn-primary" id="btn-send">▶ Send</button>
+        </div>
+        <div class="input-hints" id="input-hints"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Toolbar -->
+  <div class="game-toolbar">
+    <button class="toolbar-btn" id="btn-open-dice">
+      <span class="tb-icon">🎲</span><span>Dice</span>
+    </button>
+    <button class="toolbar-btn" id="btn-open-char">
+      <span class="tb-icon">📜</span><span>Character</span>
+    </button>
+    <button class="toolbar-btn" id="btn-rest">
+      <span class="tb-icon">🌙</span><span>Rest</span>
+    </button>
+    <div class="toolbar-sep"></div>
+    <div class="music-hud">
+      <span class="tb-icon">🎵</span>
+      <span class="music-now" id="music-now">Dungeon Ambience</span>
+      <input type="range" id="vol-slider" min="0" max="100" value="70" class="vol-slider" />
+      <button class="btn-icon" id="btn-mute" title="Mute">🔊</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ MODAL: DICE ══════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-dice">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🎲 Roll Dice</h3>
+      <button class="modal-x" id="close-modal-dice">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="die-picks" id="die-picks">
+        <button class="die-pick" data-die="4">d4</button>
+        <button class="die-pick" data-die="6">d6</button>
+        <button class="die-pick" data-die="8">d8</button>
+        <button class="die-pick" data-die="10">d10</button>
+        <button class="die-pick" data-die="12">d12</button>
+        <button class="die-pick active" data-die="20">d20</button>
+        <button class="die-pick" data-die="100">d100</button>
+      </div>
+      <div class="dice-options">
+        <label>Count:
+          <button class="cnt-btn" id="cnt-minus">−</button>
+          <span id="cnt-display">1</span>
+          <button class="cnt-btn" id="cnt-plus">+</button>
+        </label>
+        <label>Modifier:
+          <input type="number" id="dice-mod" value="0" min="-20" max="20" />
+        </label>
+      </div>
+      <div class="adv-row">
+        <button class="adv-btn active" data-mode="normal">Normal</button>
+        <button class="adv-btn" data-mode="advantage">Advantage</button>
+        <button class="adv-btn" data-mode="disadvantage">Disadvantage</button>
+      </div>
+      <canvas id="dice-canvas" class="dice-canvas" width="320" height="180"></canvas>
+      <button class="btn btn-primary btn-full" id="btn-do-roll">🎲 Roll!</button>
+      <div class="roll-result hidden" id="roll-result">
+        <div class="roll-breakdown" id="roll-breakdown"></div>
+        <div class="roll-total" id="roll-total"></div>
+      </div>
+      <div class="roll-history-section">
+        <h4>Recent Rolls</h4>
+        <div id="roll-history"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ MODAL: CHARACTER SHEET ══════════════════ -->
+<div class="modal-overlay hidden" id="modal-char">
+  <div class="modal modal-xl">
+    <div class="modal-head">
+      <h3 id="sheet-name-title">Character Sheet</h3>
+      <button class="modal-x" id="close-modal-char">✕</button>
+    </div>
+    <div class="modal-body sheet-body">
+
+      <!-- Left Column -->
+      <div class="sheet-col sheet-col-left">
+        <div class="sheet-portrait-frame" id="sheet-portrait-frame">
+          <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="28" r="16" fill="#2a2010" stroke="#c9a227" stroke-width="1.5"/>
+            <path d="M10 80 Q40 52 70 80" fill="#2a2010" stroke="#c9a227" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div class="sheet-meta-grid">
+          <div class="smg-item"><span class="smg-label">Race</span><span class="smg-val" id="s-race">—</span></div>
+          <div class="smg-item"><span class="smg-label">Class</span><span class="smg-val" id="s-class">—</span></div>
+          <div class="smg-item"><span class="smg-label">Level</span><span class="smg-val" id="s-level">1</span></div>
+          <div class="smg-item"><span class="smg-label">Background</span><span class="smg-val" id="s-bg">—</span></div>
+          <div class="smg-item"><span class="smg-label">AC</span><span class="smg-val" id="s-ac">—</span></div>
+          <div class="smg-item"><span class="smg-label">Initiative</span><span class="smg-val" id="s-init">—</span></div>
+          <div class="smg-item"><span class="smg-label">Speed</span><span class="smg-val" id="s-speed">30 ft</span></div>
+          <div class="smg-item"><span class="smg-label">Prof. Bonus</span><span class="smg-val" id="s-prof">+2</span></div>
+        </div>
+        <div class="appear-block">
+          <div class="smg-label">Appearance</div>
+          <div class="smg-val" id="s-appearance" style="font-size:11px;line-height:1.6;color:var(--text-mid)">—</div>
+        </div>
+        <div class="hp-block">
+          <div class="hp-label-row">
+            <label>Hit Points</label>
+            <span class="hp-fraction"><span id="s-hp">0</span> / <span id="s-hp-max">0</span></span>
+          </div>
+          <div class="hp-bar-bg"><div class="hp-bar-fill" id="s-hp-bar"></div></div>
+          <div class="hp-adj">
+            <button class="adj-btn" id="sh-hp-minus">−</button>
+            <input type="number" id="sh-hp-amt" value="1" min="1" max="999" />
+            <button class="adj-btn adj-heal" id="sh-hp-plus">+</button>
+          </div>
+        </div>
+        <div class="ability-block">
+          <h4>Ability Scores</h4>
+          <div class="ability-grid" id="ability-grid"></div>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div class="sheet-col sheet-col-right">
+        <div class="saves-block">
+          <h4>Saving Throws</h4>
+          <div id="saving-throws"></div>
+        </div>
+        <div class="skills-block">
+          <h4>Skills</h4>
+          <div id="skills-list" class="skills-scroll"></div>
+        </div>
+        <div class="features-block">
+          <h4>Features &amp; Traits</h4>
+          <div id="features-list" class="features-scroll"></div>
+        </div>
+        <div class="equip-block">
+          <h4>Equipment</h4>
+          <div id="equip-list" class="equip-scroll"></div>
+        </div>
+        <div class="notes-block">
+          <h4>Notes</h4>
+          <textarea id="char-notes" rows="4" placeholder="Notes…"></textarea>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ MODAL: SAVE/LOAD ════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-save">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>💾 Save / Load</h3>
+      <button class="modal-x" id="close-modal-save">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tab-row">
+        <button class="tab-btn active" id="tab-save-btn">Save</button>
+        <button class="tab-btn" id="tab-load-btn">Load</button>
+      </div>
+      <div class="save-slots" id="save-slots"></div>
+      <p class="autosave-info">Auto-save: <span id="autosave-label">every 5 minutes</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ MODAL: REST ════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-rest">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🌙 Take a Rest</h3>
+      <button class="modal-x" id="close-modal-rest">✕</button>
+    </div>
+    <div class="modal-body" style="gap:16px">
+      <div class="rest-option" id="rest-short">
+        <div class="rest-icon">⏱</div>
+        <div class="rest-info">
+          <div class="rest-title">Short Rest</div>
+          <div class="rest-desc">Spend up to <span id="rest-hd-count">1</span> Hit Dice to recover HP. Takes ~1 hour.</div>
+        </div>
+      </div>
+      <div class="rest-hd-row hidden" id="rest-hd-row">
+        <span class="rest-hd-label">Hit Dice to spend:</span>
+        <button class="cnt-btn" id="rest-hd-minus">−</button>
+        <span id="rest-hd-val">1</span>
+        <button class="cnt-btn" id="rest-hd-plus">+</button>
+        <span class="rest-hd-die" id="rest-hd-die">d8</span>
+        <button class="btn btn-primary btn-sm" id="btn-rest-short-go">Roll &amp; Rest</button>
+        <span class="rest-result" id="rest-short-result"></span>
+      </div>
+      <div class="rest-divider"></div>
+      <div class="rest-option" id="rest-long">
+        <div class="rest-icon">🌟</div>
+        <div class="rest-info">
+          <div class="rest-title">Long Rest</div>
+          <div class="rest-desc">Fully restore HP and recover all Hit Dice. Takes ~8 hours.</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-rest-long-go">Take Long Rest</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ MODAL: DEATH SAVES ═════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-death">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>💀 Death Saving Throws</h3>
+    </div>
+    <div class="modal-body" style="align-items:center;text-align:center;gap:20px">
+      <p class="death-flavour">You are at 0 HP and unconscious. Roll a d20 each turn.<br>10 or higher = <strong>success</strong> · 9 or lower = <strong>failure</strong><br>3 successes = stable · 3 failures = dead.</p>
+      <div class="death-track">
+        <div class="dt-row">
+          <span class="dt-label success">Successes</span>
+          <div class="dt-dots" id="death-success-dots">
+            <span class="dt-dot" data-idx="0"></span>
+            <span class="dt-dot" data-idx="1"></span>
+            <span class="dt-dot" data-idx="2"></span>
+          </div>
+        </div>
+        <div class="dt-row">
+          <span class="dt-label failure">Failures</span>
+          <div class="dt-dots" id="death-fail-dots">
+            <span class="dt-dot" data-idx="0"></span>
+            <span class="dt-dot" data-idx="1"></span>
+            <span class="dt-dot" data-idx="2"></span>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-death-roll">🎲 Roll d20</button>
+      <div class="death-roll-result hidden" id="death-roll-result"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ MODAL: LEVEL UP ════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-levelup">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="levelup-title">🎉 Level Up!</h3>
+    </div>
+    <div class="modal-body" style="align-items:center;text-align:center;gap:20px">
+      <div class="levelup-badge" id="levelup-badge">2</div>
+      <p class="levelup-sub" id="levelup-sub">You have reached Level 2!</p>
+      <div class="levelup-hp-block">
+        <div class="levelup-hp-label">Roll for new Hit Points</div>
+        <div class="levelup-hp-hint" id="levelup-hp-hint">Roll your d8 and add your CON modifier</div>
+        <div class="levelup-hp-row">
+          <button class="btn btn-primary" id="btn-levelup-roll">🎲 Roll HP</button>
+          <span class="levelup-hp-result hidden" id="levelup-hp-result"></span>
+        </div>
+        <div class="levelup-or">— or —</div>
+        <div class="levelup-avg-row">
+          <button class="btn btn-outline btn-sm" id="btn-levelup-avg">Take Average</button>
+          <span class="levelup-avg-hint" id="levelup-avg-hint"></span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-levelup-confirm" disabled>Confirm Level Up</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- Scripts -->
+<script src="js/save.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/character.js"></script>
+<script src="js/map.js"></script>
+<script src="js/dice.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

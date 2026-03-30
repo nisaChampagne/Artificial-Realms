@@ -1,0 +1,22 @@
+{
+  "name": "artificial-realms",
+  "version": "1.0.0",
+  "description": "An AI-powered Dungeons & Dragons interactive experience",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  },
+  "author": "Artificial Realms",
+  "license": "MIT",
+  "build": {
+    "appId": "com.artificialrealms.app",
+    "productName": "Artificial Realms",
+    "directories": {
+      "output": "dist"
+    }
+  }
+}
