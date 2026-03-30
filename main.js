@@ -3,6 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 
+// Handle Squirrel events on Windows
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
+
 let mainWindow;
 
 function createWindow() {

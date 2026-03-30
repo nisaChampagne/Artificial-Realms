@@ -1,6 +1,6 @@
 {
   "name": "artificial-realms",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "An AI-powered Dungeons & Dragons interactive experience",
   "main": "main.js",
   "scripts": {
@@ -14,6 +14,12 @@
     "package": "npm run build && electron-forge package",
     "make": "npm run build && electron-forge make"
   },
+  "keywords": [
+    "electron",
+    "d&d",
+    "ai",
+    "interactive"
+  ],
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",
     "@electron-forge/maker-squirrel": "^7.11.1",
@@ -56,11 +62,7 @@
   },
   "author": "Artificial Realms",
   "license": "MIT",
-  "build": {
-    "appId": "com.artificialrealms.app",
-    "productName": "Artificial Realms",
-    "directories": {
-      "output": "dist"
-    }
+  "config": {
+    "forge": "./forge.config.js"
   }
 }
