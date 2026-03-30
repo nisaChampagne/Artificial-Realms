@@ -220,15 +220,17 @@ class AudioSystem {
     document.getElementById('music-now').textContent = config.label;
 
     // Short crossfade in
+    const targetVol = (this.muted || !isFinite(this.volume)) ? 0 : this.volume;
     this._master.gain.setValueAtTime(0, this._ctx.currentTime);
-    this._master.gain.linearRampToValueAtTime(this.muted ? 0 : this.volume, this._ctx.currentTime + 2);
+    this._master.gain.linearRampToValueAtTime(targetVol, this._ctx.currentTime + 2);
 
     this._buildTrack(config);
   }
 
   setVolume(v) {
-    this.volume = Math.max(0, Math.min(1, v));
-    if (this._master && !this.muted) {
+    const safe = (typeof v === 'number' && isFinite(v)) ? Math.max(0, Math.min(1, v)) : this.volume;
+    this.volume = isFinite(safe) ? safe : 0.7;
+    if (this._master && !this.muted && this._ctx) {
       this._master.gain.setTargetAtTime(this.volume, this._ctx.currentTime, 0.1);
     }
   }
@@ -321,7 +323,9 @@ class AudioSystem {
   }
 
   _note(freq, startTime, duration, type, gainVal, destination) {
-    if (!this._ctx || startTime < this._ctx.currentTime - 0.01) return;
+    if (!this._ctx) return;
+    if (!isFinite(freq) || !isFinite(startTime) || !isFinite(gainVal) || !isFinite(duration)) return;
+    if (startTime < this._ctx.currentTime - 0.01) return;
     const ctx  = this._ctx;
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -349,6 +353,7 @@ class AudioSystem {
 
   _drone(freq, destination) {
     if (!this._ctx) return;
+    if (!isFinite(freq)) return;
     const ctx  = this._ctx;
     const osc  = ctx.createOscillator();
     const lfo  = ctx.createOscillator();
@@ -412,9 +417,10 @@ class AudioSystem {
     const dry   = ctx.createGain();
     const wetG  = ctx.createGain();
     const mix   = ctx.createGain();
+    const w = (typeof wet === 'number' && isFinite(wet)) ? Math.max(0, Math.min(1, wet)) : 0.3;
 
-    dry.gain.value  = 1 - wet * 0.5;
-    wetG.gain.value = wet;
+    dry.gain.value  = 1 - w * 0.5;
+    wetG.gain.value = w;
 
     // Impulse response (synthetic)
     const len    = ctx.sampleRate * 2.5;

@@ -58,10 +58,11 @@ class SaveSystem {
       // Init subsystems (in case this is the first time entering game screen)
       window.audioSystem.init();
       window.audioSystem.setScene(data.currentMusic || 'dungeon');
-      window.audioSystem.setVolume((window.app.settings.volume ?? 70) / 100);
+      window.audioSystem.setVolume((parseInt(window.app.settings.volume) || 70) / 100);
 
       window.mapSystem.init();
       window.mapSystem.setScene(data.currentScene || 'dungeon');
+      window.mapSystem.updateSprite(window.characterSystem.character?.appearance || {});
 
       window.characterSystem.updateHUD();
       window.aiSystem.rebuildLog();

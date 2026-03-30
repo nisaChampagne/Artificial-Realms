@@ -215,6 +215,8 @@ class MapSystem {
     this._raf         = null;
     this._offscreen   = null;
     this._dirty       = true;
+    // Sprite appearance cache
+    this.sprite       = { skin:'#e3c49a', hair:'#3d2008', hairStyle:'short', eye:'#4878b0', bodyType:'average' };
   }
 
   init() {
@@ -447,16 +449,161 @@ class MapSystem {
     ctx.beginPath();
     ctx.arc(ppx, ppy, ts * 1.2, 0, Math.PI * 2);
     ctx.fill();
-    // Player dot + ring
-    ctx.strokeStyle = '#f0d050';
-    ctx.lineWidth   = 1.5;
-    ctx.beginPath();
-    ctx.arc(ppx, ppy, ts * 0.42, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = '#f0d050';
-    ctx.beginPath();
-    ctx.arc(ppx, ppy, ts * 0.22, 0, Math.PI * 2);
-    ctx.fill();
+    // Sprite or fallback dot
+    if (ts >= 14) {
+      this._drawPlayerSprite(ctx, ppx, ppy, ts);
+    } else {
+      ctx.strokeStyle = '#f0d050';
+      ctx.lineWidth   = 1.5;
+      ctx.beginPath();
+      ctx.arc(ppx, ppy, ts * 0.42, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#f0d050';
+      ctx.beginPath();
+      ctx.arc(ppx, ppy, ts * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ── Set sprite appearance from character data ────────────────
+  updateSprite(appearance) {
+    if (!appearance) return;
+    // Swatches store { name, color } objects; buttons store plain strings
+    const col = v => (v && typeof v === 'object') ? v.color : v;
+    const low = v => (typeof v === 'string') ? v.toLowerCase() : v;
+    if (appearance.skinTone)  this.sprite.skin      = col(appearance.skinTone)  || this.sprite.skin;
+    if (appearance.hairColor) this.sprite.hair      = col(appearance.hairColor) || this.sprite.hair;
+    if (appearance.eyeColor)  this.sprite.eye       = col(appearance.eyeColor)  || this.sprite.eye;
+    if (appearance.hairStyle) this.sprite.hairStyle = low(appearance.hairStyle) || this.sprite.hairStyle;
+    if (appearance.bodyType)  this.sprite.bodyType  = low(appearance.bodyType)  || this.sprite.bodyType;
+    this._dirty = true;
+  }
+
+  // ── Pixel-art sprite centred at (cx, cy) ────────────────────
+  _drawPlayerSprite(ctx, cx, cy, ts) {
+    const s   = this.sprite;
+    const u   = ts / 24; // unit scale — sprite designed at 24px tile
+
+    // Colours
+    const skin   = s.skin;
+    const hair   = s.hair;
+    const eye    = s.eye;
+    const outfit = this._outfitColor(s.bodyType);
+    const boots  = this._darken(outfit, 0.55);
+    const belt   = this._darken(outfit, 0.7);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const r = (x, y, w, h, color) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.round(x * u), Math.round(y * u), Math.round(w * u), Math.round(h * u));
+    };
+
+    // ── Legs ──
+    const legW = s.bodyType === 'muscular' || s.bodyType === 'stocky' ? 3.5 : 2.5;
+    r(-legW - 0.5,  4,   legW, 5, outfit);
+    r( 0.5,         4,   legW, 5, outfit);
+    // Boots
+    r(-legW - 0.5,  8,   legW + 1, 1.5, boots);
+    r( 0.5,         8,   legW + 1, 1.5, boots);
+
+    // ── Torso ──
+    const torsoW = s.bodyType === 'muscular' ? 9  :
+                   s.bodyType === 'stocky'   ? 8.5 :
+                   s.bodyType === 'athletic' ? 7.5 :
+                   s.bodyType === 'slight'   ? 6   : 7;
+    r(-torsoW / 2, -2, torsoW, 6, outfit);
+    // Belt
+    r(-torsoW / 2,  3, torsoW, 1, belt);
+
+    // ── Arms ──
+    const armW = s.bodyType === 'muscular' ? 3 : 2;
+    r(-torsoW / 2 - armW, -2, armW, 5, outfit);
+    r( torsoW / 2,        -2, armW, 5, outfit);
+    // Hands
+    r(-torsoW / 2 - armW, 2.5, armW, 1.5, skin);
+    r( torsoW / 2,        2.5, armW, 1.5, skin);
+
+    // ── Neck ──
+    r(-1, -3.5, 2, 1.5, skin);
+
+    // ── Head ──
+    const hx = -4.5, hy = -11, hw = 9, hh = 8;
+    r(hx, hy, hw, hh, skin);
+
+    // Eyes
+    r(hx + 2,     hy + 3, 1.5, 1.5, eye);
+    r(hx + hw - 3.5, hy + 3, 1.5, 1.5, eye);
+    // Pupils
+    r(hx + 2.5,     hy + 3.5, 0.8, 0.8, this._darken(eye, 0.4));
+    r(hx + hw - 3,  hy + 3.5, 0.8, 0.8, this._darken(eye, 0.4));
+
+    // ── Hair ──
+    this._drawHair(ctx, r, s.hairStyle, hair, hx, hy, hw, hh, u);
+
+    ctx.restore();
+  }
+
+  _drawHair(ctx, r, style, color, hx, hy, hw, hh) {
+    switch (style) {
+      case 'shaved':
+        // Thin stubble strip across top
+        r(hx + 1, hy,       hw - 2, 1.2, color);
+        break;
+      case 'short':
+        r(hx,     hy - 2,   hw,     3,   color);
+        r(hx - 1, hy,       1.5,   3.5,  color);
+        r(hx + hw - 0.5, hy, 1.5,  3.5,  color);
+        break;
+      case 'medium':
+        r(hx,     hy - 2.5, hw,     3.5, color);
+        r(hx - 1.5, hy,     2,      6,   color);
+        r(hx + hw - 0.5, hy, 2,    6,    color);
+        break;
+      case 'long':
+        r(hx,     hy - 2.5, hw,     3.5, color);
+        r(hx - 1.5, hy,     2,      9,   color);
+        r(hx + hw - 0.5, hy, 2,    9,    color);
+        r(hx,     hy + hh - 1, 2,   5,   color);
+        r(hx + hw - 2, hy + hh - 1, 2, 5, color);
+        break;
+      case 'braided':
+        r(hx,     hy - 2.5, hw,     3.5, color);
+        r(hx + hw / 2 - 1, hy + hh - 1, 2, 7, color);
+        r(hx + hw / 2 - 1.5, hy + hh + 2, 3, 1, this._darken(color, 0.7));
+        r(hx + hw / 2 - 1.5, hy + hh + 4, 3, 1, this._darken(color, 0.7));
+        break;
+      case 'curly':
+        r(hx - 1, hy - 3,   hw + 2, 4,   color);
+        r(hx - 2, hy,       3,      4,    color);
+        r(hx + hw - 1, hy,  3,      4,    color);
+        r(hx,     hy - 4,   2.5,    2.5,  color);
+        r(hx + hw - 2.5, hy - 4, 2.5, 2.5, color);
+        r(hx + hw / 2 - 1.5, hy - 5, 3, 2, color);
+        break;
+      default: // wild
+        r(hx - 2, hy - 3,   hw + 4, 4,   color);
+        r(hx - 3, hy,       2.5,    5,    color);
+        r(hx + hw + 0.5, hy, 2.5,   5,    color);
+        r(hx - 1, hy - 5,   2,      3,    color);
+        r(hx + hw - 1, hy - 5, 2,   3,    color);
+        r(hx + hw / 2 - 1, hy - 6, 2,  3, color);
+        break;
+    }
+  }
+
+  _outfitColor(bodyType) {
+    return { slight:'#2a3850', average:'#2d3e2a', athletic:'#3a2a1a',
+             muscular:'#3a1e1e', stocky:'#2a2a3a' }[bodyType?.toLowerCase()] || '#2d3e2a';
+  }
+
+  _darken(hex, factor) {
+    const n = parseInt(hex.replace('#',''), 16);
+    const r = Math.round(((n >> 16) & 0xff) * factor);
+    const g = Math.round(((n >>  8) & 0xff) * factor);
+    const b = Math.round(( n        & 0xff) * factor);
+    return `rgb(${r},${g},${b})`;
   }
 
   _drawTile(ctx, px, py, ts, tile, pal, time) {

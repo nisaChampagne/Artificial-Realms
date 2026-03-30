@@ -5,7 +5,7 @@ class App {
   constructor() {
     this.currentScreen = 'menu';
     this.settings = { apiKey: '', model: 'gpt-4o', demoMode: false, volume: 70, textSpeed: 15 };
-    this.gameState  = { campaignType: null, customDesc: '' };
+    this.gameState  = { campaignType: null, customDesc: '', difficulty: null };
     this._toastTimer = null;
   }
 
@@ -21,6 +21,8 @@ class App {
     window.saveSystem.init();
     window.diceSystem.init();
     window.characterSystem.init();
+
+    this._bindKeyboard();
 
     // Animated menu background
     this._startMenuCanvas();
@@ -84,8 +86,8 @@ class App {
   // ── Menu Buttons ─────────────────────────────────────────────
   _bindMenuButtons() {
     document.getElementById('btn-new-game').onclick = () => {
-      window.characterSystem.reset();
-      this.showScreen('character');
+      this._resetCampaignScreen();
+      this.showScreen('campaign');
     };
     document.getElementById('btn-load-game').onclick = () => {
       window.saveSystem.open('load');
@@ -123,19 +125,80 @@ class App {
 
   // ── Campaign Buttons ─────────────────────────────────────────
   _bindCampaignButtons() {
-    document.getElementById('btn-back-campaign').onclick = () => this.showScreen('character');
+    document.getElementById('btn-back-campaign').onclick = () => this.showScreen('menu');
 
-    document.querySelectorAll('.campaign-card').forEach(card => {
-      card.querySelector('.btn')?.addEventListener('click', () => {
-        this.startCampaign(card.dataset.type, '');
+    // Campaign type selection
+    document.querySelectorAll('#campaign-cards .campaign-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('#campaign-cards .campaign-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        this.gameState.campaignType = card.dataset.type;
+        this._updateBeginBtn();
       });
     });
 
-    document.getElementById('btn-custom-campaign').onclick = () => {
+    // Custom adventure toggle
+    document.getElementById('btn-custom-toggle').addEventListener('click', () => {
+      const section = document.getElementById('custom-campaign-section');
+      const arrow   = document.getElementById('custom-toggle-arrow');
+      const opening = section.classList.contains('hidden');
+      section.classList.toggle('hidden', !opening);
+      arrow.textContent = opening ? '▴' : '▾';
+    });
+
+    // Difficulty selection
+    document.querySelectorAll('#difficulty-cards .difficulty-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('#difficulty-cards .difficulty-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        this.gameState.difficulty = card.dataset.diff;
+        this._updateBeginBtn();
+      });
+    });
+
+    // CTA → go to character creation
+    document.getElementById('btn-begin-adventure').addEventListener('click', () => {
+      if (!this.gameState.campaignType) {
+        this.showToast('Choose a campaign type first!', 'error'); return;
+      }
+      if (!this.gameState.difficulty) {
+        this.showToast('Choose a difficulty first!', 'error'); return;
+      }
       const desc = document.getElementById('custom-campaign-desc').value.trim();
-      if (!desc) { this.showToast('Please describe your adventure first.', 'error'); return; }
-      this.startCampaign('custom', desc);
-    };
+      if (desc) {
+        this.gameState.campaignType = 'custom';
+        this.gameState.customDesc   = desc;
+      } else {
+        this.gameState.customDesc = '';
+      }
+      window.characterSystem.reset();
+      this.showScreen('character');
+    });
+  }
+
+  _resetCampaignScreen() {
+    this.gameState.campaignType = 'standard';
+    this.gameState.difficulty   = 'adventure';
+    this.gameState.customDesc   = '';
+    document.querySelectorAll('#campaign-cards .campaign-card').forEach(c => {
+      c.classList.toggle('selected', c.dataset.type === 'standard');
+    });
+    document.querySelectorAll('#difficulty-cards .difficulty-card').forEach(c => {
+      c.classList.toggle('selected', c.dataset.diff === 'adventure');
+    });
+    const sect = document.getElementById('custom-campaign-section');
+    if (sect) sect.classList.add('hidden');
+    const td = document.getElementById('custom-campaign-desc');
+    if (td) td.value = '';
+    const arrow = document.getElementById('custom-toggle-arrow');
+    if (arrow) arrow.textContent = '▾';
+    this._updateBeginBtn();
+  }
+
+  _updateBeginBtn() {
+    const btn = document.getElementById('btn-begin-adventure');
+    if (!btn) return;
+    btn.disabled = !(this.gameState.campaignType && this.gameState.difficulty);
   }
 
   // ── Game Buttons ─────────────────────────────────────────────
@@ -150,6 +213,7 @@ class App {
 
     document.getElementById('btn-open-dice').onclick = () => window.diceSystem.openModal();
     document.getElementById('btn-open-char').onclick = () => window.characterSystem.openSheet();
+    document.getElementById('btn-rules').onclick     = () => this._openRulesPanel();
 
     // Quick action buttons
     document.getElementById('quick-actions').addEventListener('click', (e) => {
@@ -168,6 +232,14 @@ class App {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._onPlayerSend(); }
     });
+
+    // Rules modal
+    document.getElementById('close-modal-rules').onclick = () =>
+      document.getElementById('modal-rules').classList.add('hidden');
+    document.getElementById('btn-rules-search').onclick  = () => this._searchRules();
+    document.getElementById('rules-search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this._searchRules();
+    });
   }
 
   _onPlayerSend() {
@@ -177,6 +249,113 @@ class App {
     input.value = '';
     document.getElementById('input-hints').innerHTML = '';
     window.aiSystem.sendMessage(text);
+  }
+
+  // ── Keyboard Shortcuts ───────────────────────────────────────
+  _bindKeyboard() {
+    document.addEventListener('keydown', (e) => {
+      if (this.currentScreen !== 'game') return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      const openModals = () => [...document.querySelectorAll('.modal-overlay')].filter(m => !m.classList.contains('hidden'));
+
+      // 1–4 : pick latest choice card
+      if (e.key >= '1' && e.key <= '4' && openModals().length === 0) {
+        const allBoxes = document.querySelectorAll('.story-choices');
+        const last     = allBoxes[allBoxes.length - 1];
+        const btn      = last?.querySelectorAll('.choice-btn:not([disabled])')?.[parseInt(e.key) - 1];
+        if (btn) { e.preventDefault(); btn.click(); }
+        return;
+      }
+
+      // R : roll — initiative overlay takes priority, then inline dice prompt
+      if (e.key === 'r' || e.key === 'R') {
+        const initOverlay = document.getElementById('modal-initiative');
+        if (!initOverlay.classList.contains('hidden')) {
+          const rb = document.getElementById('btn-init-roll');
+          if (rb && !rb.disabled) { e.preventDefault(); rb.click(); return; }
+        }
+        const dicePrompt = document.getElementById('dice-prompt');
+        if (!dicePrompt.classList.contains('hidden')) {
+          e.preventDefault(); document.getElementById('btn-roll-prompted').click(); return;
+        }
+      }
+
+      // Enter : confirm initiative result after rolling
+      if (e.key === 'Enter') {
+        const initOverlay = document.getElementById('modal-initiative');
+        if (!initOverlay.classList.contains('hidden')) {
+          const cb = document.getElementById('btn-init-confirm');
+          if (cb && !cb.classList.contains('hidden')) { e.preventDefault(); cb.click(); }
+          return;
+        }
+      }
+
+      // Escape : close dismissible modals (not death/levelup/initiative)
+      if (e.key === 'Escape') {
+        const skip = new Set(['modal-death', 'modal-levelup', 'modal-initiative']);
+        openModals().forEach(m => { if (!skip.has(m.id)) m.classList.add('hidden'); });
+        return;
+      }
+
+      // C : character sheet (no modal open)
+      if ((e.key === 'c' || e.key === 'C') && openModals().length === 0) {
+        window.characterSystem?.openSheet(); return;
+      }
+
+      // D : dice roller (no modal open)
+      if ((e.key === 'd' || e.key === 'D') && openModals().length === 0) {
+        window.diceSystem?.openModal(); return;
+      }
+    });
+  }
+
+  // ── Rules Reference Panel ────────────────────────────────────
+  _openRulesPanel() {
+    document.getElementById('rules-search-input').value = '';
+    document.getElementById('rules-results').innerHTML =
+      '<div class="rules-hint">Type to search the D&amp;D 5e SRD rules via Open5e.</div>';
+    document.getElementById('modal-rules').classList.remove('hidden');
+    setTimeout(() => document.getElementById('rules-search-input').focus(), 80);
+  }
+
+  async _searchRules() {
+    const query   = document.getElementById('rules-search-input').value.trim();
+    const results = document.getElementById('rules-results');
+    results.innerHTML = '<div class="rule-loading">Searching…</div>';
+    try {
+      await window.open5e.init();
+      const sections = await window.open5e.searchRules(query);
+      if (!sections.length) {
+        results.innerHTML = '<div class="rules-hint">No results found. Try a different search term.</div>';
+        return;
+      }
+      results.innerHTML = sections.map(s => {
+        const title   = s.name || s.title || 'Untitled';
+        const excerpt = (s.desc || s.description || '').slice(0, 300).replace(/\n/g, ' ');
+        return `<div class="rule-item" data-full="${encodeURIComponent(s.desc || s.description || '')}">
+          <div class="rule-item-title">${title}</div>
+          <div class="rule-item-excerpt">${excerpt}${(s.desc||'').length > 300 ? '…' : ''}</div>
+        </div>`;
+      }).join('');
+      // Click to expand/collapse
+      results.querySelectorAll('.rule-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const expanded = el.classList.toggle('expanded');
+          if (expanded) {
+            const full = decodeURIComponent(el.dataset.full).replace(/\n/g, '<br>');
+            el.querySelector('.rule-item-excerpt').innerHTML = full;
+          } else {
+            const full = decodeURIComponent(el.dataset.full);
+            el.querySelector('.rule-item-excerpt').textContent =
+              full.slice(0, 300) + (full.length > 300 ? '…' : '');
+          }
+        });
+      });
+    } catch (err) {
+      results.innerHTML = `<div class="rules-hint">⚠ Search failed: ${err.message}<br><small>Check your internet connection.</small></div>`;
+    }
   }
 
   // ── Start Campaign ───────────────────────────────────────────
@@ -200,7 +379,7 @@ class App {
     // Init audio
     window.audioSystem.init();
     window.audioSystem.setScene('dungeon');
-    window.audioSystem.setVolume(this.settings.volume / 100);
+    window.audioSystem.setVolume((parseInt(this.settings.volume) || 70) / 100);
 
     // Init map
     window.mapSystem.init();

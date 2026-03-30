@@ -44,6 +44,9 @@ class AISystem {
 
     this._addSystemEntry('🎲 Your adventure is about to begin…');
 
+    // Pre-load Open5e conditions in the background
+    window.open5e?.init().catch(() => {});
+
     // Kick off with opening scene
     const openingRequest = `Begin the adventure! Introduce the setting vividly, establish the mood, and end with 3–4 numbered choices for the player.`;
     await this.sendMessage(openingRequest, true);
@@ -236,6 +239,8 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
 • When the character takes damage, include [HP:-N] (e.g. [HP:-5]).
 • When the character is healed, include [HP:+N].
 • When the character earns XP, include [XP:+N].
+• If the character gains a status condition (Poisoned, Blinded, Frightened, etc.), include [CONDITION:name].
+• If the character finds or is given a named magic item, include [ITEM:name].
 • If the character dies, include [DEAD].
 • When the adventure concludes successfully, include [WIN].
 • Keep implied D&D 5e rules: proficiency, saving throws, spell slots, etc.
@@ -247,6 +252,22 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
   async sendMessage(text, isSystem = false) {
     if (this.isTyping) return;
 
+    // Player-initiated attack actions require an initiative roll first
+    if (!isSystem && this._isAttackAction(text)) {
+      const dex    = window.characterSystem?.character?.stats?.dex ?? 10;
+      const dexMod = Math.floor((dex - 10) / 2);
+      this._openInitiativeModal(dexMod, 0, () => this._doSend(text, isSystem));
+      return;
+    }
+
+    this._doSend(text, isSystem);
+  }
+
+  _isAttackAction(text) {
+    return /\b(attack|strike|stab|slash|shoot|fire|charge|swing|lunge|cleave|cast|smite|backstab|ambush|rush|assault)\b/i.test(text);
+  }
+
+  async _doSend(text, isSystem = false) {
     if (!isSystem) {
       // Show player's action
       this._addPlayerEntry(text);
@@ -286,23 +307,34 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
       return '';
     }).replace(/\s{2,}/g, ' ').trim();
 
+    // Accumulate incoming damage separately — applied only after initiative roll
+    let pendingDamage = 0;
+
     // Process commands first (scene/music changes happen behind the text)
     commands.forEach(({ cmd, val }) => {
       switch (cmd) {
-        case 'SCENE': window.mapSystem?.setScene(val.toLowerCase()); window.audioSystem?.setScene(val.toLowerCase()); break;
-        case 'MUSIC': window.audioSystem?.setScene(val.toLowerCase()); break;
+        case 'SCENE': try { window.mapSystem?.setScene(val.toLowerCase()); window.audioSystem?.setScene(val.toLowerCase()); } catch (e) { console.warn('Scene error:', e); } break;
+        case 'MUSIC': try { window.audioSystem?.setScene(val.toLowerCase()); } catch (e) { console.warn('Audio error:', e); } break;
         case 'HP': {
           const delta = parseInt(val);
           if (!isNaN(delta)) {
-            window.characterSystem?.applyHPChange(delta);
-            const msg = delta < 0 ? `💔 ${window.characterSystem.character.name} takes ${Math.abs(delta)} damage!` : `💚 ${window.characterSystem.character.name} heals ${delta} HP!`;
-            this._addSystemEntry(msg);
+            if (delta < 0) {
+              // Damage — hold until after initiative roll
+              pendingDamage += delta;
+            } else {
+              // Healing applies immediately
+              window.characterSystem?.applyHPChange(delta);
+              const name = window.characterSystem?.character?.name || 'You';
+              this._addSystemEntry(`💚 ${name} heals ${delta} HP!`);
+            }
           }
           break;
         }
-        case 'XP':  window.characterSystem?.gainXP(parseInt(val) || 0); break;
+        case 'XP':   window.characterSystem?.gainXP(parseInt(val) || 0); break;
         case 'DEAD': this._handleDeath(); break;
         case 'WIN':  this._handleVictory(); break;
+        case 'CONDITION': this._showConditionCard(val); break;
+        case 'ITEM':      this._fetchAndShowItem(val); break;
       }
     });
 
@@ -312,14 +344,137 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
     // Typewriter effect for the DM entry
     await this._typewriterEntry(prose, choices);
 
-    // Show dice prompt if needed
-    if (diceRequest) {
+    // Helper to trigger the regular skill-check dice prompt (if any)
+    const triggerDiceRequest = () => {
+      if (!diceRequest) return;
       window.diceSystem.requestRoll(diceRequest.spec, diceRequest.label, (result) => {
-        // Feed the roll result back to the AI
         const modifier  = diceRequest.spec.match(/[+-]\d+/)?.[0] || '+0';
         const checkText = `I rolled a ${result.total} (${diceRequest.spec}: ${result.rolls.join('+')}${modifier}) for ${diceRequest.label}.`;
         this.sendMessage(checkText);
       });
+    };
+
+    if (pendingDamage < 0) {
+      // Require an initiative roll overlay before damage lands
+      const dex    = window.characterSystem?.character?.stats?.dex ?? 10;
+      const dexMod = Math.floor((dex - 10) / 2);
+      const spec   = dexMod >= 0 ? `d20+${dexMod}` : `d20${dexMod}`;
+      this._openInitiativeModal(dexMod, Math.abs(pendingDamage), () => {
+        window.characterSystem?.applyHPChange(pendingDamage);
+        // Chain the regular skill-check dice prompt after damage resolves
+        triggerDiceRequest();
+      });
+    } else {
+      // No incoming damage — show any regular dice prompt immediately
+      triggerDiceRequest();
+    }
+  }
+
+  // ── Initiative Roll Overlay ──────────────────────────────────
+  // damage > 0 : enemy attack — show damage warning after roll
+  // damage = 0 : player attack — show "entering combat" after roll
+  _openInitiativeModal(dexMod, damage, onConfirm) {
+    const overlay  = document.getElementById('modal-initiative');
+    const face     = document.getElementById('init-d20-face');
+    const svg      = document.getElementById('init-d20-svg');
+    const modLabel = document.getElementById('init-mod-label');
+    const rollBtn  = document.getElementById('btn-init-roll');
+    const result   = document.getElementById('init-result');
+    const confirm  = document.getElementById('btn-init-confirm');
+    const heading  = overlay.querySelector('.modal-head h3');
+    const flavour  = overlay.querySelector('.init-flavour');
+
+    if (damage === 0) {
+      heading.textContent  = '⚔ Roll for Initiative';
+      flavour.textContent  = 'You move to attack! Roll initiative to determine how quickly you act.';
+    } else {
+      heading.textContent  = '⚡ Roll for Initiative';
+      flavour.textContent  = 'Combat begins! Roll your initiative to determine when damage lands.';
+    }
+
+    // Reset state
+    face.textContent = '20';
+    modLabel.textContent = dexMod >= 0 ? `DEX modifier: +${dexMod}` : `DEX modifier: ${dexMod}`;
+    result.classList.add('hidden');
+    result.innerHTML = '';
+    confirm.classList.add('hidden');
+    rollBtn.disabled = false;
+    svg.classList.remove('spinning');
+
+    overlay.classList.remove('hidden');
+
+    // Roll handler
+    const doRoll = () => {
+      rollBtn.disabled = true;
+      svg.classList.remove('spinning');
+      void svg.offsetWidth; // reflow to restart animation
+      svg.classList.add('spinning');
+
+      // Animate face cycling
+      let ticks = 0;
+      const ticker = setInterval(() => {
+        face.textContent = Math.ceil(Math.random() * 20);
+        ticks++;
+        if (ticks >= 12) {
+          clearInterval(ticker);
+          const raw   = Math.ceil(Math.random() * 20);
+          const total = raw + dexMod;
+          face.textContent = raw;
+
+          const name = window.characterSystem?.character?.name || 'You';
+          const outcomeHtml = damage > 0
+            ? `<span class="init-damage-warn">💔 ${name} takes ${damage} damage!</span>`
+            : `<span class="init-attack-go">⚔ ${name} moves to strike!</span>`;
+          result.innerHTML =
+            `${total}<span class="init-breakdown">d20(${raw}) ${dexMod >= 0 ? '+' : ''}${dexMod} = ${total}</span>` +
+            outcomeHtml;
+          result.classList.remove('hidden');
+          confirm.classList.remove('hidden');
+        }
+      }, 55);
+    };
+
+    rollBtn.onclick = doRoll;
+
+    confirm.onclick = () => {
+      overlay.classList.add('hidden');
+      rollBtn.onclick = null;
+      confirm.onclick = null;
+      onConfirm();
+    };
+  }
+
+  // ── Condition & Item Pop-ups (Open5e) ────────────────────────
+  _showConditionCard(name) {
+    const cond = window.open5e?.getCondition(name);
+    // Notify in story log regardless
+    const charName = window.characterSystem?.character?.name || 'You';
+    this._addSystemEntry(`⚠️ ${charName} is now <strong>${name}</strong>!`);
+    if (!cond) return; // No description available
+
+    document.getElementById('condition-title').textContent = cond.name;
+    const desc = (cond.desc || '').replace(/\n/g, '<br>').replace(/\* /g, '• ');
+    document.getElementById('condition-body').innerHTML = `
+      <div class="condition-desc">${desc || 'No description available.'}</div>`;
+    document.getElementById('modal-condition').classList.remove('hidden');
+  }
+
+  async _fetchAndShowItem(name) {
+    this._addSystemEntry(`✨ ${window.characterSystem?.character?.name || 'You'} obtained: <strong>${name}</strong>!`);
+    try {
+      const item = await window.open5e?.searchMagicItem(name);
+      if (!item) return;
+      document.getElementById('item-title').textContent = item.name;
+      const rarity  = item.rarity ? `<span class="spell-card-tag">${item.rarity}</span>` : '';
+      const type    = item.type   ? `<span class="spell-card-tag">${item.type}</span>`   : '';
+      const attune  = (item.requires_attunement || '').includes('requires') ? '<span class="spell-card-tag warn">Attunement</span>' : '';
+      const desc    = (item.desc || '').replace(/\n/g, '<br>');
+      document.getElementById('item-body').innerHTML = `
+        <div class="spell-card-meta">${rarity}${type}${attune}</div>
+        <div class="spell-card-desc">${desc || 'No description available.'}</div>`;
+      document.getElementById('modal-item').classList.remove('hidden');
+    } catch (e) {
+      console.warn('[Open5e] Could not fetch item:', name, e.message);
     }
   }
 
@@ -391,10 +546,11 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
       choiceBox.className = 'story-choices';
       choices.forEach(c => {
         const btn = document.createElement('button');
-        btn.className   = 'choice-btn';
-        btn.textContent = `${c.num}. ${c.label}`;
+        btn.className = 'choice-btn';
+        btn.innerHTML = `<span class="choice-num">${c.num}</span><span class="choice-label">${c.label}</span><span class="choice-key">${c.num}</span>`;
         btn.onclick = () => {
-          choiceBox.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+          choiceBox.querySelectorAll('.choice-btn').forEach(b => { b.disabled = true; b.classList.remove('selected'); });
+          btn.classList.add('selected');
           this.sendMessage(`${c.num}. ${c.label}`);
         };
         choiceBox.appendChild(btn);

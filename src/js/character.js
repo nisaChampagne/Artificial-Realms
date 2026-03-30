@@ -160,6 +160,7 @@ class CharacterSystem {
   constructor() {
     this.character  = null;
     this.step       = 0;  // 0=name,1=race,2=class,3=background,4=appearance,5=stats,6=review
+    this._statsRolled = false;
     this.stepNames  = ['name','race','class','background','appearance','stats','review'];
     this._selections = { name:'', race:null, cls:null, background:null, appearance:{ bodyType:null, skinTone:null, hairStyle:null, hairColor:null, eyeColor:null, mark:'' }, stats:{str:10,dex:10,con:10,int:10,wis:10,cha:10} };
   }
@@ -173,7 +174,7 @@ class CharacterSystem {
 
     document.getElementById('btn-char-next').onclick = () => this.next();
     document.getElementById('btn-char-prev').onclick = () => this.prev();
-    document.getElementById('btn-char-back').onclick = () => window.app.showScreen('menu');
+    document.getElementById('btn-char-back').onclick = () => window.app.showScreen('campaign');
     document.getElementById('btn-roll-stats').onclick = () => this.rollAllStats();
 
     // HP/sheet
@@ -193,10 +194,21 @@ class CharacterSystem {
 
     // Death saves
     document.getElementById('btn-death-roll').onclick = () => this._rollDeathSave();
+
+    // Sheet tabs — Stats vs Spells
+    document.getElementById('tab-stats-btn').onclick  = () => this._switchSheetTab('stats');
+    document.getElementById('tab-spells-btn').onclick = () => this._switchSheetTab('spells');
+
+    // Condition / Item modal close buttons
+    document.getElementById('close-modal-condition').onclick = () =>
+      document.getElementById('modal-condition').classList.add('hidden');
+    document.getElementById('close-modal-item').onclick = () =>
+      document.getElementById('modal-item').classList.add('hidden');
   }
 
   reset() {
     this.step = 0;
+    this._statsRolled = false;
     this._selections = { name:'', race:null, cls:null, background:null, appearance:{ bodyType:null, skinTone:null, hairStyle:null, hairColor:null, eyeColor:null, mark:'' }, stats:{str:10,dex:10,con:10,int:10,wis:10,cha:10} };
     this._buildAppearanceStep();
     this._showStep(0);
@@ -242,8 +254,7 @@ class CharacterSystem {
         return true;
       }
       case 5: {
-        const vals = Object.values(this._selections.stats);
-        if (vals.some(v => v === 10 && vals.every(vv => vv === 10))) {
+        if (!this._statsRolled) {
           window.app.showToast('Roll your stats first!', 'error'); return false;
         }
         return true;
@@ -257,6 +268,15 @@ class CharacterSystem {
       const el = document.getElementById(`step-${name}`);
       if (el) el.classList.toggle('hidden', this.stepNames.indexOf(name) !== idx);
     });
+    // Update stats step hint to reflect current difficulty
+    if (idx === 5) {
+      const diff   = window.app?.gameState?.difficulty || 'adventure';
+      const dLabel = { cozy: '3d6', adventure: '2d6', hard: '1d6' };
+      const dName  = { cozy: 'Cozy', adventure: 'Adventure', hard: 'Hard' };
+      const hintEl = document.querySelector('#step-stats .step-hint');
+      if (hintEl) hintEl.textContent =
+        `Roll ${dLabel[diff] || '2d6'} — six times. (${dName[diff] || 'Adventure'} difficulty)`;
+    }
     // swap next button label
     const nextBtn = document.getElementById('btn-char-next');
     nextBtn.textContent = idx === this.stepNames.length - 1 ? '⚔ Begin Adventure!' : 'Next →';
@@ -405,16 +425,20 @@ class CharacterSystem {
   }
 
   rollAllStats() {
-    const roll4d6 = () => {
-      const rolls = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
-      return rolls.sort((a, b) => a - b).slice(1).reduce((s, v) => s + v, 0);
+    const diff = window.app?.gameState?.difficulty || 'adventure';
+    const n    = diff === 'cozy' ? 3 : diff === 'hard' ? 1 : 2;
+    const rollNd6 = () => {
+      let sum = 0;
+      for (let i = 0; i < n; i++) sum += Math.floor(Math.random() * 6) + 1;
+      return sum;
     };
+    this._statsRolled = true;
     ABILITY_NAMES.forEach(ab => {
-      this._selections.stats[ab] = roll4d6();
+      this._selections.stats[ab] = rollNd6();
       this._updateStatDisplay(ab);
     });
     const total = Object.values(this._selections.stats).reduce((s, v) => s + v, 0);
-    document.getElementById('stats-total-info').textContent = `Array total: ${total}`;
+    document.getElementById('stats-total-info').textContent = `Array total: ${total} (${n}d6 per stat)`;
   }
 
   _updateStatDisplay(ab) {
@@ -510,7 +534,13 @@ class CharacterSystem {
       notes:      '',
     };
 
-    window.app.showScreen('campaign');
+    // Push appearance to map sprite
+    window.mapSystem?.updateSprite(this.character.appearance);
+    // Campaign type and difficulty were chosen before character creation
+    window.app.startCampaign(
+      window.app.gameState.campaignType || 'standard',
+      window.app.gameState.customDesc   || ''
+    );
   }
 
   // ── HUD + Character Sheet ────────────────────────────────────
@@ -526,6 +556,13 @@ class CharacterSystem {
     const bar = document.getElementById('hud-hp-bar');
     bar.style.width      = `${pct * 100}%`;
     bar.style.background = pct > 0.6 ? 'var(--hp-high)' : pct > 0.3 ? 'var(--hp-mid)' : 'var(--hp-low)';
+    // Toolbar mini HP bar
+    const tbFill = document.getElementById('toolbar-hp-mini-fill');
+    const tbCur  = document.getElementById('toolbar-hp-cur');
+    const tbMax  = document.getElementById('toolbar-hp-max');
+    if (tbFill) { tbFill.style.width = `${pct * 100}%`; tbFill.style.background = bar.style.background; }
+    if (tbCur)  tbCur.textContent = c.currentHp;
+    if (tbMax)  tbMax.textContent = c.maxHp;
   }
 
   openSheet() {
@@ -613,6 +650,8 @@ class CharacterSystem {
     ).join('');
 
     document.getElementById('char-notes').value = c.notes || '';
+    // Ensure Stats tab is shown when sheet opens
+    this._switchSheetTab('stats');
     document.getElementById('modal-char').classList.remove('hidden');
   }
 
@@ -621,6 +660,130 @@ class CharacterSystem {
       this.character.notes = document.getElementById('char-notes').value;
     }
     document.getElementById('modal-char').classList.add('hidden');
+  }
+
+  // ── Sheet Tabs ───────────────────────────────────────────────
+  _switchSheetTab(tab) {
+    // Toggle panels
+    document.getElementById('sheet-stats-panel').classList.toggle('hidden', tab !== 'stats');
+    document.getElementById('sheet-spells-panel').classList.toggle('hidden', tab !== 'spells');
+    // Toggle buttons
+    document.getElementById('tab-stats-btn').classList.toggle('active', tab === 'stats');
+    document.getElementById('tab-spells-btn').classList.toggle('active', tab === 'spells');
+    if (tab === 'spells') this._loadSpellsTab();
+  }
+
+  async _loadSpellsTab() {
+    const c = this.character;
+    if (!c) return;
+    const panel   = document.getElementById('sheet-spells-panel');
+    const loading = document.getElementById('spells-loading');
+    const content = document.getElementById('spells-content');
+
+    // Non-spellcasters
+    const spellcasters = new Set(['wizard','sorcerer','bard','cleric','druid','paladin','ranger','warlock']);
+    if (!spellcasters.has(c.classId)) {
+      loading.style.display = 'none';
+      content.innerHTML = `<div class="spells-empty">
+        ${c.class} is a non-spellcasting class with no spell list.
+      </div>`;
+      return;
+    }
+
+    // Already loaded for this class
+    if (panel.dataset.loadedClass === c.classId) return;
+
+    loading.style.display = '';
+    loading.textContent   = `Loading ${c.class} spells from Open5e…`;
+    content.innerHTML     = '';
+
+    try {
+      await window.open5e.init();
+      const spells = await window.open5e.getSpellsForClass(c.classId);
+      panel.dataset.loadedClass = c.classId;
+      loading.style.display = 'none';
+
+      if (!spells.length) {
+        content.innerHTML = `<div class="spells-empty">No SRD spells found for ${c.class}.</div>`;
+        return;
+      }
+
+      // Group by level integer
+      const byLevel = {};
+      spells.forEach(sp => {
+        const lvl = sp.level_int ?? 0;
+        if (!byLevel[lvl]) byLevel[lvl] = [];
+        byLevel[lvl].push(sp);
+      });
+
+      const levelLabel = lvl => (lvl === 0 || lvl === '0') ? 'Cantrips' : `Level ${lvl}`;
+
+      const rows = Object.entries(byLevel)
+        .sort(([a],[b]) => Number(a) - Number(b))
+        .map(([lvl, list]) => {
+          list.sort((a,b) => a.name.localeCompare(b.name));
+          const spellRows = list.map(sp => {
+            const school   = sp.school || '';
+            const castTime = sp.casting_time || '';
+            const range    = sp.range || '';
+            const conc     = sp.concentration === 'yes' || sp.concentration === true ? ' · ⏳ Concentration' : '';
+            const ritual   = sp.ritual === 'yes' || sp.ritual === true ? ' · 🔆 Ritual' : '';
+            const safeName = (sp.name || '').replace(/"/g, '&quot;');
+            const safeDesc = (sp.desc || '').slice(0, 120).replace(/"/g, '&quot;');
+            return `<div class="spell-row" data-name="${safeName}" data-desc="${safeDesc}"
+                        data-school="${school}" data-cast="${castTime}" data-range="${range}">
+              <div class="spell-name">${sp.name}</div>
+              <div class="spell-meta">${school}${castTime ? ' · ' + castTime : ''}${range ? ' · ' + range : ''}${conc}${ritual}</div>
+            </div>`;
+          }).join('');
+          return `<div class="spell-level-group">
+            <div class="spell-level-header">${levelLabel(lvl)} <span class="spell-level-count">(${list.length})</span></div>
+            ${spellRows}
+          </div>`;
+        }).join('');
+
+      content.innerHTML = rows;
+
+      // Click to expand spell description
+      content.querySelectorAll('.spell-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const name  = row.dataset.name;
+          const spell = spells.find(s => s.name === name);
+          if (spell) this._showSpellCard(spell);
+        });
+      });
+    } catch (err) {
+      loading.style.display = 'none';
+      content.innerHTML = `<div class="spells-empty">⚠ Could not load spells: ${err.message}<br><small>Check your internet connection.</small></div>`;
+    }
+  }
+
+  _showSpellCard(sp) {
+    const conc   = sp.concentration === 'yes' || sp.concentration === true;
+    const ritual = sp.ritual       === 'yes' || sp.ritual       === true;
+    const lvlStr = sp.level_int === 0 ? 'Cantrip' : `Level ${sp.level_int} spell`;
+    const desc   = (sp.desc || '').replace(/\n/g, '<br>');
+    const higher = sp.higher_level ? `<div class="spell-upcast"><strong>At Higher Levels:</strong> ${sp.higher_level}</div>` : '';
+    const comps  = [sp.verbal ? 'V' : null, sp.somatic ? 'S' : null, sp.material ? 'M' : null].filter(Boolean).join(' ');
+
+    // Reuse the item modal as a spell popup
+    document.getElementById('item-title').textContent = sp.name;
+    document.getElementById('item-body').innerHTML = `
+      <div class="spell-card-meta">
+        <span class="spell-card-tag">${lvlStr}</span>
+        <span class="spell-card-tag">${sp.school || ''}</span>
+        ${conc   ? '<span class="spell-card-tag warn">Concentration</span>' : ''}
+        ${ritual ? '<span class="spell-card-tag ok">Ritual</span>'          : ''}
+      </div>
+      <div class="spell-card-grid">
+        <div><span class="scd-label">Casting Time</span><span>${sp.casting_time || '—'}</span></div>
+        <div><span class="scd-label">Range</span><span>${sp.range || '—'}</span></div>
+        <div><span class="scd-label">Duration</span><span>${sp.duration || '—'}</span></div>
+        <div><span class="scd-label">Components</span><span>${comps}${sp.material_text ? ' (' + sp.material_text + ')' : ''}</span></div>
+      </div>
+      <div class="spell-card-desc">${desc}</div>
+      ${higher}`;
+    document.getElementById('modal-item').classList.remove('hidden');
   }
 
   _adjustHP(delta) {

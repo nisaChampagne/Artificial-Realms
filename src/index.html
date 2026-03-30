@@ -173,7 +173,7 @@
       <button class="btn btn-outline" id="btn-char-prev">← Previous</button>
       <button class="btn btn-primary" id="btn-char-next">Next →</button>
     </div>
-    <button class="btn-ghost back-btn" id="btn-char-back">← Main Menu</button>
+    <button class="btn-ghost back-btn" id="btn-char-back">← Change Setup</button>
   </div>
 </div>
 
@@ -181,8 +181,10 @@
 <div id="screen-campaign" class="screen">
   <div class="screen-content">
     <h2 class="screen-title">Choose Your Adventure</h2>
-    <p class="screen-subtitle">How much time do you have today?</p>
-    <div class="campaign-cards">
+    <p class="screen-subtitle">Pick a campaign and difficulty — then forge your character.</p>
+
+    <div class="camp-section-label">Campaign Type</div>
+    <div class="campaign-cards" id="campaign-cards">
 
       <div class="campaign-card" data-type="quick">
         <div class="card-glow"></div>
@@ -195,10 +197,9 @@
           <li>Single dungeon or location</li>
           <li>Clear beginning &amp; end</li>
         </ul>
-        <button class="btn btn-primary btn-full">Begin Quest</button>
       </div>
 
-      <div class="campaign-card featured" data-type="standard">
+      <div class="campaign-card" data-type="standard">
         <div class="card-glow"></div>
         <div class="campaign-icon">⚔</div>
         <h3>Standard Campaign</h3>
@@ -209,7 +210,6 @@
           <li>Multiple locations</li>
           <li>Rich NPCs &amp; subplots</li>
         </ul>
-        <button class="btn btn-primary btn-full">Begin Campaign</button>
       </div>
 
       <div class="campaign-card" data-type="epic">
@@ -223,19 +223,47 @@
           <li>Vast worldbuilding</li>
           <li>Legendary encounters</li>
         </ul>
-        <button class="btn btn-primary btn-full">Begin Epic</button>
       </div>
 
     </div>
 
-    <div class="custom-campaign-section">
-      <h3>✍ Custom Adventure</h3>
+    <div class="custom-toggle-row">
+      <button class="custom-toggle-btn" id="btn-custom-toggle">✍ Custom Adventure <span class="custom-toggle-arrow" id="custom-toggle-arrow">▾</span></button>
+    </div>
+    <div class="custom-campaign-section hidden" id="custom-campaign-section">
       <p>Describe the adventure you want the DM to run.</p>
       <textarea id="custom-campaign-desc" rows="3" placeholder="e.g. A pirate adventure in treacherous seas, hunting a mythical sea monster…"></textarea>
-      <button class="btn btn-outline" id="btn-custom-campaign">Start Custom Adventure</button>
     </div>
 
-    <button class="btn-ghost back-btn" id="btn-back-campaign">← Back</button>
+    <div class="camp-section-label">Difficulty</div>
+    <div class="difficulty-cards" id="difficulty-cards">
+
+      <div class="difficulty-card" data-diff="cozy">
+        <div class="diff-icon">🌸</div>
+        <div class="diff-name">Cozy</div>
+        <div class="diff-dice">3d6</div>
+        <div class="diff-desc">Roll 3 dice per ability score. A gentler journey where story shines.</div>
+      </div>
+
+      <div class="difficulty-card" data-diff="adventure">
+        <div class="diff-icon">⚔</div>
+        <div class="diff-name">Adventure</div>
+        <div class="diff-dice">2d6</div>
+        <div class="diff-desc">Roll 2 dice per ability score. The classic balanced experience.</div>
+      </div>
+
+      <div class="difficulty-card" data-diff="hard">
+        <div class="diff-icon">💀</div>
+        <div class="diff-name">Hard</div>
+        <div class="diff-dice">1d6</div>
+        <div class="diff-desc">Roll 1 die per ability score. Only the strongest will survive.</div>
+      </div>
+
+    </div>
+
+    <button class="btn btn-primary btn-full btn-lg" id="btn-begin-adventure" disabled>⚔ Create Character</button>
+
+    <button class="btn-ghost back-btn" id="btn-back-campaign">← Main Menu</button>
   </div>
 </div>
 
@@ -318,6 +346,16 @@
     <button class="toolbar-btn" id="btn-rest">
       <span class="tb-icon">🌙</span><span>Rest</span>
     </button>
+    <button class="toolbar-btn" id="btn-rules">
+      <span class="tb-icon">📖</span><span>Rules</span>
+    </button>
+    <div class="toolbar-hp-mini" id="toolbar-hp-mini">
+      <span class="toolbar-hp-mini-icon">♥</span>
+      <div class="toolbar-hp-mini-track">
+        <div class="toolbar-hp-mini-fill" id="toolbar-hp-mini-fill" style="width:100%"></div>
+      </div>
+      <span class="toolbar-hp-mini-text"><span id="toolbar-hp-cur">—</span>/<span id="toolbar-hp-max">—</span></span>
+    </div>
     <div class="toolbar-sep"></div>
     <div class="music-hud">
       <span class="tb-icon">🎵</span>
@@ -425,25 +463,39 @@
 
       <!-- Right Column -->
       <div class="sheet-col sheet-col-right">
-        <div class="saves-block">
-          <h4>Saving Throws</h4>
-          <div id="saving-throws"></div>
+        <div class="tab-row sheet-tab-row">
+          <button class="tab-btn active" id="tab-stats-btn">Stats</button>
+          <button class="tab-btn" id="tab-spells-btn">✨ Spells</button>
         </div>
-        <div class="skills-block">
-          <h4>Skills</h4>
-          <div id="skills-list" class="skills-scroll"></div>
+
+        <!-- Stats Panel -->
+        <div id="sheet-stats-panel">
+          <div class="saves-block">
+            <h4>Saving Throws</h4>
+            <div id="saving-throws"></div>
+          </div>
+          <div class="skills-block">
+            <h4>Skills</h4>
+            <div id="skills-list" class="skills-scroll"></div>
+          </div>
+          <div class="features-block">
+            <h4>Features &amp; Traits</h4>
+            <div id="features-list" class="features-scroll"></div>
+          </div>
+          <div class="equip-block">
+            <h4>Equipment</h4>
+            <div id="equip-list" class="equip-scroll"></div>
+          </div>
+          <div class="notes-block">
+            <h4>Notes</h4>
+            <textarea id="char-notes" rows="4" placeholder="Notes…"></textarea>
+          </div>
         </div>
-        <div class="features-block">
-          <h4>Features &amp; Traits</h4>
-          <div id="features-list" class="features-scroll"></div>
-        </div>
-        <div class="equip-block">
-          <h4>Equipment</h4>
-          <div id="equip-list" class="equip-scroll"></div>
-        </div>
-        <div class="notes-block">
-          <h4>Notes</h4>
-          <textarea id="char-notes" rows="4" placeholder="Notes…"></textarea>
+
+        <!-- Spells Panel -->
+        <div id="sheet-spells-panel" class="hidden">
+          <div class="spells-loading" id="spells-loading">Loading spells from Open5e…</div>
+          <div id="spells-content" class="spells-list-scroll"></div>
         </div>
       </div>
 
@@ -538,6 +590,34 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ MODAL: INITIATIVE ═══════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-initiative">
+  <div class="modal" style="width:min(440px,96vw)">
+    <div class="modal-head">
+      <h3>⚡ Roll for Initiative</h3>
+    </div>
+    <div class="modal-body" style="align-items:center;text-align:center;gap:18px;padding:28px 24px">
+      <p class="init-flavour">Combat begins! Roll your initiative to determine when damage lands.</p>
+      <div class="init-d20-wrap" id="init-d20-wrap">
+        <svg class="init-d20" id="init-d20-svg" viewBox="0 0 100 100" width="100" height="100">
+          <polygon points="50,5 95,27.5 95,72.5 50,95 5,72.5 5,27.5" fill="none" stroke="#c9a227" stroke-width="2.5"/>
+          <line x1="50" y1="5"  x2="5"  y2="27.5" stroke="#c9a227" stroke-width="1" opacity="0.4"/>
+          <line x1="50" y1="5"  x2="95" y2="27.5" stroke="#c9a227" stroke-width="1" opacity="0.4"/>
+          <line x1="50" y1="5"  x2="50" y2="38"   stroke="#c9a227" stroke-width="1" opacity="0.4"/>
+          <line x1="5"  y1="27.5" x2="50" y2="38" stroke="#c9a227" stroke-width="1" opacity="0.4"/>
+          <line x1="95" y1="27.5" x2="50" y2="38" stroke="#c9a227" stroke-width="1" opacity="0.4"/>
+          <text id="init-d20-face" x="50" y="55" text-anchor="middle" dominant-baseline="middle"
+                font-family="'Cinzel',serif" font-size="22" fill="#c9a227" font-weight="700">20</text>
+        </svg>
+      </div>
+      <div class="init-mod-label" id="init-mod-label"></div>
+      <button class="btn btn-primary init-roll-btn" id="btn-init-roll">🎲 Roll Initiative</button>
+      <div class="init-result hidden" id="init-result"></div>
+      <button class="btn btn-outline btn-sm hidden" id="btn-init-confirm">Confirm &amp; Continue</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════════════════ MODAL: LEVEL UP ════════════════════════════ -->
 <div class="modal-overlay hidden" id="modal-levelup">
   <div class="modal">
@@ -565,10 +645,52 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ MODAL: RULES REFERENCE ══════════════════════ -->
+<div class="modal-overlay hidden" id="modal-rules">
+  <div class="modal modal-xl">
+    <div class="modal-head">
+      <h3>📖 Rules Reference</h3>
+      <button class="modal-x" id="close-modal-rules">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="rules-search-row">
+        <input type="text" id="rules-search-input" placeholder="Search rules, spells, equipment…" autocomplete="off" />
+        <button class="btn btn-primary btn-sm" id="btn-rules-search">Search</button>
+      </div>
+      <div id="rules-results" class="rules-results">
+        <div class="rules-hint">Type to search the D&amp;D 5e SRD rules via Open5e.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ MODAL: CONDITION CARD ═══════════════════════ -->
+<div class="modal-overlay hidden" id="modal-condition">
+  <div class="modal" style="width:min(480px,96vw)">
+    <div class="modal-head">
+      <h3 id="condition-title">Condition</h3>
+      <button class="modal-x" id="close-modal-condition">✕</button>
+    </div>
+    <div class="modal-body" id="condition-body" style="gap:12px"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ MODAL: ITEM CARD ════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-item">
+  <div class="modal" style="width:min(520px,96vw)">
+    <div class="modal-head">
+      <h3 id="item-title">Magic Item</h3>
+      <button class="modal-x" id="close-modal-item">✕</button>
+    </div>
+    <div class="modal-body" id="item-body" style="gap:12px"></div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
 <!-- Scripts -->
+<script src="js/open5e.js"></script>
 <script src="js/save.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/character.js"></script>
