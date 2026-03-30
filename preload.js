@@ -18,4 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.send('window:minimize'),
   maximizeWindow: () => ipcRenderer.send('window:maximize'),
   closeWindow:    () => ipcRenderer.send('window:close'),
+
+  // Auto-update
+  checkForUpdates:  ()    => ipcRenderer.invoke('update:check'),
+  openReleasePage:  (url) => ipcRenderer.invoke('update:open-release', url),
 });

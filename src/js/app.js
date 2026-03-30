@@ -27,6 +27,9 @@ class App {
     // Animated menu background
     this._startMenuCanvas();
 
+    // Check for updates (non-blocking, runs in background)
+    this._checkForUpdates();
+
     // Apply volume from settings
     document.getElementById('vol-slider').value       = this.settings.volume;
     document.getElementById('settings-volume').value  = this.settings.volume;
@@ -249,6 +252,21 @@ class App {
     input.value = '';
     document.getElementById('input-hints').innerHTML = '';
     window.aiSystem.sendMessage(text);
+  }
+
+  // ── Auto-Update ──────────────────────────────────────────────
+  _checkForUpdates() {
+    window.electronAPI.checkForUpdates().then(info => {
+      if (!info?.hasUpdate) return;
+      const banner   = document.getElementById('update-banner');
+      const text     = document.getElementById('update-banner-text');
+      const dlBtn    = document.getElementById('update-banner-btn');
+      const dismiss  = document.getElementById('update-banner-dismiss');
+      text.textContent = `New version v${info.latestVersion} is available`;
+      dlBtn.onclick    = () => window.electronAPI.openReleasePage(info.releaseUrl);
+      dismiss.onclick  = () => banner.classList.add('hidden');
+      banner.classList.remove('hidden');
+    }).catch(() => {});
   }
 
   // ── Keyboard Shortcuts ───────────────────────────────────────

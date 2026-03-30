@@ -1,7 +1,22 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+
+// ── Auto-update config ────────────────────────────────────────────────────────
+// Set these to your GitHub username and repository name.
+const GITHUB_OWNER = 'nisaChampagne';
+const GITHUB_REPO  = 'artificial-realms';
+
+function semverGt(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return true;
+    if ((pa[i] || 0) < (pb[i] || 0)) return false;
+  }
+  return false;
+}
 
 // Handle Squirrel events on Windows
 if (require('electron-squirrel-startup')) {
@@ -163,3 +178,40 @@ ipcMain.on('window:maximize', () => {
   else mainWindow?.maximize();
 });
 ipcMain.on('window:close', () => mainWindow?.close());
+
+// ── Auto-Update ───────────────────────────────────────────────────────────────
+ipcMain.handle('update:check', () => {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.github.com',
+      path:     `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+      method:   'GET',
+      headers:  { 'User-Agent': 'artificial-realms-updater' },
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', c => { data += c; });
+      res.on('end', () => {
+        try {
+          const release = JSON.parse(data);
+          if (!release.tag_name) return resolve({ hasUpdate: false });
+          const latest  = release.tag_name.replace(/^v/, '');
+          const current = app.getVersion();
+          resolve({
+            hasUpdate:      semverGt(latest, current),
+            latestVersion:  latest,
+            currentVersion: current,
+            releaseUrl:     release.html_url ||
+                            `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+          });
+        } catch { resolve({ hasUpdate: false }); }
+      });
+    });
+    req.on('error', () => resolve({ hasUpdate: false }));
+    req.end();
+  });
+});
+
+ipcMain.handle('update:open-release', (_e, url) => {
+  shell.openExternal(url);
+});

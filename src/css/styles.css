@@ -98,6 +98,43 @@ button { cursor: pointer; border: none; background: none; }
   transition: background 0.15s, color 0.15s;
 }
 .wc-btn:hover { background: var(--bg-card); color: var(--text-parchment); }
+.wc-close:hover { background: var(--red) !important; color: #fff !important; }
+
+/* ── Update Banner ──────────────────────────────────────────────────────────── */
+#update-banner {
+  position: fixed; top: var(--titlebar-h); left: 0; right: 0;
+  height: 28px;
+  background: linear-gradient(90deg, rgba(180,130,20,0.18) 0%, rgba(201,162,39,0.12) 100%);
+  border-bottom: 1px solid rgba(201,162,39,0.35);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  z-index: 9998;
+  font-family: var(--font-heading); font-size: 11px; letter-spacing: 1.5px;
+  color: var(--gold-lt);
+  animation: bannerIn 0.4s ease;
+}
+#update-banner.hidden { display: none; }
+@keyframes bannerIn {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+.update-banner-icon { font-size: 13px; color: var(--gold); }
+.update-banner-download {
+  padding: 2px 10px;
+  background: rgba(201,162,39,0.18);
+  border: 1px solid rgba(201,162,39,0.45);
+  border-radius: var(--radius);
+  color: var(--gold); font-family: var(--font-heading); font-size: 10px; letter-spacing: 1px;
+  transition: all 0.15s;
+}
+.update-banner-download:hover { background: rgba(201,162,39,0.30); border-color: var(--gold); }
+.update-banner-dismiss {
+  position: absolute; right: 10px;
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 11px; color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.update-banner-dismiss:hover { background: rgba(255,255,255,0.08); color: var(--text-parchment); }
 .wc-close:hover { background: var(--red-lt) !important; color: #fff; }
 
 /* ── Screens ────────────────────────────────────────────────────────────────── */

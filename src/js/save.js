@@ -10,13 +10,14 @@ class SaveSystem {
   // ── State Snapshot ───────────────────────────────────────────
   snapshot() {
     return {
-      character:    window.characterSystem?.character   || null,
-      messages:     window.aiSystem?.messages           || [],
-      currentScene: window.mapSystem?.currentScene      || 'dungeon',
-      currentMusic: window.audioSystem?.currentScene    || 'dungeon',
-      campaignType: window.app?.gameState?.campaignType || 'standard',
-      customDesc:   window.app?.gameState?.customDesc   || '',
-      savedAt:      new Date().toLocaleString(),
+      character:        window.characterSystem?.character           || null,
+      messages:         window.aiSystem?.messages                   || [],
+      currentScene:     window.mapSystem?.currentScene              || 'dungeon',
+      currentMusic:     window.audioSystem?.currentScene            || 'dungeon',
+      perceptionCache:  window.mapSystem?._perceptionCache          || {},
+      campaignType:     window.app?.gameState?.campaignType         || 'standard',
+      customDesc:       window.app?.gameState?.customDesc           || '',
+      savedAt:          new Date().toLocaleString(),
     };
   }
 
@@ -61,6 +62,7 @@ class SaveSystem {
       window.audioSystem.setVolume((parseInt(window.app.settings.volume) || 70) / 100);
 
       window.mapSystem.init();
+      window.mapSystem._perceptionCache = data.perceptionCache || {};
       window.mapSystem.setScene(data.currentScene || 'dungeon');
       window.mapSystem.updateSprite(window.characterSystem.character?.appearance || {});
 

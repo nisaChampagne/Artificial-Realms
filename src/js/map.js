@@ -217,6 +217,8 @@ class MapSystem {
     this._dirty       = true;
     // Sprite appearance cache
     this.sprite       = { skin:'#e3c49a', hair:'#3d2008', hairStyle:'short', eye:'#4878b0', bodyType:'average' };
+    // Perception rolls per scene — persisted so we don't re-roll on revisit
+    this._perceptionCache = {};
   }
 
   init() {
@@ -265,11 +267,50 @@ class MapSystem {
     this.playerY = startY;
     this.enemies = this._spawnEnemies(name);
     this.fog     = this.map.map(row => row.map(() => true));
-    this._revealAround(this.playerX, this.playerY, 4);
+
+    // Perception check — only rolls once per scene; re-uses cached result on revisit
+    const { radius, roll, bonus, label } = this._rollPerception(name);
+    this._revealAround(this.playerX, this.playerY, radius);
     this._dirty = true;
+
+    // Log result to the narrative (deferred so aiSystem is ready)
+    setTimeout(() => {
+      if (window.aiSystem) {
+        const icon = roll + bonus >= 20 ? '👁️' : roll + bonus >= 15 ? '🔍' : roll + bonus >= 10 ? '👀' : '🌫️';
+        window.aiSystem.addSystemMessage(
+          `${icon} <em>Perception check</em> — ${label} (d20: ${roll}${bonus >= 0 ? '+' : ''}${bonus} = <strong>${roll + bonus}</strong>) — ${this._perceptionDesc(roll + bonus)}`
+        );
+      }
+    }, 100);
+
     // Cancel any existing loop then restart fresh
     if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
     this._loop();
+  }
+
+  // Roll perception (or return cached result) and compute reveal radius
+  _rollPerception(scene) {
+    if (this._perceptionCache[scene]) {
+      // Return cached — no re-roll, no message
+      return { ...this._perceptionCache[scene], cached: true };
+    }
+    const roll  = Math.floor(Math.random() * 20) + 1;
+    const bonus = window.characterSystem?.getPerceptionBonus?.() ?? 0;
+    const total = roll + bonus;
+    // Radius tiers
+    const radius = total >= 20 ? 12 : total >= 16 ? 9 : total >= 11 ? 6 : total >= 6 ? 4 : 2;
+    const label  = this._sceneLabel(scene);
+    const entry  = { roll, bonus, radius, label };
+    this._perceptionCache[scene] = entry;
+    return entry;
+  }
+
+  _perceptionDesc(total) {
+    if (total >= 20) return 'You take in every detail of the surroundings.';
+    if (total >= 16) return 'You notice most of the area around you.';
+    if (total >= 11) return 'You get a reasonable sense of the space.';
+    if (total >= 6)  return 'You can make out the immediate area.';
+    return 'Everything beyond arm\'s reach is shrouded in darkness.';
   }
 
   _sceneLabel(s) {

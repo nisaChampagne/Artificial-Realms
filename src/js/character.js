@@ -807,6 +807,18 @@ class CharacterSystem {
     }
   }
 
+  // Returns the total Perception bonus (WIS mod + proficiency if proficient)
+  getPerceptionBonus() {
+    const c = this.character;
+    if (!c) return 0;
+    const wisMod = this._mod(c.stats?.wis ?? 10);
+    const allProf = new Set([...(c.bgSkills || [])]);
+    const proficient = allProf.has('Perception') ||
+      // Elves get racial Perception proficiency
+      (c.race || '').toLowerCase() === 'elf';
+    return wisMod + (proficient ? (c.profBonus || 2) : 0);
+  }
+
   // ── Rest ─────────────────────────────────────────────────────
   _openRestModal() {
     if (!this.character) return;
