@@ -383,6 +383,9 @@ class App {
     document.getElementById('btn-journal').onclick  = () => window.journalSystem?.open();
     document.getElementById('close-modal-journal').onclick = () => window.journalSystem?.close();
 
+    document.getElementById('btn-inventory').onclick = () => window.inventorySystem?.open();
+    document.getElementById('close-modal-inventory').onclick = () => window.inventorySystem?.close();
+
     // Journal tabs
     ['npcs','lore','decisions'].forEach(tab => {
       const btn = document.getElementById(`journal-tab-${tab}`);

@@ -654,6 +654,8 @@ class CharacterSystem {
 
     // Push appearance to map sprite
     window.mapSystem?.updateSprite(this.character.appearance);
+    // Seed inventory with starting equipment
+    (this.character.equipment || []).forEach(name => window.inventorySystem?.addItem(name));
     // Campaign type and difficulty were chosen before character creation
     window.app.startCampaign(
       window.app.gameState.campaignType || 'standard',

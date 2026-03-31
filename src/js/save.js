@@ -18,6 +18,7 @@ class SaveSystem {
       campaignType:     window.app?.gameState?.campaignType         || 'standard',
       customDesc:       window.app?.gameState?.customDesc           || '',
       journal:          window.journalSystem?.serialize()           || null,
+      inventory:        window.inventorySystem?.serialize()         || null,
       savedAt:          new Date().toLocaleString(),
     };
   }
@@ -54,6 +55,9 @@ class SaveSystem {
 
       // Restore journal
       window.journalSystem?.restore(data.journal || null);
+
+      // Restore inventory
+      window.inventorySystem?.restore(data.inventory || null);
 
       // Restore scene — must show screen first so canvas has dimensions
       window.app.showScreen('game');

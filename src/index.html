@@ -442,6 +442,10 @@
     <button class="toolbar-btn" id="btn-journal">
       <span class="tb-icon">📓</span><span>Journal</span>
     </button>
+    <button class="toolbar-btn" id="btn-inventory">
+      <span class="tb-icon">🎒</span><span>Inventory</span>
+      <span class="inventory-badge hidden" id="inventory-badge">0</span>
+    </button>
     <button class="toolbar-btn" id="btn-tts" title="Toggle DM voice narration">
       <span class="tb-icon" id="tts-icon">🔇</span><span>DM Voice</span>
     </button>
@@ -812,6 +816,25 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ MODAL: INVENTORY ════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-inventory">
+  <div class="modal" style="width:min(560px,96vw)">
+    <div class="modal-head">
+      <h3>🎒 Inventory</h3>
+      <button class="modal-x" id="close-modal-inventory">✕</button>
+    </div>
+    <div class="modal-body" style="flex-direction:column;gap:0;padding:0">
+      <div class="inv-gold-bar" id="inv-gold-bar">
+        <span class="inv-gold-icon">🪙</span>
+        <span class="inv-gold-label">Gold</span>
+        <span class="inv-gold-amount" id="inv-gold-amount">0</span>
+        <span class="inv-gold-unit">gp</span>
+      </div>
+      <div id="inventory-items" class="inventory-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ MODAL: JOURNAL ══════════════════════════════ -->
 <div class="modal-overlay hidden" id="modal-journal">
   <div class="modal modal-xl">
@@ -844,6 +867,7 @@
 <!-- Scripts -->
 <script src="js/open5e.js"></script>
 <script src="js/journal.js"></script>
+<script src="js/inventory.js"></script>
 <script src="js/save.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/character.js"></script>

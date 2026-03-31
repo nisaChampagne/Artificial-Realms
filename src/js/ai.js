@@ -41,6 +41,7 @@ class AISystem {
     this.messages   = [];
     this._demoState  = null;
     window.journalSystem?.reset();
+    window.inventorySystem?.reset();
 
     const sysPrompt = this._buildSystemPrompt(character, campaignType, customDesc);
     this.messages.push({ role: 'system', content: sysPrompt });
@@ -301,7 +302,8 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 • When the character is healed, include [HP:+N].
 • When the character earns XP, include [XP:+N].
 • If the character gains a status condition (Poisoned, Blinded, Frightened, etc.), include [CONDITION:name].
-• If the character finds or is given a named magic item, include [ITEM:name].
+• If the character finds, is given, or picks up ANY notable object — magic items, maps, documents, keys, gemstones, strange stones, relics, tokens, letters, fetishes, or other curiosities — include [ITEM:exact name]. Use the object's specific name, not a generic label.
+• When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]).
 • If the character dies, include [DEAD].
 • When the adventure concludes successfully, include [WIN].
 • Keep implied D&D 5e rules: proficiency, saving throws, spell slots, etc.
@@ -418,6 +420,16 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
           break;
         }
         case 'XP':       window.characterSystem?.gainXP(parseInt(val) || 0); break;
+        case 'GOLD': {
+          const gDelta = parseInt(val);
+          if (!isNaN(gDelta)) {
+            window.inventorySystem?.addGold(gDelta);
+            const charName = window.characterSystem?.character?.name || 'You';
+            const sign = gDelta >= 0 ? '+' : '';
+            this._addSystemEntry(`🪙 ${charName} ${gDelta >= 0 ? 'gains' : 'loses'} <strong>${sign}${gDelta} gp</strong>.`);
+          }
+          break;
+        }
         case 'DEAD':     this._handleDeath(); break;
         case 'WIN':      this._handleVictory(); break;
         case 'CONDITION': this._showConditionCard(val); break;
@@ -629,9 +641,22 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 
   async _fetchAndShowItem(name) {
     this._addSystemEntry(`✨ ${window.characterSystem?.character?.name || 'You'} obtained: <strong>${name}</strong>!`);
+    // Always add to inventory; enrich with Open5e data if available
+    window.inventorySystem?.addItem(name, null);
     try {
       const item = await window.open5e?.searchMagicItem(name);
       if (!item) return;
+      // Update inventory entry with full data
+      const inv = window.inventorySystem;
+      if (inv) {
+        const stored = inv.items.find(i => i.name.toLowerCase() === name.toLowerCase());
+        if (stored) {
+          stored.rarity   = item.rarity || '';
+          stored.desc     = item.desc   || '';
+          stored.reqAtune = !!(item.requires_attunement || '').includes('requires');
+          inv._updateBadge();
+        }
+      }
       document.getElementById('item-title').textContent = item.name;
       const rarity  = item.rarity ? `<span class="spell-card-tag">${item.rarity}</span>` : '';
       const type    = item.type   ? `<span class="spell-card-tag">${item.type}</span>`   : '';
