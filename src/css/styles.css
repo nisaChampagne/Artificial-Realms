@@ -507,7 +507,7 @@ input[type=range]::-webkit-slider-thumb {
   background: radial-gradient(ellipse at 30% 80%, #1a080a 0%, var(--bg-void) 60%);
 }
 .char-creation-content {
-  max-width: 960px; margin: 0 auto; width: 100%;
+  max-width: 1060px; margin: 0 auto; width: 100%;
   align-items: stretch;
   padding: 20px 40px 80px;
 }
@@ -541,13 +541,15 @@ input[type=range]::-webkit-slider-thumb {
   color: var(--bg-deep);
 }
 .step-connector {
-  width: 60px; height: 1px;
+  width: 32px; height: 1px;
   background: var(--border-mid);
 }
 
 /* Steps */
 .char-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
 .char-step.hidden { display: none; }
+/* Proficiencies step needs full width and left-aligned content */
+#step-proficiencies { align-items: stretch; }
 .step-title {
   font-family: var(--font-heading);
   font-size: 26px; color: var(--gold);
@@ -820,7 +822,29 @@ input[type=range]::-webkit-slider-thumb {
 .rv-prof-list { font-size: 12px; color: var(--text-mid); line-height: 1.6; }
 
 /* ── Proficiencies Step ─────────────────────────────────────── */
-.prof-section { width: 100%; max-width: 580px; margin-bottom: 22px; }
+.prof-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  width: 100%;
+  min-height: 0;
+  align-items: start;
+}
+/* Skills column scrolls independently */
+.prof-col-skills {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+/* Details column scrolls with the page */
+.prof-col-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.prof-section { width: 100%; margin-bottom: 20px; }
 .prof-section-head {
   font-family: var(--font-heading);
   font-size: 11px; letter-spacing: 1.5px; color: var(--gold);
@@ -882,10 +906,8 @@ input[type=range]::-webkit-slider-thumb {
 }
 /* All-skills table */
 .prof-skill-table {
-  display: flex; flex-direction: column; gap: 4px;
-  max-height: 320px; overflow-y: auto;
-  padding-right: 4px;
-  width: 100%; max-width: 560px;
+  display: flex; flex-direction: column; gap: 3px;
+  width: 100%;
 }
 .prof-skill-row {
   display: flex; align-items: center; gap: 10px;
@@ -1795,6 +1817,7 @@ input[type=range]::-webkit-slider-thumb {
 .prof-dot.proficient { background: var(--gold); border-color: var(--gold); }
 .prof-dot.dot-toggle { cursor: pointer; transition: background .15s, border-color .15s, transform .1s; }
 .prof-dot.dot-toggle:hover { transform: scale(1.35); }
+.prof-dot.not-allowed { opacity: 0.25; cursor: default !important; }
 .save-row .bonus, .skill-row .bonus { margin-left: auto; font-family: var(--font-ui); font-size: 12px; color: var(--text-parchment); }
 .feature-item {
   background: var(--bg-card); border-radius: var(--radius);

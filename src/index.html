@@ -264,74 +264,84 @@
     <!-- Step 7: Proficiencies & Languages -->
     <div class="char-step hidden" id="step-proficiencies">
       <h2 class="step-title">Proficiencies &amp; Details</h2>
-      <p class="step-hint">Choose class skills, add bonuses, pick starting attacks and gear.</p>
+      <p class="step-hint">Choose class skills, set bonuses, pick attacks and extra gear.</p>
 
-      <!-- All Skills -->
-      <div class="prof-section">
-        <div class="prof-section-head">
-          Skills
-          <span class="prof-section-sub" id="prof-skill-sub">0 / 2 chosen</span>
-        </div>
-        <p class="prof-section-note">Click the dot to mark proficiency (gold = proficient). Enter a flat bonus in the field to the right.</p>
-        <div class="prof-skill-table" id="prof-skill-table"></div>
-        <div id="prof-skill-grid" style="display:none"></div>
-      </div>
+      <div class="prof-layout">
 
-      <!-- Background Skills -->
-      <div class="prof-section">
-        <div class="prof-section-head">
-          Background Skills
-          <span class="prof-section-sub">granted automatically</span>
-        </div>
-        <div class="prof-bg-skills" id="prof-bg-skills"></div>
-      </div>
-
-      <!-- Languages -->
-      <div class="prof-section">
-        <div class="prof-section-head">Languages</div>
-        <input class="prof-lang-input" id="prof-languages" type="text"
-               maxlength="120" placeholder="e.g. Common, Elvish, Dwarvish" />
-      </div>
-
-      <!-- Combat Defaults -->
-      <div class="prof-section">
-        <div class="prof-section-head">
-          Combat Defaults
-          <span class="prof-section-sub">optional — leave blank to use derived values</span>
-        </div>
-        <div class="prof-overrides-row">
-          <div class="prof-override-box">
-            <label class="prof-override-label">Armor Class</label>
-            <input class="prof-override-input" id="prof-ac" type="number" min="0" max="30" placeholder="—" />
-            <div class="prof-override-hint" id="prof-ac-hint">Default: 10 + DEX mod</div>
-          </div>
-          <div class="prof-override-box">
-            <label class="prof-override-label">Initiative Bonus</label>
-            <input class="prof-override-input" id="prof-init" type="number" min="-10" max="20" placeholder="—" />
-            <div class="prof-override-hint" id="prof-init-hint">Default: DEX mod</div>
+        <!-- Left column: Skills -->
+        <div class="prof-col prof-col-skills">
+          <div class="prof-section">
+            <div class="prof-section-head">
+              Skills
+              <span class="prof-section-sub" id="prof-skill-sub">0 / 2 class skills chosen</span>
+            </div>
+            <p class="prof-section-note">Gold dot = proficient (click to toggle). ±bonus field for extra modifiers.</p>
+            <div class="prof-skill-table" id="prof-skill-table"></div>
+            <div id="prof-skill-grid" style="display:none"></div>
           </div>
         </div>
-      </div>
 
-      <!-- Attacks -->
-      <div class="prof-section">
-        <div class="prof-section-head">
-          Attacks &amp; Actions
-          <span class="prof-section-sub" id="prof-attack-count">0 selected</span>
-        </div>
-        <p class="prof-section-note">Select any attacks your class or race grants — all selections carry into your adventure.</p>
-        <div class="prof-skill-grid" id="prof-attack-grid"></div>
-      </div>
+        <!-- Right column: everything else -->
+        <div class="prof-col prof-col-details">
 
-      <!-- Starting Items -->
-      <div class="prof-section">
-        <div class="prof-section-head">
-          Extra Starting Items
-          <span class="prof-section-sub" id="prof-item-sub">0 / 5 chosen</span>
-        </div>
-        <p class="prof-section-note">Pick up to 5 additional items from your class and race pool. These will be added to your inventory.</p>
-        <div class="prof-skill-grid" id="prof-item-grid"></div>
-      </div>
+          <!-- Background Skills -->
+          <div class="prof-section">
+            <div class="prof-section-head">
+              Background Skills
+              <span class="prof-section-sub">auto-granted</span>
+            </div>
+            <div class="prof-bg-skills" id="prof-bg-skills"></div>
+          </div>
+
+          <!-- Languages -->
+          <div class="prof-section">
+            <div class="prof-section-head">Languages</div>
+            <input class="prof-lang-input" id="prof-languages" type="text"
+                   maxlength="120" placeholder="e.g. Common, Elvish, Dwarvish" />
+          </div>
+
+          <!-- Combat Defaults -->
+          <div class="prof-section">
+            <div class="prof-section-head">
+              Combat Defaults
+              <span class="prof-section-sub">optional</span>
+            </div>
+            <div class="prof-overrides-row">
+              <div class="prof-override-box">
+                <label class="prof-override-label">Armor Class</label>
+                <input class="prof-override-input" id="prof-ac" type="number" min="0" max="30" placeholder="—" />
+                <div class="prof-override-hint" id="prof-ac-hint">Default: 10 + DEX</div>
+              </div>
+              <div class="prof-override-box">
+                <label class="prof-override-label">Initiative</label>
+                <input class="prof-override-input" id="prof-init" type="number" min="-10" max="20" placeholder="—" />
+                <div class="prof-override-hint" id="prof-init-hint">Default: DEX mod</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attacks -->
+          <div class="prof-section">
+            <div class="prof-section-head">
+              Attacks &amp; Actions
+              <span class="prof-section-sub" id="prof-attack-count">0 selected</span>
+            </div>
+            <p class="prof-section-note">Any attacks granted by your class or race.</p>
+            <div class="prof-skill-grid" id="prof-attack-grid"></div>
+          </div>
+
+          <!-- Starting Items -->
+          <div class="prof-section">
+            <div class="prof-section-head">
+              Extra Starting Items
+              <span class="prof-section-sub" id="prof-item-sub">0 / 5 chosen</span>
+            </div>
+            <p class="prof-section-note">Pick up to 5 from your class &amp; race pool.</p>
+            <div class="prof-skill-grid" id="prof-item-grid"></div>
+          </div>
+
+        </div><!-- /prof-col-details -->
+      </div><!-- /prof-layout -->
     </div>
 
     <!-- Step 8: Review -->

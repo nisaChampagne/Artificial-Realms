@@ -803,9 +803,9 @@ class CharacterSystem {
         row.className = 'prof-skill-row' + (isSel ? ' prof-skill-row-active' : '');
 
         const dot = document.createElement('div');
-        dot.className = 'prof-dot prof-skill-toggle' + (isSel ? ' proficient' : '');
+        dot.className = 'prof-dot prof-skill-toggle' + (isSel ? ' proficient' : '') + (!isAllowed && !isBg ? ' not-allowed' : '');
         if (!isBg) {
-          dot.title = isAllowed ? 'Click to toggle proficiency' : 'Not a class skill';
+          dot.title = isAllowed ? 'Click to toggle class proficiency' : 'Not in your class skill list';
           dot.style.cursor = isAllowed ? 'pointer' : 'default';
           dot.onclick = () => {
             if (!isAllowed) return;
@@ -818,7 +818,8 @@ class CharacterSystem {
               dot.classList.add('proficient');
               row.classList.add('prof-skill-row-active');
             } else {
-              window.app.showToast(`Choose only ${needed} class skill${needed!==1?'s':''}`, 'error');
+              window.app.showToast(needed === 1 ? 'You can only choose 1 class skill' : `You can only choose ${needed} class skills`, 'error');
+              return;
             }
             _updateSub();
           };
