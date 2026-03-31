@@ -155,14 +155,86 @@ const CLASS_EQUIPMENT = {
   barbarian: ['Greataxe','2× Handaxes','Explorer\'s Pack','4× Javelins'],
 };
 
+const CLASS_SKILLS = {
+  fighter:   { count:2, skills:['Acrobatics','Animal Handling','Athletics','History','Insight','Intimidation','Perception','Survival'] },
+  wizard:    { count:2, skills:['Arcana','History','Insight','Investigation','Medicine','Religion'] },
+  rogue:     { count:4, skills:['Acrobatics','Athletics','Deception','Insight','Intimidation','Investigation','Perception','Performance','Persuasion','Sleight of Hand','Stealth'] },
+  cleric:    { count:2, skills:['History','Insight','Medicine','Persuasion','Religion'] },
+  ranger:    { count:3, skills:['Animal Handling','Athletics','Insight','Investigation','Nature','Perception','Stealth','Survival'] },
+  paladin:   { count:2, skills:['Athletics','Insight','Intimidation','Medicine','Persuasion','Religion'] },
+  druid:     { count:2, skills:['Arcana','Animal Handling','Insight','Medicine','Nature','Perception','Religion','Survival'] },
+  bard:      { count:3, skills:null },
+  warlock:   { count:2, skills:['Arcana','Deception','History','Intimidation','Investigation','Nature','Religion'] },
+  sorcerer:  { count:2, skills:['Arcana','Deception','Insight','Intimidation','Persuasion','Religion'] },
+  monk:      { count:2, skills:['Acrobatics','Athletics','History','Insight','Religion','Stealth'] },
+  barbarian: { count:2, skills:['Animal Handling','Athletics','Intimidation','Nature','Perception','Survival'] },
+};
+
+// Attacks available by class and race
+const CLASS_ATTACKS = {
+  fighter:   ['Longsword (1d8 slashing)','Battleaxe (1d8 slashing)','Handaxe (1d6 slashing)','Heavy Crossbow (1d10 piercing)','Greataxe (1d12 slashing)','Maul (2d6 bludgeoning)','Shortsword (1d6 piercing)','Spear (1d6 piercing)'],
+  wizard:    ['Quarterstaff (1d6 bludgeoning)','Dagger (1d4 piercing)','Fire Bolt — cantrip (1d10 fire)','Ray of Frost — cantrip (1d8 cold)','Poison Spray — cantrip (1d12 poison)','Shocking Grasp — cantrip (1d8 lightning)'],
+  rogue:     ['Shortsword (1d6 piercing)','Rapier (1d8 piercing)','Hand Crossbow (1d6 piercing)','Dagger (1d4 piercing)','Sneak Attack (extra 1d6 piercing)'],
+  cleric:    ['Mace (1d6 bludgeoning)','War Pick (1d8 piercing)','Sacred Flame — cantrip (1d8 radiant)','Toll the Dead — cantrip (1d8/1d12 necrotic)','Spiritual Weapon (1d8+WIS bludgeoning)'],
+  ranger:    ['Longbow (1d8 piercing)','Shortsword (1d6 piercing)','Handaxe (1d6 slashing)','Hunter\'s Mark (extra 1d6)','Colossus Slayer (extra 1d8)'],
+  paladin:   ['Longsword (1d8 slashing)','Warhammer (1d8 bludgeoning)','Divine Smite (2d8 radiant)','Javelin (1d6 piercing)','Lay on Hands'],
+  druid:     ['Scimitar (1d6 slashing)','Shillelagh — cantrip (1d8 bludgeoning)','Produce Flame — cantrip (1d8 fire)','Thorn Whip — cantrip (1d6 piercing)','Primal Savagery — cantrip (1d10 acid)'],
+  bard:      ['Rapier (1d8 piercing)','Vicious Mockery — cantrip (1d4 psychic)','Dagger (1d4 piercing)','Hand Crossbow (1d6 piercing)'],
+  warlock:   ['Eldritch Blast — cantrip (1d10 force)','Dagger (1d4 piercing)','Light Crossbow (1d8 piercing)','Hex (extra 1d6 necrotic)','Hunger of Hadar (2d6 cold/2d6 acid)'],
+  sorcerer:  ['Fire Bolt — cantrip (1d10 fire)','Shocking Grasp — cantrip (1d8 lightning)','Ray of Frost — cantrip (1d8 cold)','Chromatic Orb (3d8 elemental)','Magic Missile (3× 1d4+1 force)','Dagger (1d4 piercing)'],
+  monk:      ['Unarmed Strike (1d4+DEX bludgeoning)','Shortsword (1d6 piercing)','Flurry of Blows (2× 1d4)','Stunning Strike','10× Dart (1d4+DEX piercing)'],
+  barbarian: ['Greataxe (1d12 slashing)','Handaxe (1d6 slashing)','Maul (2d6 bludgeoning)','Reckless Attack','Javelin (1d6 piercing)'],
+};
+const RACE_ATTACKS = {
+  human:      [],
+  elf:        ['Longbow (1d8 piercing)','Shortsword (1d6 piercing)'],
+  dwarf:      ['Battleaxe (1d8 slashing)','Warhammer (1d8 bludgeoning)'],
+  halfling:   ['Sling (1d4 bludgeoning)','Dagger (1d4 piercing)'],
+  halforc:    ['Greatclub (1d8 bludgeoning)','Handaxe (1d6 slashing)','Savage Attack (extra die)'],
+  tiefling:   ['Hellish Rebuke (2d10 fire)','Thaumaturgy — cantrip'],
+  dragonborn: ['Breath Weapon (2d6 elemental)','Claw (1d4 slashing)'],
+  gnome:      ['Rock (1d4 bludgeoning)','Dagger (1d4 piercing)'],
+  halfelf:    ['Shortsword (1d6 piercing)','Dagger (1d4 piercing)'],
+  aasimar:    ['Healing Hands (1d4 per level)','Radiant Soul (extra radiant damage)'],
+};
+
+// Starting item pools beyond class equipment
+const CLASS_ITEM_POOL = {
+  fighter:   ['Shield','Chain Mail','Longsword','2× Handaxes','Light Crossbow + 20 bolts','Dungeoneer\'s Pack','Flail','Greataxe','Longbow + 20 arrows','Scale Mail','Spear'],
+  wizard:    ['Crystal Ball','Component Pouch','Arcane Tome','Wand of Magic Missiles','Robe of the Scholar','Ink & Quill','Ring of Protection','Potion of Healing','Bag of Holding (small)','Spellbook (spare)'],
+  rogue:     ['Thieves\' Tools','Grappling Hook & Rope','Disguise Kit','Poisoner\'s Kit','Caltrops','Smoke Bomb ×2','Lockpicks','Dark Cloak','Short Bow + 20 arrows','Weighted Dice'],
+  cleric:    ['Holy Water ×2','Prayer Beads','Incense ×5','Silver Symbol','Healing Kit','Potion of Greater Healing','Sacred Candles','Plate Armor','Shield','Bell (warning)'],
+  ranger:    ['Hunting Trap','Herbalism Kit','Quiver + 40 arrows','Rope (50 ft)','Camouflage Cloak','Handaxe × 2','Compass','Field Rations ×10','Antitoxin','Mastiff Companion'],
+  paladin:   ['Holy Avenger (replica)','Plate Armor','Tower Shield','Blessed Oil','Potion of Cure Wounds ×2','Warhammer','Lantern of Revealing','Prayer Book','Silver Mirror','War Horn'],
+  druid:     ['Herbalism Kit','Wooden Staff','Seed Pouch','Leather Armor','Druidic Focus (stone)','Rope of Climbing','Torch ×5','Animal Messenger (scroll)','Sleep (scroll)','Berries ×10'],
+  bard:      ['Lute','Panpipes','Drum','Disguise Kit','Tome of Poetry','Ink & Quill','Fine Wine ×2','Rope (50 ft)','Dagger (decorated)','Letter of Introduction'],
+  warlock:   ['Eldritch Tome','Amulet of the Pact','Arcane Focus (orb)','Dark Robes','Potion of Resistance','Scroll of Charm Person','Imp Familiar Token','Black Candles ×3','Sigil of the Patron','Shadow Cloak'],
+  sorcerer:  ['Arcane Focus (crystal)','Scroll of Burning Hands','Scroll of Shield','Potion of Clarity','Component Bag','Robe of the Archmagi (apprentice)','Gem of Power (minor)','Wand of Wonder','Fire Opal','Draconic Scales (trinket)'],
+  monk:      ['Prayer Beads','Incense','Meditation Mat','Rope (25 ft)','Shuriken ×10','Climbing Pitons ×5','Iron Wrist Wraps','Herbal Tea ×5','50 ft Silk Rope','Bag of Sand'],
+  barbarian: ['Bear Pelt Cloak','Healing Potion','Trophy Necklace','Climbing Pitons','Torch ×5','Iron Flask','Greatclub','Maul','Metal Shield','Wolf Fang Token'],
+};
+const RACE_ITEM_POOL = {
+  human:      ['Lucky Coin','Signet Ring','Family Heirloom Dagger','Common Clothing','Traveler\'s Map'],
+  elf:        ['Elven Cloak','Moonstone Gem','Elven Rope (50 ft)','Star Chart','Elven Bread ×5'],
+  dwarf:      ['Smith\'s Tools','Stone Idol','Clan Badge','Dwarven Ale ×2','Iron Ration ×5'],
+  halfling:   ['Pipe & Tobacco','Lucky Rabbit\'s Foot','Map of Shire','Cozy Blanket','Friendship Token'],
+  halforc:    ['Battle Trophy','War Paint Set','Marching Drums','Iron Ration ×5','Intimidating Mask'],
+  tiefling:   ['Infernal Compass','Hellish Red Gem','Dark Mantle','Unholy Symbol','Vial of Brimstone'],
+  dragonborn: ['Clan Sigil','Dragon Scale Fragment','Breath Pouch','Firestone Gem','War Banner'],
+  gnome:      ['Tinker\'s Tools','Clockwork Toy','Map of Gnomish Tunnels','Magnifying Glass','Bag of Marbles'],
+  halfelf:    ['Elvish Trinket','Silver Brooch','Herbal Remedy ×3','Flute','Book of Stories'],
+  aasimar:    ['Silver Holy Symbol','Celestial Feather','Prayer Scroll','Vial of Holy Water ×2','Starlight Gem'],
+};
+
 // ── Class ──────────────────────────────────────────────────────
 class CharacterSystem {
   constructor() {
     this.character  = null;
     this.step       = 0;  // 0=name,1=race,2=class,3=background,4=appearance,5=stats,6=review
     this._statsRolled = false;
-    this.stepNames  = ['name','race','class','background','appearance','stats','review'];
-    this._selections = { name:'', race:null, cls:null, background:null, appearance:{ bodyType:null, skinTone:null, hairStyle:null, hairColor:null, eyeColor:null, mark:'' }, stats:{str:10,dex:10,con:10,int:10,wis:10,cha:10} };
+    this._statMethod  = 'auto';
+    this.stepNames  = ['name','race','class','background','appearance','stats','proficiencies','review'];
+    this._selections = { name:'', race:null, cls:null, background:null, appearance:{ bodyType:null, skinTone:null, hairStyle:null, hairColor:null, eyeColor:null, mark:'' }, stats:{str:10,dex:10,con:10,int:10,wis:10,cha:10}, skills:[], skillBonuses:{}, languages:'', acOverride:null, initOverride:null, attacks:[], extraItems:[] };
   }
 
   // ── Init ─────────────────────────────────────────────────────
@@ -176,6 +248,21 @@ class CharacterSystem {
     document.getElementById('btn-char-prev').onclick = () => this.prev();
     document.getElementById('btn-char-back').onclick = () => window.app.showScreen('campaign');
     document.getElementById('btn-roll-stats').onclick = () => this.rollAllStats();
+
+    // Enter key advances to next step (unless focused on a textarea or number input in certain steps)
+    document.getElementById('screen-character').addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'TEXTAREA') return;
+      // Allow Enter inside number inputs only on the stats step (to confirm a value then advance)
+      if (tag === 'INPUT' && document.activeElement.type === 'number') {
+        document.activeElement.blur();
+      }
+      e.preventDefault();
+      this.next();
+    });
+    document.getElementById('btn-method-auto')?.addEventListener('click', () => this._setStatMethod('auto'));
+    document.getElementById('btn-method-manual')?.addEventListener('click', () => this._setStatMethod('manual'));
 
     // HP/sheet
     document.getElementById('sh-hp-minus').onclick = () => this._adjustHP(-1);
@@ -209,7 +296,8 @@ class CharacterSystem {
   reset() {
     this.step = 0;
     this._statsRolled = false;
-    this._selections = { name:'', race:null, cls:null, background:null, appearance:{ bodyType:null, skinTone:null, hairStyle:null, hairColor:null, eyeColor:null, mark:'' }, stats:{str:10,dex:10,con:10,int:10,wis:10,cha:10} };
+    this._statMethod  = 'auto';
+    this._selections = { name:'', race:null, cls:null, background:null, appearance:{ bodyType:null, skinTone:null, hairStyle:null, hairColor:null, eyeColor:null, mark:'' }, stats:{str:10,dex:10,con:10,int:10,wis:10,cha:10}, skills:[], skillBonuses:{}, languages:'', acOverride:null, initOverride:null, attacks:[], extraItems:[] };
     this._buildAppearanceStep();
     this._showStep(0);
     this._updateStepBar();
@@ -254,9 +342,43 @@ class CharacterSystem {
         return true;
       }
       case 5: {
+        if (this._statMethod === 'manual') {
+          const allFilled = ABILITY_NAMES.every(ab => {
+            const val = parseInt(document.getElementById(`mi-${ab}`)?.value);
+            return val >= 1 && val <= 20;
+          });
+          if (!allFilled) {
+            window.app.showToast('Fill in all six ability scores (1–20)!', 'error');
+            return false;
+          }
+          ABILITY_NAMES.forEach(ab => {
+            this._selections.stats[ab] = parseInt(document.getElementById(`mi-${ab}`).value);
+          });
+          this._statsRolled = true;
+          return true;
+        }
         if (!this._statsRolled) {
           window.app.showToast('Roll your stats first!', 'error'); return false;
         }
+        return true;
+      }
+      case 6: {
+        const classId  = this._selections.cls?.id || 'fighter';
+        const cs       = CLASS_SKILLS[classId] || { count:2, skills:[] };
+        const allowed  = cs.skills || SKILLS.map(s => s.name);
+        const bgSkills = this._selections.background?.skills || [];
+        const available = allowed.filter(s => !bgSkills.includes(s));
+        const needed    = Math.min(cs.count, available.length);
+        if ((this._selections.skills || []).length < needed) {
+          window.app.showToast(needed === 1 ? 'Choose 1 class skill' : `Choose ${needed} class skills`, 'error');
+          return false;
+        }
+        const langEl = document.getElementById('prof-languages');
+        if (langEl) this._selections.languages = langEl.value.trim() || this._selections.race?.lang || 'Common';
+        const acVal   = parseInt(document.getElementById('prof-ac')?.value);
+        const initVal = parseInt(document.getElementById('prof-init')?.value);
+        this._selections.acOverride   = isNaN(acVal)   ? null : acVal;
+        this._selections.initOverride = isNaN(initVal)  ? null : initVal;
         return true;
       }
       default: return true;
@@ -274,6 +396,7 @@ class CharacterSystem {
     }
     // Update stats step hint to reflect current difficulty
     if (idx === 5) {
+      this._setStatMethod(this._statMethod);
       const diff   = window.app?.gameState?.difficulty || 'adventure';
       const dLabel = { cozy: '3d6', adventure: '2d6', hard: '1d6' };
       const dName  = { cozy: 'Cozy', adventure: 'Adventure', hard: 'Hard' };
@@ -281,6 +404,7 @@ class CharacterSystem {
       if (hintEl) hintEl.textContent =
         `Roll ${dLabel[diff] || '2d6'} — six times. (${dName[diff] || 'Adventure'} difficulty)`;
     }
+    if (idx === 6) this._refreshProfStep();
     // swap next button label
     const nextBtn = document.getElementById('btn-char-next');
     nextBtn.textContent = idx === this.stepNames.length - 1 ? '⚔ Begin Adventure!' : 'Next →';
@@ -291,7 +415,7 @@ class CharacterSystem {
   _buildStepBar() {
     const bar = document.getElementById('step-bar');
     bar.innerHTML = '';
-    const labels = ['Name','Race','Class','Background','Appearance','Stats','Review'];
+    const labels = ['Name','Race','Class','Background','Appearance','Stats','Proficiencies','Review'];
     labels.forEach((lbl, i) => {
       if (i > 0) {
         const conn = document.createElement('div');
@@ -568,6 +692,227 @@ class CharacterSystem {
 
   _mod(score) { return Math.floor((score - 10) / 2); }
 
+  // ── Stat Method Toggle ───────────────────────────────────────
+  _setStatMethod(method) {
+    this._statMethod = method;
+    const autoSec = document.getElementById('stats-auto-section');
+    const manSec  = document.getElementById('stats-manual-section');
+    const autoBt  = document.getElementById('btn-method-auto');
+    const manBt   = document.getElementById('btn-method-manual');
+    if (!autoSec || !manSec) return;
+    autoSec.classList.toggle('hidden', method === 'manual');
+    manSec.classList.toggle('hidden',  method !== 'manual');
+    autoBt?.classList.toggle('active', method !== 'manual');
+    manBt?.classList.toggle('active',  method === 'manual');
+    if (method === 'manual') this._buildManualStatsGrid();
+  }
+
+  _buildManualStatsGrid() {
+    const grid = document.getElementById('stats-manual-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    ABILITY_NAMES.forEach(ab => {
+      const bonus   = this._selections.race?.bonus?.[ab] || 0;
+      const current = this._selections.stats[ab];
+      const prefill = (this._statsRolled && current !== 10) ? current : '';
+      const box = document.createElement('div');
+      box.className = 'stat-box';
+      box.innerHTML = `
+        <div class="stat-name">${ABILITY_LABELS[ab]}</div>
+        <input type="number" class="stat-manual-input" id="mi-${ab}"
+               min="1" max="20" value="${prefill}" placeholder="—" />
+        <div class="stat-mod" id="sm-manual-${ab}"></div>
+        ${bonus ? `<div class="stat-race-bonus">+${bonus} race</div>` : ''}`;
+      const input  = box.querySelector(`#mi-${ab}`);
+      const modEl  = box.querySelector(`#sm-manual-${ab}`);
+      const refresh = () => {
+        const val = parseInt(input.value);
+        if (val >= 1 && val <= 20) {
+          const mod = this._mod(val + bonus);
+          modEl.textContent = `(${mod >= 0 ? '+' : ''}${mod})`;
+        } else {
+          modEl.textContent = '';
+        }
+      };
+      if (prefill) refresh();
+      input.addEventListener('input', refresh);
+      grid.appendChild(box);
+    });
+  }
+
+  // ── Proficiencies Step ───────────────────────────────────────
+  _refreshProfStep() {
+    const r       = this._selections;
+    const classId = r.cls?.id || 'fighter';
+    const raceId  = r.race?.id || 'human';
+    const cs      = CLASS_SKILLS[classId] || { count:2, skills:[] };
+    const allowed = cs.skills || SKILLS.map(s => s.name);
+    if (!r.skills)      r.skills      = [];
+    if (!r.skillBonuses) r.skillBonuses = {};
+    if (!r.attacks)     r.attacks     = [];
+    if (!r.extraItems)  r.extraItems  = [];
+    r.skills = r.skills.filter(s => allowed.includes(s));
+
+    const bgSkills  = r.background?.skills || [];
+    const available = allowed.filter(s => !bgSkills.includes(s));
+    const needed    = Math.min(cs.count, available.length);
+
+    const subEl = document.getElementById('prof-skill-sub');
+    const _updateSub = () => {
+      if (needed === 0) { if (subEl) subEl.textContent = 'No additional class skills available'; return; }
+      if (subEl) subEl.textContent = `${r.skills.length} / ${needed} chosen`;
+    };
+    _updateSub();
+
+    // Background skill chips (read-only)
+    const bgEl = document.getElementById('prof-bg-skills');
+    if (bgEl) bgEl.innerHTML = bgSkills.length
+      ? bgSkills.map(s => `<span class="prof-bg-chip">${s}</span>`).join('')
+      : `<span style="color:var(--text-dim);font-size:12px">None from this background</span>`;
+
+    // Language
+    const langEl = document.getElementById('prof-languages');
+    if (langEl) {
+      if (!r.languages) r.languages = r.race?.lang || 'Common';
+      langEl.value  = r.languages;
+      langEl.oninput = () => { r.languages = langEl.value; };
+    }
+
+    // AC / init overrides
+    const stats    = this._computeFinalStats();
+    const dexMod   = this._mod(stats.dex);
+    const acEl     = document.getElementById('prof-ac');
+    const initEl   = document.getElementById('prof-init');
+    const acHint   = document.getElementById('prof-ac-hint');
+    const initHint = document.getElementById('prof-init-hint');
+    if (acHint)   acHint.textContent   = `Default: ${10 + dexMod}`;
+    if (initHint) initHint.textContent = `Default: ${dexMod >= 0 ? '+' : ''}${dexMod}`;
+    if (acEl)   { acEl.value   = r.acOverride   != null ? r.acOverride   : ''; acEl.oninput   = () => { const v=parseInt(acEl.value);   r.acOverride   = isNaN(v)?null:v; }; }
+    if (initEl) { initEl.value = r.initOverride != null ? r.initOverride : ''; initEl.oninput = () => { const v=parseInt(initEl.value); r.initOverride = isNaN(v)?null:v; }; }
+
+    // ── All Skills with proficiency toggle + bonus input ─────
+    const skillTableEl = document.getElementById('prof-skill-table');
+    if (skillTableEl) {
+      skillTableEl.innerHTML = '';
+      SKILLS.forEach(sk => {
+        const isBg   = bgSkills.includes(sk.name);
+        const isAllowed = allowed.includes(sk.name);
+        const isSel  = r.skills.includes(sk.name) || isBg;
+        const bonus  = r.skillBonuses[sk.name] ?? 0;
+        const row = document.createElement('div');
+        row.className = 'prof-skill-row' + (isSel ? ' prof-skill-row-active' : '');
+
+        const dot = document.createElement('div');
+        dot.className = 'prof-dot prof-skill-toggle' + (isSel ? ' proficient' : '');
+        if (!isBg) {
+          dot.title = isAllowed ? 'Click to toggle proficiency' : 'Not a class skill';
+          dot.style.cursor = isAllowed ? 'pointer' : 'default';
+          dot.onclick = () => {
+            if (!isAllowed) return;
+            if (r.skills.includes(sk.name)) {
+              r.skills = r.skills.filter(s => s !== sk.name);
+              dot.classList.remove('proficient');
+              row.classList.remove('prof-skill-row-active');
+            } else if (r.skills.length < needed) {
+              r.skills.push(sk.name);
+              dot.classList.add('proficient');
+              row.classList.add('prof-skill-row-active');
+            } else {
+              window.app.showToast(`Choose only ${needed} class skill${needed!==1?'s':''}`, 'error');
+            }
+            _updateSub();
+          };
+        } else {
+          dot.title = 'Background proficiency';
+          dot.style.cursor = 'default';
+        }
+
+        const label = document.createElement('span');
+        label.className = 'prof-skill-name';
+        label.innerHTML = `${sk.name} <span class="prof-skill-ab">(${ABILITY_LABELS[sk.ab]})</span>`;
+
+        const bonusInput = document.createElement('input');
+        bonusInput.type        = 'number';
+        bonusInput.className   = 'prof-skill-bonus-input';
+        bonusInput.value       = bonus !== 0 ? bonus : '';
+        bonusInput.placeholder = '±0';
+        bonusInput.min         = '-10';
+        bonusInput.max         = '20';
+        bonusInput.title       = 'Extra bonus to this skill';
+        bonusInput.oninput = () => {
+          const v = parseInt(bonusInput.value);
+          r.skillBonuses[sk.name] = isNaN(v) ? 0 : v;
+        };
+
+        row.append(dot, label, bonusInput);
+        skillTableEl.appendChild(row);
+      });
+    }
+
+    // Class skill chip grid (legacy, used for validation display)
+    const grid = document.getElementById('prof-skill-grid');
+    if (grid) grid.style.display = 'none';
+
+    // ── Attacks ─────────────────────────────────────────────
+    const attackPool  = [...(CLASS_ATTACKS[classId] || []), ...(RACE_ATTACKS[raceId] || [])];
+    const atkGrid     = document.getElementById('prof-attack-grid');
+    if (atkGrid) {
+      atkGrid.innerHTML = '';
+      attackPool.forEach(atk => {
+        const isSel = r.attacks.includes(atk);
+        const chip  = document.createElement('button');
+        chip.className = 'prof-skill-chip' + (isSel ? ' selected' : '');
+        chip.textContent = atk;
+        chip.onclick = () => {
+          if (r.attacks.includes(atk)) {
+            r.attacks = r.attacks.filter(a => a !== atk);
+            chip.classList.remove('selected');
+          } else {
+            r.attacks.push(atk);
+            chip.classList.add('selected');
+          }
+          const cntEl = document.getElementById('prof-attack-count');
+          if (cntEl) cntEl.textContent = `${r.attacks.length} selected`;
+        };
+        atkGrid.appendChild(chip);
+      });
+      const cntEl = document.getElementById('prof-attack-count');
+      if (cntEl) cntEl.textContent = `${r.attacks.length} selected`;
+    }
+
+    // ── Extra Starting Items (pick up to 5) ──────────────────
+    const itemPool = [...(CLASS_ITEM_POOL[classId] || []), ...(RACE_ITEM_POOL[raceId] || [])];
+    const uniquePool = [...new Set(itemPool)];
+    const itemGrid = document.getElementById('prof-item-grid');
+    const itemSub  = document.getElementById('prof-item-sub');
+    const _updateItemSub = () => {
+      if (itemSub) itemSub.textContent = `${r.extraItems.length} / 5 chosen`;
+    };
+    _updateItemSub();
+    if (itemGrid) {
+      itemGrid.innerHTML = '';
+      uniquePool.forEach(item => {
+        const isSel = r.extraItems.includes(item);
+        const chip  = document.createElement('button');
+        chip.className = 'prof-skill-chip' + (isSel ? ' selected' : '');
+        chip.textContent = item;
+        chip.onclick = () => {
+          if (r.extraItems.includes(item)) {
+            r.extraItems = r.extraItems.filter(i => i !== item);
+            chip.classList.remove('selected');
+          } else if (r.extraItems.length < 5) {
+            r.extraItems.push(item);
+            chip.classList.add('selected');
+          } else {
+            window.app.showToast('You can only choose 5 extra items', 'error');
+          }
+          _updateItemSub();
+        };
+        itemGrid.appendChild(chip);
+      });
+    }
+  }
+
   // ── Review ───────────────────────────────────────────────────
   _buildReview() {
     const r = this._selections;
@@ -581,7 +926,11 @@ class CharacterSystem {
       a.eyeColor?.name ? `${a.eyeColor.name} eyes` : null,
       a.mark || null,
     ].filter(Boolean).join(' · ');
-    const skinFill = a.skinTone?.color || '#2a2010';
+    const skinFill     = a.skinTone?.color || '#2a2010';
+    const ac           = r.acOverride   != null ? r.acOverride   : (10 + this._mod(stats.dex));
+    const initMod      = r.initOverride != null ? r.initOverride  : this._mod(stats.dex);
+    const chosenSkills = [...(r.background?.skills || []), ...(r.skills || [])];
+    const langs        = r.languages || r.race?.lang || 'Common';
 
     const sheet = document.getElementById('review-sheet');
     sheet.innerHTML = `
@@ -595,8 +944,8 @@ class CharacterSystem {
       </div>
       <div class="review-grid">
         <div class="rv-item"><div class="rv-label">HIT POINTS</div><div class="rv-value">${cls ? cls.hpDie + this._mod(stats.con) : '—'}</div></div>
-        <div class="rv-item"><div class="rv-label">ARMOR CLASS</div><div class="rv-value">${10 + this._mod(stats.dex)}</div></div>
-        <div class="rv-item"><div class="rv-label">INITIATIVE</div><div class="rv-value">${this._mod(stats.dex) >= 0 ? '+' : ''}${this._mod(stats.dex)}</div></div>
+        <div class="rv-item"><div class="rv-label">ARMOR CLASS</div><div class="rv-value">${ac}</div></div>
+        <div class="rv-item"><div class="rv-label">INITIATIVE</div><div class="rv-value">${initMod >= 0 ? '+' : ''}${initMod}</div></div>
         <div class="rv-item"><div class="rv-label">SPEED</div><div class="rv-value">${r.race?.speed || 30} ft</div></div>
         <div class="rv-item"><div class="rv-label">PROF. BONUS</div><div class="rv-value">+2</div></div>
         <div class="rv-item"><div class="rv-label">HIT DIE</div><div class="rv-value">d${cls?.hpDie || '—'}</div></div>
@@ -607,6 +956,12 @@ class CharacterSystem {
             <div class="rv-stat-name">${ABILITY_LABELS[ab]}</div>
             <div class="rv-stat-val">${stats[ab]}</div>
           </div>`).join('')}
+      </div>
+      <div class="review-profs">
+        <div class="rv-prof-label">Skill Proficiencies</div>
+        <div class="rv-prof-list">${chosenSkills.length ? chosenSkills.join(' · ') : '<em style="color:var(--text-dim)">None chosen</em>'}</div>
+        <div class="rv-prof-label" style="margin-top:8px">Languages</div>
+        <div class="rv-prof-list">${langs}</div>
       </div>`;
   }
 
@@ -642,21 +997,26 @@ class CharacterSystem {
       maxHp:      Math.max(1, maxHp),
       currentHp:  Math.max(1, maxHp),
       hitDice:    { die: cls?.hpDie || 8, total: 1, spent: 0 },
-      ac:         10 + this._mod(stats.dex),
+      ac:         r.acOverride   != null ? r.acOverride   : (10 + this._mod(stats.dex)),
       speed:      r.race?.speed || 30,
       profBonus:  2,
       saves:      cls?.saves || ['str','con'],
       equipment:  CLASS_EQUIPMENT[cls?.id] || [],
       features:   CLASS_FEATURES[cls?.id]  || [],
-      bgSkills:   r.background?.skills || [],
-      notes:      '',
+      bgSkills:       [...(r.background?.skills || []), ...(r.skills || [])],
+      notes:          '',
+      languages:      r.languages || r.race?.lang || 'Common',
+      initBonus:      r.initOverride != null ? r.initOverride : this._mod(stats.dex),
+      extraSkillProf: [],
+      skillBonuses:   r.skillBonuses || {},
+      attacks:        r.attacks || [],
+      _extraItems:    r.extraItems  || [],
     };
 
     // Push appearance to map sprite
     window.mapSystem?.updateSprite(this.character.appearance);
-    // Seed inventory with starting equipment
-    (this.character.equipment || []).forEach(name => window.inventorySystem?.addItem(name));
     // Campaign type and difficulty were chosen before character creation
+    // (inventory seeding happens in app.js after aiSystem.start() resets inventory)
     window.app.startCampaign(
       window.app.gameState.campaignType || 'standard',
       window.app.gameState.customDesc   || ''
@@ -722,8 +1082,11 @@ class CharacterSystem {
       ].filter(Boolean);
       sAppear.textContent = parts.length ? parts.join(' · ') : '—';
     }
+    const sLangs = document.getElementById('s-languages');
+    if (sLangs) sLangs.textContent = c.languages || 'Common';
     document.getElementById('s-ac').textContent    = c.ac;
-    document.getElementById('s-init').textContent  = (this._mod(c.stats.dex) >= 0 ? '+' : '') + this._mod(c.stats.dex);
+    const initVal = c.initBonus ?? this._mod(c.stats.dex);
+    document.getElementById('s-init').textContent  = (initVal >= 0 ? '+' : '') + initVal;
     document.getElementById('s-speed').textContent = `${c.speed} ft`;
     document.getElementById('s-prof').textContent  = `+${c.profBonus}`;
     document.getElementById('s-hp').textContent    = c.currentHp;
@@ -750,26 +1113,57 @@ class CharacterSystem {
       const prof = c.saves.includes(ab);
       const mod  = this._mod(c.stats[ab]) + (prof ? c.profBonus : 0);
       return `<div class="save-row">
-        <div class="prof-dot ${prof ? 'proficient' : ''}"></div>
+        <div class="prof-dot dot-toggle ${prof ? 'proficient' : ''}" data-save="${ab}" title="Click to toggle proficiency"></div>
         <span>${ABILITY_LABELS[ab]}</span>
         <span class="bonus">${mod >= 0 ? '+' : ''}${mod}</span>
       </div>`;
     }).join('');
+    sv.querySelectorAll('.dot-toggle[data-save]').forEach(dot => {
+      dot.onclick = () => {
+        const ab   = dot.dataset.save;
+        const wasP = c.saves.includes(ab);
+        if (wasP) c.saves = c.saves.filter(s => s !== ab);
+        else      c.saves.push(ab);
+        dot.classList.toggle('proficient', !wasP);
+        const mod2    = this._mod(c.stats[ab]) + (!wasP ? c.profBonus : 0);
+        const bonusEl = dot.closest('.save-row')?.querySelector('.bonus');
+        if (bonusEl) bonusEl.textContent = (mod2 >= 0 ? '+' : '') + mod2;
+      };
+    });
 
     // Skills
     const allProf = new Set([
       ...c.bgSkills,
-      ...(CLASS_FEATURES[c.classId]?.filter ? [] : []),
+      ...(c.extraSkillProf || []),
     ]);
     const sl = document.getElementById('skills-list');
     sl.innerHTML = SKILLS.map(sk => {
-      const mod  = this._mod(c.stats[sk.ab]) + (allProf.has(sk.name) ? c.profBonus : 0);
+      const isProf = allProf.has(sk.name);
+      const mod    = this._mod(c.stats[sk.ab]) + (isProf ? c.profBonus : 0);
       return `<div class="skill-row">
-        <div class="prof-dot ${allProf.has(sk.name) ? 'proficient' : ''}"></div>
+        <div class="prof-dot dot-toggle ${isProf ? 'proficient' : ''}" data-skill="${sk.name}" title="Click to toggle proficiency"></div>
         <span>${sk.name} <span style="color:var(--text-dim);font-size:11px">(${ABILITY_LABELS[sk.ab]})</span></span>
         <span class="bonus">${mod >= 0 ? '+' : ''}${mod}</span>
       </div>`;
     }).join('');
+    sl.querySelectorAll('.dot-toggle[data-skill]').forEach(dot => {
+      dot.onclick = () => {
+        if (!c.extraSkillProf) c.extraSkillProf = [];
+        const name  = dot.dataset.skill;
+        const skill = SKILLS.find(s => s.name === name);
+        const inBg  = (c.bgSkills || []).includes(name);
+        const inEx  = c.extraSkillProf.includes(name);
+        const wasP  = inBg || inEx;
+        if (wasP) { c.bgSkills = (c.bgSkills||[]).filter(s=>s!==name); c.extraSkillProf = c.extraSkillProf.filter(s=>s!==name); }
+        else      { c.extraSkillProf.push(name); }
+        dot.classList.toggle('proficient', !wasP);
+        if (skill) {
+          const mod2    = this._mod(c.stats[skill.ab]) + (!wasP ? c.profBonus : 0);
+          const bonusEl = dot.closest('.skill-row')?.querySelector('.bonus');
+          if (bonusEl) bonusEl.textContent = (mod2 >= 0 ? '+' : '') + mod2;
+        }
+      };
+    });
 
     // Features
     const fl = document.getElementById('features-list');
@@ -784,14 +1178,56 @@ class CharacterSystem {
     ).join('');
 
     document.getElementById('char-notes').value = c.notes || '';
+    // Wire contenteditable fields: select-all on focus, Enter = blur
+    ['s-ac', 's-init', 's-speed'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.onfocus   = () => setTimeout(() => {
+        const sel = window.getSelection(), r = document.createRange();
+        r.selectNodeContents(el); sel.removeAllRanges(); sel.addRange(r);
+      }, 0);
+      el.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } };
+    });
+    const hpMaxEl = document.getElementById('s-hp-max');
+    if (hpMaxEl) {
+      hpMaxEl.onfocus   = () => setTimeout(() => {
+        const sel = window.getSelection(), r = document.createRange();
+        r.selectNodeContents(hpMaxEl); sel.removeAllRanges(); sel.addRange(r);
+      }, 0);
+      hpMaxEl.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); hpMaxEl.blur(); } };
+      hpMaxEl.onblur    = () => {
+        const val = parseInt(hpMaxEl.textContent);
+        if (!isNaN(val) && val > 0) {
+          c.maxHp = val;
+          if (c.currentHp > c.maxHp) c.currentHp = c.maxHp;
+          document.getElementById('s-hp').textContent = c.currentHp;
+          const pct2  = Math.max(0, c.currentHp / c.maxHp);
+          const hpBar = document.getElementById('s-hp-bar');
+          if (hpBar) { hpBar.style.width = `${pct2*100}%`; hpBar.style.background = pct2 > 0.6 ? 'var(--hp-high)' : pct2 > 0.3 ? 'var(--hp-mid)' : 'var(--hp-low)'; }
+        } else {
+          hpMaxEl.textContent = c.maxHp;
+        }
+      };
+    }
     // Ensure Stats tab is shown when sheet opens
     this._switchSheetTab('stats');
     document.getElementById('modal-char').classList.remove('hidden');
   }
 
   closeSheet() {
-    if (this.character) {
-      this.character.notes = document.getElementById('char-notes').value;
+    const c = this.character;
+    if (c) {
+      c.notes = document.getElementById('char-notes').value;
+      const acNum  = parseInt(document.getElementById('s-ac')?.textContent);
+      if (!isNaN(acNum)) c.ac = acNum;
+      const initTxt = (document.getElementById('s-init')?.textContent || '').replace('+', '').trim();
+      const initNum = parseInt(initTxt);
+      if (!isNaN(initNum)) c.initBonus = initNum;
+      const speedTxt = (document.getElementById('s-speed')?.textContent || '').replace(/\s*ft\s*/i, '').trim();
+      const speedNum = parseInt(speedTxt);
+      if (!isNaN(speedNum) && speedNum > 0) c.speed = speedNum;
+      const langs = document.getElementById('s-languages')?.textContent?.trim();
+      if (langs) c.languages = langs;
     }
     document.getElementById('modal-char').classList.add('hidden');
   }

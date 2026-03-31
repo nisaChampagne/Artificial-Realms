@@ -699,6 +699,13 @@ class App {
       this.settings.demoMode ?? false
     );
 
+    // Seed inventory AFTER aiSystem.start() (which resets it)
+    const c = window.characterSystem.character;
+    if (c) {
+      (c.equipment || []).forEach(name => window.inventorySystem?.addItem(name));
+      (c._extraItems || []).forEach(name => window.inventorySystem?.addItem(name));
+    }
+
     // Auto-save
     window.saveSystem.startAutoSave(5 * 60 * 1000);
   }

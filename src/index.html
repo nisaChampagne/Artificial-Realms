@@ -239,15 +239,102 @@
     <!-- Step 6: Ability Scores -->
     <div class="char-step hidden" id="step-stats">
       <h2 class="step-title">Ability Scores</h2>
-      <p class="step-hint">Roll 4d6, drop the lowest — six times.</p>
-      <div class="stats-top">
-        <button class="btn btn-primary" id="btn-roll-stats">🎲 Roll All Stats</button>
-        <span class="stats-total-info" id="stats-total-info"></span>
+      <p class="step-hint" id="stats-step-hint">Roll 4d6, drop the lowest — six times.</p>
+      <div class="stat-method-toggle">
+        <button class="stat-method-btn active" id="btn-method-auto">🎲 Auto Roll</button>
+        <button class="stat-method-btn" id="btn-method-manual">✏️ Manual Entry</button>
       </div>
-      <div class="stats-grid" id="stats-grid"></div>
+
+      <!-- Auto roll section -->
+      <div id="stats-auto-section">
+        <div class="stats-top">
+          <button class="btn btn-primary" id="btn-roll-stats">🎲 Roll All Stats</button>
+          <span class="stats-total-info" id="stats-total-info"></span>
+        </div>
+        <div class="stats-grid" id="stats-grid"></div>
+      </div>
+
+      <!-- Manual entry section -->
+      <div id="stats-manual-section" class="hidden">
+        <p class="stats-manual-hint">Enter the values you rolled with your physical dice (1–20 per ability).</p>
+        <div class="stats-grid" id="stats-manual-grid"></div>
+      </div>
     </div>
 
-    <!-- Step 6: Review -->
+    <!-- Step 7: Proficiencies & Languages -->
+    <div class="char-step hidden" id="step-proficiencies">
+      <h2 class="step-title">Proficiencies &amp; Details</h2>
+      <p class="step-hint">Choose class skills, add bonuses, pick starting attacks and gear.</p>
+
+      <!-- All Skills -->
+      <div class="prof-section">
+        <div class="prof-section-head">
+          Skills
+          <span class="prof-section-sub" id="prof-skill-sub">0 / 2 chosen</span>
+        </div>
+        <p class="prof-section-note">Click the dot to mark proficiency (gold = proficient). Enter a flat bonus in the field to the right.</p>
+        <div class="prof-skill-table" id="prof-skill-table"></div>
+        <div id="prof-skill-grid" style="display:none"></div>
+      </div>
+
+      <!-- Background Skills -->
+      <div class="prof-section">
+        <div class="prof-section-head">
+          Background Skills
+          <span class="prof-section-sub">granted automatically</span>
+        </div>
+        <div class="prof-bg-skills" id="prof-bg-skills"></div>
+      </div>
+
+      <!-- Languages -->
+      <div class="prof-section">
+        <div class="prof-section-head">Languages</div>
+        <input class="prof-lang-input" id="prof-languages" type="text"
+               maxlength="120" placeholder="e.g. Common, Elvish, Dwarvish" />
+      </div>
+
+      <!-- Combat Defaults -->
+      <div class="prof-section">
+        <div class="prof-section-head">
+          Combat Defaults
+          <span class="prof-section-sub">optional — leave blank to use derived values</span>
+        </div>
+        <div class="prof-overrides-row">
+          <div class="prof-override-box">
+            <label class="prof-override-label">Armor Class</label>
+            <input class="prof-override-input" id="prof-ac" type="number" min="0" max="30" placeholder="—" />
+            <div class="prof-override-hint" id="prof-ac-hint">Default: 10 + DEX mod</div>
+          </div>
+          <div class="prof-override-box">
+            <label class="prof-override-label">Initiative Bonus</label>
+            <input class="prof-override-input" id="prof-init" type="number" min="-10" max="20" placeholder="—" />
+            <div class="prof-override-hint" id="prof-init-hint">Default: DEX mod</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attacks -->
+      <div class="prof-section">
+        <div class="prof-section-head">
+          Attacks &amp; Actions
+          <span class="prof-section-sub" id="prof-attack-count">0 selected</span>
+        </div>
+        <p class="prof-section-note">Select any attacks your class or race grants — all selections carry into your adventure.</p>
+        <div class="prof-skill-grid" id="prof-attack-grid"></div>
+      </div>
+
+      <!-- Starting Items -->
+      <div class="prof-section">
+        <div class="prof-section-head">
+          Extra Starting Items
+          <span class="prof-section-sub" id="prof-item-sub">0 / 5 chosen</span>
+        </div>
+        <p class="prof-section-note">Pick up to 5 additional items from your class and race pool. These will be added to your inventory.</p>
+        <div class="prof-skill-grid" id="prof-item-grid"></div>
+      </div>
+    </div>
+
+    <!-- Step 8: Review -->
     <div class="char-step hidden" id="step-review">
       <h2 class="step-title">Your Character</h2>
       <p class="step-hint">Your legend is about to begin.</p>
@@ -449,13 +536,6 @@
     <button class="toolbar-btn" id="btn-tts" title="Toggle DM voice narration">
       <span class="tb-icon" id="tts-icon">🔇</span><span>DM Voice</span>
     </button>
-    <div class="toolbar-hp-mini" id="toolbar-hp-mini">
-      <span class="toolbar-hp-mini-icon">♥</span>
-      <div class="toolbar-hp-mini-track">
-        <div class="toolbar-hp-mini-fill" id="toolbar-hp-mini-fill" style="width:100%"></div>
-      </div>
-      <span class="toolbar-hp-mini-text"><span id="toolbar-hp-cur">—</span>/<span id="toolbar-hp-max">—</span></span>
-    </div>
     <div class="toolbar-sep"></div>
     <div class="music-hud">
       <span class="tb-icon">🎵</span>
@@ -537,19 +617,23 @@
           <div class="smg-item"><span class="smg-label">Class</span><span class="smg-val" id="s-class">—</span></div>
           <div class="smg-item"><span class="smg-label">Level</span><span class="smg-val" id="s-level">1</span></div>
           <div class="smg-item"><span class="smg-label">Background</span><span class="smg-val" id="s-bg">—</span></div>
-          <div class="smg-item"><span class="smg-label">AC</span><span class="smg-val" id="s-ac">—</span></div>
-          <div class="smg-item"><span class="smg-label">Initiative</span><span class="smg-val" id="s-init">—</span></div>
-          <div class="smg-item"><span class="smg-label">Speed</span><span class="smg-val" id="s-speed">30 ft</span></div>
+          <div class="smg-item"><span class="smg-label">AC</span><span class="smg-val smg-editable" id="s-ac" contenteditable="true" spellcheck="false" title="Click to edit">—</span></div>
+          <div class="smg-item"><span class="smg-label">Initiative</span><span class="smg-val smg-editable" id="s-init" contenteditable="true" spellcheck="false" title="Click to edit">—</span></div>
+          <div class="smg-item"><span class="smg-label">Speed</span><span class="smg-val smg-editable" id="s-speed" contenteditable="true" spellcheck="false" title="Click to edit">30 ft</span></div>
           <div class="smg-item"><span class="smg-label">Prof. Bonus</span><span class="smg-val" id="s-prof">+2</span></div>
         </div>
         <div class="appear-block">
           <div class="smg-label">Appearance</div>
           <div class="smg-val" id="s-appearance" style="font-size:11px;line-height:1.6;color:var(--text-mid)">—</div>
         </div>
+        <div class="appear-block">
+          <div class="smg-label">Languages</div>
+          <div class="smg-val smg-editable" id="s-languages" contenteditable="true" spellcheck="false" title="Click to edit languages" style="font-size:12px;line-height:1.5;color:var(--text-mid)">Common</div>
+        </div>
         <div class="hp-block">
           <div class="hp-label-row">
             <label>Hit Points</label>
-            <span class="hp-fraction"><span id="s-hp">0</span> / <span id="s-hp-max">0</span></span>
+            <span class="hp-fraction"><span id="s-hp">0</span> / <span class="smg-editable" id="s-hp-max" contenteditable="true" spellcheck="false" title="Click to edit max HP">0</span></span>
           </div>
           <div class="hp-bar-bg"><div class="hp-bar-fill" id="s-hp-bar"></div></div>
           <div class="hp-adj">
