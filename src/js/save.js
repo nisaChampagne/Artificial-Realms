@@ -47,7 +47,7 @@ class SaveSystem {
 
       // Restore AI conversation
       window.aiSystem.messages  = data.messages || [];
-      window.aiSystem.apiKey    = window.app.settings.apiKey;
+      window.aiSystem.apiKey    = window.app._getActiveApiKey();
       window.aiSystem.model     = window.app.settings.model;
       window.aiSystem.provider  = window.app.settings.provider || 'openai';
       window.aiSystem.textSpeed = window.app.settings.textSpeed ?? 15;

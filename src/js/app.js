@@ -4,7 +4,7 @@
 class App {
   constructor() {
     this.currentScreen = 'menu';
-    this.settings = { apiKey: '', model: 'gpt-4o', provider: 'openai', demoMode: false, volume: 70, textSpeed: 15, ttsEnabled: false, ttsVoice: '' };
+    this.settings = { apiKeyOpenAI: '', apiKeyAnthropic: '', apiKeyGemini: '', model: 'gpt-4o', provider: 'openai', demoMode: false, volume: 70, textSpeed: 15, ttsEnabled: false, ttsVoice: '' };
     this.gameState  = { campaignType: null, customDesc: '', difficulty: null };
     this._toastTimer = null;
   }
@@ -65,12 +65,25 @@ class App {
       const stored = await window.electronAPI.getSettings();
       this.settings = { ...this.settings, ...stored };
     } catch { /* first run */ }
+    // Sanitize: blank/null provider falls back to openai
+    if (!this.settings.provider) this.settings.provider = 'openai';
     this._applySettingsToUI();
   }
 
+  // Returns the API key for the currently selected provider
+  _getActiveApiKey() {
+    const s = this.settings;
+    if (s.provider === 'anthropic') return s.apiKeyAnthropic || '';
+    if (s.provider === 'gemini')    return s.apiKeyGemini    || '';
+    if (s.provider === 'ollama')    return '';
+    return s.apiKeyOpenAI || '';
+  }
+
   async persistSettings() {
-    this.settings.apiKey     = document.getElementById('api-key-input').value.trim();
-    this.settings.provider   = document.getElementById('provider-select').value;
+    this.settings.apiKeyOpenAI    = document.getElementById('api-key-openai').value.trim();
+    this.settings.apiKeyAnthropic = document.getElementById('api-key-anthropic').value.trim();
+    this.settings.apiKeyGemini    = document.getElementById('api-key-gemini').value.trim();
+    this.settings.provider   = document.getElementById('provider-select').value || 'openai';
     const ollamaInp = document.getElementById('ollama-model-input');
     this.settings.model      = this.settings.provider === 'ollama'
       ? (ollamaInp?.value.trim() || 'llama3')
@@ -86,7 +99,11 @@ class App {
   }
 
   _applySettingsToUI() {
-    document.getElementById('api-key-input').value       = this.settings.apiKey    || '';
+    // Migrate old single-key settings to per-provider slots
+    const legacyKey = this.settings.apiKey || '';
+    document.getElementById('api-key-openai').value    = this.settings.apiKeyOpenAI    || legacyKey;
+    document.getElementById('api-key-anthropic').value = this.settings.apiKeyAnthropic || '';
+    document.getElementById('api-key-gemini').value    = this.settings.apiKeyGemini    || '';
     document.getElementById('settings-volume').value     = this.settings.volume    ?? 70;
     document.getElementById('text-speed').value          = this.settings.textSpeed ?? 15;
     document.getElementById('vol-label').textContent     = `${this.settings.volume ?? 70}%`;
@@ -102,8 +119,6 @@ class App {
     const modelGroup  = document.getElementById('model-select-group');
     const ollamaGroup = document.getElementById('ollama-model-group');
     const apiKeyGroup = document.getElementById('api-key-group');
-    const linkEl      = document.getElementById('link-provider');
-    const keyLabel    = document.getElementById('api-key-label');
     const modelHint   = document.getElementById('model-select-hint');
     const isOllama    = provider === 'ollama';
 
@@ -141,19 +156,19 @@ class App {
     const ollamaInp = document.getElementById('ollama-model-input');
     if (ollamaInp && isOllama && this.settings.model) ollamaInp.value = this.settings.model;
 
-    // Update API key label & link
-    const providerInfo = {
-      openai:    { label: 'OpenAI API Key',    href: 'https://platform.openai.com/api-keys',                  hint: 'Billing required at platform.openai.com/settings/billing' },
-      anthropic: { label: 'Anthropic API Key', href: 'https://console.anthropic.com/settings/keys',           hint: 'Usage info at console.anthropic.com' },
-      gemini:    { label: 'Gemini API Key',    href: 'https://aistudio.google.com/app/apikey',                 hint: 'Free tier available at Google AI Studio' },
-      ollama:    { label: 'API Key',           href: 'https://ollama.ai',                                      hint: 'No key needed for local Ollama' },
+    // Update model hint
+    const hints = {
+      openai:    'Billing required at platform.openai.com/settings/billing',
+      anthropic: 'Usage info at console.anthropic.com',
+      gemini:    'Free tier available at Google AI Studio',
     };
-    const info = providerInfo[provider] || providerInfo.openai;
-    if (keyLabel)   keyLabel.textContent = info.label;
-    if (linkEl)     linkEl.href = info.href;
-    if (modelHint)  modelHint.textContent = info.hint;
-    if (apiKeyGroup) apiKeyGroup.style.opacity      = isOllama ? '0.35' : '1';
-    if (apiKeyGroup) apiKeyGroup.style.pointerEvents = isOllama ? 'none' : '';
+    if (modelHint) modelHint.textContent = hints[provider] || '';
+
+    // Dim key group when Ollama is active (no key needed)
+    if (apiKeyGroup) {
+      apiKeyGroup.style.opacity      = isOllama ? '0.4' : '1';
+      apiKeyGroup.style.pointerEvents = isOllama ? 'none' : '';
+    }
   }
 
   _populateTTSVoices() {
@@ -170,6 +185,16 @@ class App {
   }
 
   // ── Menu Buttons ─────────────────────────────────────────────
+  _showDeathScreen() {
+    const name = window.characterSystem?.character?.name || 'Adventurer';
+    document.getElementById('death-char-name').textContent = name;
+    document.getElementById('death-screen').classList.remove('hidden');
+  }
+
+  _hideDeathScreen() {
+    document.getElementById('death-screen').classList.add('hidden');
+  }
+
   _bindMenuButtons() {
     document.getElementById('btn-new-game').onclick = () => {
       this._resetCampaignScreen();
@@ -181,6 +206,14 @@ class App {
     document.getElementById('btn-settings').onclick = () => {
       this._applySettingsToUI();
       this.showScreen('settings');
+    };
+    document.getElementById('btn-death-load').onclick = () => {
+      this._hideDeathScreen();
+      window.saveSystem.open('load');
+    };
+    document.getElementById('btn-death-menu').onclick = () => {
+      this._hideDeathScreen();
+      this.showScreen('menu');
     };
   }
 
@@ -197,30 +230,60 @@ class App {
     document.getElementById('provider-select').addEventListener('change', (e) => {
       this._applyProviderUI(e.target.value);
     });
-    document.getElementById('link-provider').onclick = (e) => {
-      e.preventDefault();
-      const provider = document.getElementById('provider-select').value;
-      const links = {
-        openai:    'https://platform.openai.com/settings/billing',
-        anthropic: 'https://console.anthropic.com/settings/keys',
-        gemini:    'https://aistudio.google.com/app/apikey',
-        ollama:    'https://ollama.ai',
-      };
-      window.open(links[provider] || links.openai, '_blank');
+    const keyLinks = {
+      'link-openai':    'https://platform.openai.com/api-keys',
+      'link-anthropic': 'https://console.anthropic.com/settings/keys',
+      'link-gemini':    'https://aistudio.google.com/app/apikey',
+      'link-ollama':    'https://ollama.ai',
     };
-    const ollamaLink = document.getElementById('link-ollama');
-    if (ollamaLink) ollamaLink.onclick = (e) => { e.preventDefault(); window.open('https://ollama.ai', '_blank'); };
+    Object.entries(keyLinks).forEach(([id, url]) => {
+      const el = document.getElementById(id);
+      if (el) el.onclick = (e) => { e.preventDefault(); window.open(url, '_blank'); };
+    });
+
+    document.getElementById('btn-test-provider').onclick = () => this._testProvider();
+  }
+
+  async _testProvider() {
+    const btn      = document.getElementById('btn-test-provider');
+    const status   = document.getElementById('provider-status');
+    const provider = document.getElementById('provider-select').value || 'openai';
+    const model    = provider === 'ollama'
+      ? (document.getElementById('ollama-model-input').value.trim() || 'llama3')
+      : document.getElementById('model-select').value;
+    const apiKey   = this._getActiveApiKey();
+
+    btn.disabled       = true;
+    status.textContent = '⏳ Checking…';
+    status.className   = 'provider-status';
+    try {
+      const result = await window.electronAPI.pingProvider(provider, apiKey, model);
+      if (result.ok) {
+        status.textContent = `✓ ${result.detail || 'Connected'}`;
+        status.className   = 'provider-status ok';
+      } else {
+        status.textContent = `✗ ${result.error}`;
+        status.className   = provider === 'ollama' && result.error?.includes('not found')
+          ? 'provider-status warn' : 'provider-status err';
+      }
+    } catch (e) {
+      status.textContent = `✗ ${e}`;
+      status.className   = 'provider-status err';
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   _applyDemoModeUI(on) {
-    const apiGroup   = document.getElementById('api-key-group');
-    const modelGroup = document.getElementById('model-select-group');
-    const provGroup  = document.getElementById('provider-select')?.closest('.form-group');
-    [apiGroup, modelGroup, provGroup].forEach(g => {
-      if (!g) return;
-      g.style.opacity        = on ? '0.35' : '1';
-      g.style.pointerEvents  = on ? 'none' : '';
-    });
+    // Dim the entire AI provider card when demo mode is on
+    const aiCard = document.querySelector('#screen-settings .settings-card');
+    if (aiCard) {
+      // Find everything except the Demo Mode toggle itself
+      aiCard.querySelectorAll('.form-group:not(.form-group-toggle), .settings-section-divider').forEach(el => {
+        el.style.opacity       = on ? '0.35' : '1';
+        el.style.pointerEvents = on ? 'none' : '';
+      });
+    }
   }
 
   // ── Campaign Buttons ─────────────────────────────────────────
@@ -595,8 +658,8 @@ class App {
   // ── Start Campaign ───────────────────────────────────────────
   async startCampaign(type, customDesc) {
     const demo = this.settings.demoMode;
-    if (!demo && !this.settings.apiKey) {
-      this.showToast('Please set your OpenAI API key in Settings first.', 'error');
+    if (!demo && this.settings.provider !== 'ollama' && !this._getActiveApiKey()) {
+      this.showToast('Please set your API key in Settings first.', 'error');
       this.showScreen('settings');
       return;
     }
@@ -627,7 +690,7 @@ class App {
       window.characterSystem.character,
       type,
       customDesc,
-      this.settings.apiKey,
+      this._getActiveApiKey(),
       this.settings.model,
       parseInt(this.settings.textSpeed),
       this.settings.demoMode ?? false

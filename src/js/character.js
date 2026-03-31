@@ -268,6 +268,10 @@ class CharacterSystem {
       const el = document.getElementById(`step-${name}`);
       if (el) el.classList.toggle('hidden', this.stepNames.indexOf(name) !== idx);
     });
+    // Focus the name input on step 0
+    if (idx === 0) {
+      setTimeout(() => document.getElementById('char-name')?.focus(), 80);
+    }
     // Update stats step hint to reflect current difficulty
     if (idx === 5) {
       const diff   = window.app?.gameState?.difficulty || 'adventure';
@@ -447,10 +451,9 @@ class CharacterSystem {
   }
 
   async _generatePortrait() {
-    const apiKey = window.app?.settings?.apiKey;
-    const provider = window.app?.settings?.provider || 'openai';
-    if (provider !== 'openai' || !apiKey) {
-      window.app?.showToast('Portrait generation requires an OpenAI API key.', 'error');
+    const apiKey = window.app?.settings?.apiKeyOpenAI;
+    if (!apiKey) {
+      window.app?.showToast('Portrait generation requires an OpenAI API key in Settings.', 'error');
       return;
     }
     const statusEl = document.getElementById('portrait-gen-status');
@@ -481,10 +484,9 @@ class CharacterSystem {
   async _generatePortraitFromSheet() {
     const c = this.character;
     if (!c) return;
-    const apiKey = window.app?.settings?.apiKey;
-    const provider = window.app?.settings?.provider || 'openai';
-    if (provider !== 'openai' || !apiKey) {
-      window.app?.showToast('Portrait generation requires an OpenAI API key.', 'error');
+    const apiKey = window.app?.settings?.apiKeyOpenAI;
+    if (!apiKey) {
+      window.app?.showToast('Portrait generation requires an OpenAI API key in Settings.', 'error');
       return;
     }
     const statusEl = document.getElementById('sheet-portrait-status');
@@ -1174,6 +1176,11 @@ class CharacterSystem {
     document.getElementById('levelup-hp-result').textContent = '';
     document.getElementById('levelup-hp-result').className  = 'levelup-hp-result hidden';
 
+    const rollBtn   = document.getElementById('btn-levelup-roll');
+    rollBtn.disabled    = false;
+    rollBtn.textContent = '🎲 Roll HP';
+    rollBtn._rollCount  = 0;
+
     const confirmBtn = document.getElementById('btn-levelup-confirm');
     confirmBtn.disabled = true;
     let hpGain = 0;
@@ -1187,8 +1194,14 @@ class CharacterSystem {
     };
 
     document.getElementById('btn-levelup-roll').onclick = () => {
-      const roll = Math.floor(Math.random() * hpDie) + 1;
+      const rollBtn = document.getElementById('btn-levelup-roll');
+      const rolls   = (rollBtn._rollCount = (rollBtn._rollCount || 0) + 1);
+      const roll    = Math.floor(Math.random() * hpDie) + 1;
       applyGain(roll + conMod);
+      if (rolls >= 2) {
+        rollBtn.disabled    = true;
+        rollBtn.textContent = '🎲 No more rolls';
+      }
     };
 
     document.getElementById('btn-levelup-avg').onclick = () => {

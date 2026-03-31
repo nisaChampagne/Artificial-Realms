@@ -59,79 +59,127 @@
 
 <!-- ═══════════════════════════════ SCREEN: SETTINGS ════════════════════════ -->
 <div id="screen-settings" class="screen">
-  <div class="screen-content narrow">
-    <h2 class="screen-title">⚙ Settings</h2>
-    <div class="form-group form-group-toggle">
-      <div class="toggle-row">
-        <div>
-          <label class="toggle-label-text" for="demo-mode-toggle">Demo Mode</label>
-          <small>Use scripted D&amp;D responses — no API key required</small>
+  <div class="settings-wrap">
+    <h2 class="screen-title" style="text-align:center;margin-bottom:28px;">⚙ Settings</h2>
+
+    <div class="settings-grid">
+
+      <!-- ── LEFT COLUMN: AI ── -->
+      <div class="settings-card">
+        <div class="settings-card-title">🤖 AI Provider</div>
+
+        <div class="form-group form-group-toggle">
+          <div class="toggle-row">
+            <div>
+              <label class="toggle-label-text" for="demo-mode-toggle">Demo Mode</label>
+              <small>Use scripted D&amp;D responses — no API key required</small>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="demo-mode-toggle" />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
         </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="demo-mode-toggle" />
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </label>
+
+        <div class="form-group">
+          <label>Provider</label>
+          <select id="provider-select">
+            <option value="openai">OpenAI (ChatGPT)</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="gemini">Google (Gemini)</option>
+            <option value="ollama">Ollama (Local / Free)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="model-select-group">
+          <label>Model</label>
+          <select id="model-select">
+            <option value="gpt-4o">GPT-4o (Recommended)</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="gpt-4">GPT-4</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Faster / Cheaper)</option>
+          </select>
+          <small id="model-select-hint">Requires billing at platform.openai.com/settings/billing</small>
+        </div>
+
+        <div class="form-group hidden" id="ollama-model-group">
+          <label>Ollama Model</label>
+          <input type="text" id="ollama-model-input" placeholder="llama3" autocomplete="off" />
+          <small>Model name (e.g. llama3, mistral, gemma3). <a href="#" id="link-ollama">ollama.ai ↗</a></small>
+        </div>
+
+        <div class="provider-test-row">
+          <button class="btn btn-outline btn-sm" id="btn-test-provider">⚡ Test Connection</button>
+          <span class="provider-status" id="provider-status"></span>
+        </div>
+
+        <div class="settings-section-divider">API Keys</div>
+        <div class="form-group" id="api-key-group">
+          <div class="provider-key-row">
+            <span class="pkey-label">OpenAI</span>
+            <input type="password" id="api-key-openai" placeholder="sk-..." autocomplete="off" />
+            <a href="#" class="pkey-link" id="link-openai">Get key ↗</a>
+          </div>
+          <div class="provider-key-row">
+            <span class="pkey-label">Anthropic</span>
+            <input type="password" id="api-key-anthropic" placeholder="sk-ant-..." autocomplete="off" />
+            <a href="#" class="pkey-link" id="link-anthropic">Get key ↗</a>
+          </div>
+          <div class="provider-key-row">
+            <span class="pkey-label">Gemini</span>
+            <input type="password" id="api-key-gemini" placeholder="AIza..." autocomplete="off" />
+            <a href="#" class="pkey-link" id="link-gemini">Get key ↗</a>
+          </div>
+          <small style="margin-top:10px;">Only the active provider's key is used. Ollama needs no key.</small>
+        </div>
+      </div>
+
+      <!-- ── RIGHT COLUMN: Gameplay + Audio + TTS ── -->
+      <div class="settings-col-right">
+
+        <div class="settings-card">
+          <div class="settings-card-title">🎮 Gameplay</div>
+          <div class="form-group">
+            <label>Text Speed</label>
+            <select id="text-speed">
+              <option value="30">Slow (Atmospheric)</option>
+              <option value="15" selected>Normal</option>
+              <option value="5">Fast</option>
+              <option value="0">Instant</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="settings-card-title">🔊 Audio</div>
+          <div class="form-group">
+            <label>Master Volume — <span id="vol-label">70%</span></label>
+            <input type="range" id="settings-volume" min="0" max="100" value="70" />
+          </div>
+
+          <div class="form-group form-group-toggle">
+            <div class="toggle-row">
+              <div>
+                <label class="toggle-label-text" for="tts-toggle">DM Voice (TTS)</label>
+                <small>Narrate the Dungeon Master's text with system voices</small>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="tts-toggle" />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" id="tts-voice-group">
+            <label>TTS Voice</label>
+            <select id="tts-voice-select"><option value="">Default System Voice</option></select>
+          </div>
+        </div>
+
       </div>
     </div>
-    <div class="form-group">
-      <label>AI Provider</label>
-      <select id="provider-select">
-        <option value="openai">OpenAI (ChatGPT)</option>
-        <option value="anthropic">Anthropic (Claude)</option>
-        <option value="gemini">Google (Gemini)</option>
-        <option value="ollama">Ollama (Local / Free)</option>
-      </select>
-    </div>
-    <div class="form-group" id="api-key-group">
-      <label id="api-key-label">API Key</label>
-      <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" />
-      <small>Get your key at <a href="#" id="link-provider">platform.openai.com/api-keys</a></small>
-    </div>
-    <div class="form-group" id="model-select-group">
-      <label>AI Model</label>
-      <select id="model-select">
-        <option value="gpt-4o">GPT-4o (Recommended)</option>
-        <option value="gpt-4-turbo">GPT-4 Turbo</option>
-        <option value="gpt-4">GPT-4</option>
-        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Faster / Cheaper)</option>
-      </select>
-      <small id="model-select-hint">Requires billing at platform.openai.com/settings/billing</small>
-    </div>
-    <div class="form-group hidden" id="ollama-model-group">
-      <label>Ollama Model</label>
-      <input type="text" id="ollama-model-input" placeholder="llama3" autocomplete="off" />
-      <small>Enter the model name to use (e.g. llama3, mistral, gemma3). <a href="#" id="link-ollama">ollama.ai</a></small>
-    </div>
-    <div class="form-group">
-      <label>Master Volume — <span id="vol-label">70%</span></label>
-      <input type="range" id="settings-volume" min="0" max="100" value="70" />
-    </div>
-    <div class="form-group">
-      <label>Text Speed</label>
-      <select id="text-speed">
-        <option value="30">Slow (Atmospheric)</option>
-        <option value="15" selected>Normal</option>
-        <option value="5">Fast</option>
-        <option value="0">Instant</option>
-      </select>
-    </div>
-    <div class="form-group form-group-toggle">
-      <div class="toggle-row">
-        <div>
-          <label class="toggle-label-text" for="tts-toggle">DM Voice (TTS)</label>
-          <small>Narrate the Dungeon Master's text aloud using your system voices</small>
-        </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="tts-toggle" />
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </label>
-      </div>
-    </div>
-    <div class="form-group" id="tts-voice-group">
-      <label>TTS Voice</label>
-      <select id="tts-voice-select"><option value="">Default System Voice</option></select>
-    </div>
-    <div class="btn-row">
+
+    <div class="btn-row settings-btn-row">
       <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
       <button class="btn btn-outline" id="btn-back-settings">← Back</button>
     </div>
@@ -727,6 +775,18 @@
         <div class="rules-hint">Type to search the D&amp;D 5e SRD rules via Open5e.</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ SCREEN: DEATH ════════════════════════════ -->
+<div id="death-screen" class="death-screen hidden">
+  <div class="death-skull">💀</div>
+  <h1 class="death-title">You Have Fallen</h1>
+  <p class="death-subtitle" id="death-char-name"></p>
+  <p class="death-flavour-text">Your adventure ends here… for now.</p>
+  <div class="death-btn-row">
+    <button class="btn btn-primary" id="btn-death-load">📂 Load a Save</button>
+    <button class="btn btn-outline" id="btn-death-menu">🏠 Main Menu</button>
   </div>
 </div>
 

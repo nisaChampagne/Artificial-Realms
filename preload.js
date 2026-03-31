@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // AI
   sendToAI:        (messages, apiKey, model, provider) => ipcRenderer.invoke('ai:chat', messages, apiKey, model, provider),
   generatePortrait: (prompt, apiKey)                   => ipcRenderer.invoke('ai:image', prompt, apiKey),
+  pingProvider:     (provider, apiKey, model)          => ipcRenderer.invoke('provider:ping', provider, apiKey, model),
 
   // Saves
   saveGame:   (slot, data) => ipcRenderer.invoke('save:write', slot, data),

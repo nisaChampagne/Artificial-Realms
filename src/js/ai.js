@@ -346,7 +346,12 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     const text = raw.replace(/\[(\w+):([^\]]+)\]/g, (full, cmd, val) => {
       commands.push({ cmd: cmd.toUpperCase(), val: val.trim() });
       return '';
-    }).replace(/\s{2,}/g, ' ').trim();
+    })
+    // Collapse runs of spaces/tabs only — preserve newlines so choice lines stay on their own lines
+    .replace(/[ \t]{2,}/g, ' ')
+    // Limit to at most one blank line between paragraphs
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
     // Accumulate incoming damage separately — applied only after initiative roll
     let pendingDamage = 0;
@@ -771,9 +776,13 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
   // ── Special Events ───────────────────────────────────────────
   _handleDeath() {
     window.audioSystem?.setScene('dungeon');
+    window.speechSynthesis?.cancel();
     this._addSystemEntry('💀 You have fallen… Your adventure ends here. Reload a save to continue.');
     document.getElementById('player-input').disabled = true;
     document.getElementById('btn-send').disabled     = true;
+
+    // Show death screen after a short pause so the message is readable
+    setTimeout(() => window.app?._showDeathScreen(), 2500);
   }
 
   _handleVictory() {

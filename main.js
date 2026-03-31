@@ -291,6 +291,103 @@ ipcMain.handle('save:delete', (_e, slot) => {
 // ── Settings ──────────────────────────────────────────────────────────────────
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 
+// ── Provider connection test ─────────────────────────────────────────────────
+ipcMain.handle('provider:ping', async (_e, provider, apiKey, model) => {
+  if (provider === 'ollama') {
+    return new Promise((resolve) => {
+      const req = http.request(
+        { hostname: '127.0.0.1', port: 11434, path: '/api/tags', method: 'GET' },
+        (res) => {
+          let data = '';
+          res.on('data', c => { data += c; });
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              const models = (parsed.models || []).map(m => m.name);
+              const active = model ? models.some(n => n.startsWith(model)) : true;
+              resolve({ ok: true, models, active, detail: active ? `${model} is ready` : `Model "${model}" not found. Available: ${models.slice(0,4).join(', ') || 'none'}` });
+            } catch { resolve({ ok: false, error: 'Unexpected response from Ollama' }); }
+          });
+        }
+      );
+      req.on('error', () => resolve({ ok: false, error: 'Ollama not running on port 11434' }));
+      req.setTimeout(3000, () => { req.destroy(); resolve({ ok: false, error: 'Connection timed out' }); });
+      req.end();
+    });
+  }
+
+  if (provider === 'openai') {
+    return new Promise((resolve) => {
+      const req = https.request(
+        { hostname: 'api.openai.com', path: '/v1/models', method: 'GET',
+          headers: { Authorization: `Bearer ${apiKey}` } },
+        (res) => {
+          let data = '';
+          res.on('data', c => { data += c; });
+          res.on('end', () => {
+            if (res.statusCode === 200) return resolve({ ok: true, detail: 'OpenAI key is valid' });
+            if (res.statusCode === 401) return resolve({ ok: false, error: 'Invalid API key' });
+            if (res.statusCode === 429) return resolve({ ok: false, error: 'Rate limited / quota exceeded' });
+            resolve({ ok: false, error: `HTTP ${res.statusCode}` });
+          });
+        }
+      );
+      req.on('error', err => resolve({ ok: false, error: err.message }));
+      req.setTimeout(5000, () => { req.destroy(); resolve({ ok: false, error: 'Connection timed out' }); });
+      req.end();
+    });
+  }
+
+  if (provider === 'anthropic') {
+    return new Promise((resolve) => {
+      const body = JSON.stringify({ model: model || 'claude-haiku-3', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+      const req = https.request(
+        { hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) } },
+        (res) => {
+          let data = '';
+          res.on('data', c => { data += c; });
+          res.on('end', () => {
+            if (res.statusCode === 400 || res.statusCode === 200) return resolve({ ok: true, detail: 'Anthropic key is valid' });
+            if (res.statusCode === 401) return resolve({ ok: false, error: 'Invalid API key' });
+            if (res.statusCode === 429) return resolve({ ok: false, error: 'Rate limited' });
+            resolve({ ok: false, error: `HTTP ${res.statusCode}` });
+          });
+        }
+      );
+      req.on('error', err => resolve({ ok: false, error: err.message }));
+      req.setTimeout(5000, () => { req.destroy(); resolve({ ok: false, error: 'Connection timed out' }); });
+      req.write(body); req.end();
+    });
+  }
+
+  if (provider === 'gemini') {
+    return new Promise((resolve) => {
+      const mdl  = model || 'gemini-2.0-flash';
+      const path = `/v1beta/models/${mdl}?key=${apiKey}`;
+      const req = https.request(
+        { hostname: 'generativelanguage.googleapis.com', path, method: 'GET', headers: {} },
+        (res) => {
+          let data = '';
+          res.on('data', c => { data += c; });
+          res.on('end', () => {
+            if (res.statusCode === 200) return resolve({ ok: true, detail: `Gemini key valid — ${mdl} available` });
+            if (res.statusCode === 400) return resolve({ ok: true, detail: 'Gemini key is valid' });
+            if (res.statusCode === 401 || res.statusCode === 403) return resolve({ ok: false, error: 'Invalid API key' });
+            resolve({ ok: false, error: `HTTP ${res.statusCode}` });
+          });
+        }
+      );
+      req.on('error', err => resolve({ ok: false, error: err.message }));
+      req.setTimeout(5000, () => { req.destroy(); resolve({ ok: false, error: 'Connection timed out' }); });
+      req.end();
+    });
+  }
+
+  return { ok: false, error: 'Unknown provider' };
+});
+
 ipcMain.handle('settings:get', () => {
   const fp = settingsPath();
   if (!fs.existsSync(fp)) return {};
