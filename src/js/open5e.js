@@ -66,6 +66,16 @@ class Open5eService {
     return this._fetchAll(url, 5);
   }
 
+  // Cantrips (level 0) + 1st-level spells only — used for level 1 characters
+  async getLevel1SpellsForClass(className) {
+    const base = `${this.BASE_V1}/spells/?document__slug=wotc-srd&dnd_class__icontains=${encodeURIComponent(className)}`;
+    const [cantrips, level1] = await Promise.all([
+      this._fetchAll(`${base}&level_int=0&limit=100`, 2),
+      this._fetchAll(`${base}&level_int=1&limit=100`, 2),
+    ]);
+    return [...cantrips, ...level1];
+  }
+
   // Single spell lookup by (partial) name — returns first match or null
   async searchSpell(name) {
     const url = `${this.BASE_V1}/spells/?document__slug=wotc-srd&name__icontains=${encodeURIComponent(name)}&limit=5`;
@@ -85,7 +95,11 @@ class Open5eService {
     return this.conditions.get(name.toLowerCase()) || null;
   }
 
-  // ── Magic Items ───────────────────────────────────────────────
+  // ── Magic Items ───────────────────────────────────────────────  // Level 1-appropriate: Common rarity only (cantrip/1st-level scrolls, basic potions)
+  async getLevel1Items() {
+    const url = `${this.BASE_V1}/magicitems/?document__slug=wotc-srd&rarity__icontains=common&limit=100`;
+    return this._fetchAll(url, 3);
+  }
   async searchMagicItem(name) {
     const url = `${this.BASE_V1}/magicitems/?document__slug=wotc-srd&name__icontains=${encodeURIComponent(name)}&limit=5`;
     const data = await this._fetch(url);

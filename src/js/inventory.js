@@ -244,26 +244,22 @@ class InventorySystem {
       return a.type.localeCompare(b.type);
     });
 
-    container.innerHTML = sorted.map(item => {
-      const rarityClass  = (item.rarity || 'common').toLowerCase().replace(/\s+/g, '-');
+    const renderItemHtml = item => {
+      const rarityClass   = (item.rarity || 'common').toLowerCase().replace(/\s+/g, '-');
       const equippedClass = item.equipped ? 'inv-item-equipped' : '';
       const icon = TYPE_ICONS[item.type] || '📦';
-
-      // Action buttons
       const isConsumable = item.type === 'Consumable' || item.type === 'Scroll';
       const actionBtn = item.slot
         ? `<button class="inv-btn inv-btn-equip" data-id="${item.id}">${item.equipped ? 'Unequip' : 'Equip'}</button>`
         : isConsumable
           ? `<button class="inv-btn inv-btn-use" data-id="${item.id}">Use</button>`
           : '';
-      const dropBtn = `<button class="inv-btn inv-btn-drop" data-id="${item.id}" title="Drop item">🗑</button>`;
-
+      const dropBtn     = `<button class="inv-btn inv-btn-drop" data-id="${item.id}" title="Drop item">🗑</button>`;
       const equippedTag = item.equipped ? '<span class="inv-equipped-tag">Equipped</span>' : '';
-      const qtyTag = (item.qty || 1) > 1 ? `<span class="inv-qty-tag">×${item.qty}</span>` : '';
-      const rarityTag = item.rarity
+      const qtyTag      = (item.qty || 1) > 1 ? `<span class="inv-qty-tag">×${item.qty}</span>` : '';
+      const rarityTag   = item.rarity
         ? `<span class="inv-rarity inv-rarity-${rarityClass}">${item.rarity}</span>`
         : `<span class="inv-rarity">${item.type}</span>`;
-
       return `
         <div class="inv-item ${equippedClass}" data-id="${item.id}">
           <div class="inv-item-icon">${icon}</div>
@@ -277,7 +273,20 @@ class InventorySystem {
             ${dropBtn}
           </div>
         </div>`;
-    }).join('');
+    };
+
+    const equippedItems = sorted.filter(i => i.equipped);
+    const packItems     = sorted.filter(i => !i.equipped);
+    let html = '';
+    if (equippedItems.length) {
+      html += `<div class="inv-section-head">⚔ Equipped</div>`;
+      html += equippedItems.map(renderItemHtml).join('');
+    }
+    if (packItems.length) {
+      html += `<div class="inv-section-head">🎒 Pack</div>`;
+      html += packItems.map(renderItemHtml).join('');
+    }
+    container.innerHTML = html;
 
     container.querySelectorAll('.inv-btn-inspect').forEach(btn =>
       btn.addEventListener('click', e => { e.stopPropagation(); this._inspect(parseInt(btn.dataset.id)); }));

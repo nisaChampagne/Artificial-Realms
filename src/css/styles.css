@@ -2290,6 +2290,19 @@ input[type=range]::-webkit-slider-thumb {
   font-size: 13px; color: var(--text-dim);
   line-height: 1.7;
 }
+.spells-level-note {
+  padding: 7px 12px; margin-bottom: 8px;
+  background: rgba(201,162,39,0.08);
+  border-left: 3px solid var(--gold);
+  border-radius: 4px;
+  font-size: 11px; color: var(--text-dim);
+  letter-spacing: 0.3px;
+}
+.items-loading-hint {
+  display: block; padding: 4px 2px;
+  font-size: 11px; color: var(--text-dim);
+  font-style: italic;
+}
 
 /* Spell pop-up card (reuses item modal) */
 .spell-card-meta {
@@ -2615,9 +2628,9 @@ input[type=range]::-webkit-slider-thumb {
 }
 .inv-item:hover { border-color: var(--border-gold); background: rgba(201,162,39,0.04); }
 .inv-item-equipped {
-  border-color: var(--gold-dk) !important;
+  border-color: var(--border-gold) !important;
   background: rgba(201,162,39,0.08) !important;
-  box-shadow: 0 0 8px rgba(201,162,39,0.15);
+  box-shadow: inset 3px 0 0 var(--gold-dk), 0 0 10px rgba(201,162,39,0.12);
 }
 .inv-item-icon {
   font-size: 22px;
@@ -2629,7 +2642,7 @@ input[type=range]::-webkit-slider-thumb {
 .inv-item-name {
   font-family: var(--font-heading);
   font-size: 13px;
-  color: var(--text-hi);
+  color: var(--text-parchment);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2651,17 +2664,32 @@ input[type=range]::-webkit-slider-thumb {
   color: var(--text-dim);
   text-transform: capitalize;
 }
-.inv-rarity-common      { color: #aaa;    border-color: #444; }
-.inv-rarity-uncommon    { color: #4caf50; border-color: #4caf50; }
-.inv-rarity-rare        { color: #5b9bd5; border-color: #5b9bd5; }
-.inv-rarity-very-rare   { color: #9c59b6; border-color: #9c59b6; }
-.inv-rarity-legendary   { color: #f39c12; border-color: #f39c12; }
-.inv-rarity-artifact    { color: #e74c3c; border-color: #e74c3c; }
+.inv-rarity-common      { color: var(--text-mid);  border-color: var(--border-mid); }
+.inv-rarity-uncommon    { color: #6aad6a; border-color: #3d6b3d; }
+.inv-rarity-rare        { color: #6a95c9; border-color: #3a5a82; }
+.inv-rarity-very-rare   { color: #a06abf; border-color: #62388a; }
+.inv-rarity-legendary   { color: var(--gold); border-color: var(--border-gold); }
+.inv-rarity-artifact    { color: var(--red-lt); border-color: var(--red); }
 .inv-equipped-tag {
-  font-size: 10px;
-  color: var(--gold-dk);
+  font-size: 9px;
+  color: var(--border-bright);
   font-family: var(--font-heading);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  background: rgba(201,162,39,0.12);
+  border: 1px solid var(--gold-dk);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.inv-section-head {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 10px 12px 5px;
+  border-bottom: 1px solid var(--border-dim);
+  margin-bottom: 4px;
 }
 .inv-item-actions {
   display: flex;
@@ -2680,23 +2708,23 @@ input[type=range]::-webkit-slider-thumb {
   background: transparent;
   color: var(--text-mid);
 }
-.inv-btn:hover { border-color: var(--border-gold); color: var(--text-hi); }
+.inv-btn:hover { border-color: var(--border-gold); color: var(--text-parchment); }
 .inv-btn-equip {
   border-color: var(--gold-dk);
   color: var(--gold-dk);
 }
 .inv-btn-equip:hover { background: var(--gold-dk); color: #0d0b08; }
 .inv-btn-use {
-  border-color: #4caf50;
-  color: #4caf50;
+  border-color: var(--green);
+  color: var(--green-lt);
 }
-.inv-btn-use:hover { background: #4caf50; color: #0d0b08; }
+.inv-btn-use:hover { background: var(--green); color: var(--text-parchment); }
 .inv-btn-drop {
-  border-color: #6b2b2b;
-  color: #9a5555;
+  border-color: var(--red);
+  color: #c07070;
   padding: 4px 7px;
 }
-.inv-btn-drop:hover { background: #6b2b2b; color: #f0a0a0; }
+.inv-btn-drop:hover { background: var(--red); color: #f0c0c0; }
 
 /* ── Inventory gold bar ──────────────────────────────────────────── */
 .inv-gold-bar {
@@ -2718,7 +2746,7 @@ input[type=range]::-webkit-slider-thumb {
 .inv-gold-amount {
   font-family: var(--font-heading);
   font-size: 20px;
-  color: var(--gold-dk);
+  color: var(--gold);
   margin-left: auto;
   font-weight: 700;
 }

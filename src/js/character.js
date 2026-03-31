@@ -198,20 +198,20 @@ const RACE_ATTACKS = {
   aasimar:    ['Healing Hands (1d4 per level)','Radiant Soul (extra radiant damage)'],
 };
 
-// Starting item pools beyond class equipment
+// Starting item pools beyond class equipment — level 1 appropriate only
 const CLASS_ITEM_POOL = {
   fighter:   ['Shield','Chain Mail','Longsword','2× Handaxes','Light Crossbow + 20 bolts','Dungeoneer\'s Pack','Flail','Greataxe','Longbow + 20 arrows','Scale Mail','Spear'],
-  wizard:    ['Crystal Ball','Component Pouch','Arcane Tome','Wand of Magic Missiles','Robe of the Scholar','Ink & Quill','Ring of Protection','Potion of Healing','Bag of Holding (small)','Spellbook (spare)'],
+  wizard:    ['Component Pouch','Arcane Tome','Robe of the Scholar','Ink & Quill','Potion of Healing','Spellbook (spare)'],
   rogue:     ['Thieves\' Tools','Grappling Hook & Rope','Disguise Kit','Poisoner\'s Kit','Caltrops','Smoke Bomb ×2','Lockpicks','Dark Cloak','Short Bow + 20 arrows','Weighted Dice'],
-  cleric:    ['Holy Water ×2','Prayer Beads','Incense ×5','Silver Symbol','Healing Kit','Potion of Greater Healing','Sacred Candles','Plate Armor','Shield','Bell (warning)'],
+  cleric:    ['Holy Water ×2','Prayer Beads','Incense ×5','Silver Symbol','Healing Kit','Potion of Healing','Sacred Candles','Plate Armor','Shield','Bell (warning)'],
   ranger:    ['Hunting Trap','Herbalism Kit','Quiver + 40 arrows','Rope (50 ft)','Camouflage Cloak','Handaxe × 2','Compass','Field Rations ×10','Antitoxin','Mastiff Companion'],
-  paladin:   ['Holy Avenger (replica)','Plate Armor','Tower Shield','Blessed Oil','Potion of Cure Wounds ×2','Warhammer','Lantern of Revealing','Prayer Book','Silver Mirror','War Horn'],
-  druid:     ['Herbalism Kit','Wooden Staff','Seed Pouch','Leather Armor','Druidic Focus (stone)','Rope of Climbing','Torch ×5','Animal Messenger (scroll)','Sleep (scroll)','Berries ×10'],
+  paladin:   ['Replica Holy Avenger (hilt only)','Plate Armor','Chain Mail','Blessed Oil','Potion of Healing ×2','Warhammer','Lantern','Prayer Book','Silver Mirror','War Horn'],
+  druid:     ['Herbalism Kit','Wooden Staff','Seed Pouch','Leather Armor','Druidic Focus (stone)','Rope (50 ft)','Torch ×5','Speak with Animals (scroll)','Sleep (scroll)','Berries ×10'],
   bard:      ['Lute','Panpipes','Drum','Disguise Kit','Tome of Poetry','Ink & Quill','Fine Wine ×2','Rope (50 ft)','Dagger (decorated)','Letter of Introduction'],
-  warlock:   ['Eldritch Tome','Amulet of the Pact','Arcane Focus (orb)','Dark Robes','Potion of Resistance','Scroll of Charm Person','Imp Familiar Token','Black Candles ×3','Sigil of the Patron','Shadow Cloak'],
-  sorcerer:  ['Arcane Focus (crystal)','Scroll of Burning Hands','Scroll of Shield','Potion of Clarity','Component Bag','Robe of the Archmagi (apprentice)','Gem of Power (minor)','Wand of Wonder','Fire Opal','Draconic Scales (trinket)'],
+  warlock:   ['Eldritch Tome','Amulet of the Pact','Arcane Focus (orb)','Dark Robes','Scroll of Charm Person','Imp Familiar Token','Black Candles ×3','Sigil of the Patron','Shadow Cloak'],
+  sorcerer:  ['Arcane Focus (crystal)','Scroll of Burning Hands','Scroll of Shield','Component Bag','Apprentice Robes','Fire Opal','Draconic Scales (trinket)','Potion of Healing','Spellcasting Journal'],
   monk:      ['Prayer Beads','Incense','Meditation Mat','Rope (25 ft)','Shuriken ×10','Climbing Pitons ×5','Iron Wrist Wraps','Herbal Tea ×5','50 ft Silk Rope','Bag of Sand'],
-  barbarian: ['Bear Pelt Cloak','Healing Potion','Trophy Necklace','Climbing Pitons','Torch ×5','Iron Flask','Greatclub','Maul','Metal Shield','Wolf Fang Token'],
+  barbarian: ['Bear Pelt Cloak','Potion of Healing','Trophy Necklace','Climbing Pitons','Torch ×5','Iron Rations ×5','Greatclub','Maul','Metal Shield','Wolf Fang Token'],
 };
 const RACE_ITEM_POOL = {
   human:      ['Lucky Coin','Signet Ring','Family Heirloom Dagger','Common Clothing','Traveler\'s Map'],
@@ -741,7 +741,7 @@ class CharacterSystem {
   }
 
   // ── Proficiencies Step ───────────────────────────────────────
-  _refreshProfStep() {
+  async _refreshProfStep() {
     const r       = this._selections;
     const classId = r.cls?.id || 'fighter';
     const raceId  = r.race?.id || 'human';
@@ -911,6 +911,44 @@ class CharacterSystem {
         };
         itemGrid.appendChild(chip);
       });
+    }
+
+    // ── Level 1 Common items from Open5e SRD ─────────────────
+    if (itemGrid && window.open5e) {
+      const loadEl = document.createElement('span');
+      loadEl.className = 'items-loading-hint';
+      loadEl.textContent = '⏳ Loading SRD Common items…';
+      itemGrid.appendChild(loadEl);
+      try {
+        const srdItems = await window.open5e.getLevel1Items();
+        loadEl.remove();
+        srdItems.forEach(srdItem => {
+          const name = srdItem.name;
+          if (uniquePool.includes(name)) return;
+          uniquePool.push(name);
+          const isSel = r.extraItems.includes(name);
+          const chip  = document.createElement('button');
+          chip.className = 'prof-skill-chip' + (isSel ? ' selected' : '');
+          chip.textContent = name;
+          chip.title = 'Common magic item (Open5e SRD)';
+          chip.onclick = () => {
+            if (r.extraItems.includes(name)) {
+              r.extraItems = r.extraItems.filter(i => i !== name);
+              chip.classList.remove('selected');
+            } else if (r.extraItems.length < 5) {
+              r.extraItems.push(name);
+              chip.classList.add('selected');
+            } else {
+              window.app.showToast('You can only choose 5 extra items', 'error');
+            }
+            _updateItemSub();
+          };
+          itemGrid.appendChild(chip);
+        });
+      } catch (e) {
+        loadEl.remove();
+        console.warn('[Character] Could not load SRD items:', e.message);
+      }
     }
   }
 
@@ -1261,8 +1299,9 @@ class CharacterSystem {
       return;
     }
 
-    // Already loaded for this class
-    if (panel.dataset.loadedClass === c.classId) return;
+    // Already loaded for this class at this level
+    const cacheKey = `${c.classId}-${c.level === 1 ? 'lv1' : 'all'}`;
+    if (panel.dataset.loadedClass === cacheKey) return;
 
     loading.style.display = '';
     loading.textContent   = `Loading ${c.class} spells from Open5e…`;
@@ -1270,13 +1309,20 @@ class CharacterSystem {
 
     try {
       await window.open5e.init();
-      const spells = await window.open5e.getSpellsForClass(c.classId);
-      panel.dataset.loadedClass = c.classId;
+      const isLevel1 = c.level === 1;
+      const spells = isLevel1
+        ? await window.open5e.getLevel1SpellsForClass(c.classId)
+        : await window.open5e.getSpellsForClass(c.classId);
+      panel.dataset.loadedClass = cacheKey;
       loading.style.display = 'none';
 
       if (!spells.length) {
         content.innerHTML = `<div class="spells-empty">No SRD spells found for ${c.class}.</div>`;
         return;
+      }
+
+      if (isLevel1) {
+        content.innerHTML = `<div class="spells-level-note">⚔ Showing cantrips &amp; 1st-level spells — available at Level 1 (via Open5e SRD)</div>`;
       }
 
       // Group by level integer
@@ -1313,7 +1359,7 @@ class CharacterSystem {
           </div>`;
         }).join('');
 
-      content.innerHTML = rows;
+      content.innerHTML += rows;
 
       // Click to expand spell description
       content.querySelectorAll('.spell-row').forEach(row => {

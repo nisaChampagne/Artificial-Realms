@@ -335,6 +335,9 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
   }
 
   async _doSend(text, isSystem = false) {
+    if (this.isTyping) return;
+    this.isTyping = true;
+
     if (!isSystem) {
       // Show player's action
       this._addPlayerEntry(text);
@@ -374,6 +377,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     } catch (err) {
       this._addErrorEntry(err);
     } finally {
+      this.isTyping = false;
       document.getElementById('player-input').disabled = false;
       document.getElementById('btn-send').disabled     = false;
       document.getElementById('player-input').focus();
