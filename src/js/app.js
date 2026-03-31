@@ -658,13 +658,39 @@ class App {
   _checkForUpdates() {
     window.electronAPI.checkForUpdates().then(info => {
       if (!info?.hasUpdate) return;
-      const banner   = document.getElementById('update-banner');
-      const text     = document.getElementById('update-banner-text');
-      const dlBtn    = document.getElementById('update-banner-btn');
-      const dismiss  = document.getElementById('update-banner-dismiss');
+      const banner    = document.getElementById('update-banner');
+      const text      = document.getElementById('update-banner-text');
+      const dlBtn     = document.getElementById('update-banner-btn');
+      const dismiss   = document.getElementById('update-banner-dismiss');
+      const progressEl = document.getElementById('update-banner-progress');
+      const barEl      = document.getElementById('update-banner-bar');
+
       text.textContent = `New version v${info.latestVersion} is available`;
-      dlBtn.onclick    = () => window.electronAPI.openReleasePage(info.releaseUrl);
       dismiss.onclick  = () => banner.classList.add('hidden');
+
+      window.electronAPI.onUpdateProgress(pct => {
+        barEl.style.width = `${pct}%`;
+        if (pct >= 100) text.textContent = 'Installing…';
+      });
+
+      dlBtn.onclick = async () => {
+        dlBtn.disabled   = true;
+        dlBtn.textContent = 'Downloading…';
+        dismiss.disabled = true;
+        progressEl.classList.remove('hidden');
+        try {
+          const filePath = await window.electronAPI.downloadUpdate(info.exeDownloadUrl);
+          text.textContent = 'Installing…';
+          await window.electronAPI.installUpdate(filePath);
+        } catch {
+          text.textContent = 'Download failed — try again later';
+          dlBtn.disabled   = false;
+          dlBtn.textContent = 'Download';
+          dismiss.disabled = false;
+          progressEl.classList.add('hidden');
+        }
+      };
+
       banner.classList.remove('hidden');
     }).catch(() => {});
   }

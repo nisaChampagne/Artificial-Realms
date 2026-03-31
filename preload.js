@@ -25,7 +25,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow:    () => ipcRenderer.send('window:close'),
 
   // Auto-update
-  checkForUpdates:  ()    => ipcRenderer.invoke('update:check'),
-  openReleasePage:  (url) => ipcRenderer.invoke('update:open-release', url),
-  getReleases:      ()    => ipcRenderer.invoke('update:releases'),
+  checkForUpdates:   ()         => ipcRenderer.invoke('update:check'),
+  openReleasePage:   (url)      => ipcRenderer.invoke('update:open-release', url),
+  getReleases:       ()         => ipcRenderer.invoke('update:releases'),
+  downloadUpdate:    (url)      => ipcRenderer.invoke('update:download', url),
+  installUpdate:     (filePath) => ipcRenderer.invoke('update:install', filePath),
+  onUpdateProgress:  (cb)       => ipcRenderer.on('update:progress', (_e, pct) => cb(pct)),
 });

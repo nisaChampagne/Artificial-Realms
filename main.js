@@ -438,12 +438,17 @@ ipcMain.handle('update:check', () => {
           if (!release.tag_name) return resolve({ hasUpdate: false });
           const latest  = release.tag_name.replace(/^v/, '');
           const current = app.getVersion();
+          if (!semverGt(latest, current)) return resolve({ hasUpdate: false });
+          const assets  = Array.isArray(release.assets) ? release.assets : [];
+          const exeAsset = assets.find(a => typeof a.name === 'string' && a.name.endsWith('.exe'));
+          if (!exeAsset) return resolve({ hasUpdate: false });
           resolve({
-            hasUpdate:      semverGt(latest, current),
-            latestVersion:  latest,
-            currentVersion: current,
-            releaseUrl:     release.html_url ||
-                            `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+            hasUpdate:       true,
+            latestVersion:   latest,
+            currentVersion:  current,
+            exeDownloadUrl:  exeAsset.browser_download_url,
+            releaseUrl:      release.html_url ||
+                             `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
           });
         } catch { resolve({ hasUpdate: false }); }
       });
@@ -455,6 +460,59 @@ ipcMain.handle('update:check', () => {
 
 ipcMain.handle('update:open-release', (_e, url) => {
   shell.openExternal(url);
+});
+
+ipcMain.handle('update:download', (_e, url) => {
+  return new Promise((resolve, reject) => {
+    const os   = require('os');
+    const dest = path.join(os.tmpdir(), 'ArtificialRealms-Update.exe');
+    const file = fs.createWriteStream(dest);
+
+    const doRequest = (requestUrl) => {
+      const parsedUrl = new URL(requestUrl);
+      const options = {
+        hostname: parsedUrl.hostname,
+        path:     parsedUrl.pathname + parsedUrl.search,
+        method:   'GET',
+        headers:  { 'User-Agent': 'artificial-realms-updater' },
+      };
+      const mod = parsedUrl.protocol === 'https:' ? https : http;
+      const req = mod.request(options, (res) => {
+        if (res.statusCode === 302 || res.statusCode === 301) {
+          return doRequest(res.headers.location);
+        }
+        if (res.statusCode !== 200) {
+          file.close();
+          return reject(new Error(`HTTP ${res.statusCode}`));
+        }
+        const total = parseInt(res.headers['content-length'] || '0', 10);
+        let received = 0;
+        res.on('data', chunk => {
+          received += chunk.length;
+          if (total > 0 && mainWindow) {
+            mainWindow.webContents.send('update:progress', Math.round((received / total) * 100));
+          }
+        });
+        res.pipe(file);
+        file.on('finish', () => {
+          file.close(() => resolve(dest));
+        });
+      });
+      req.on('error', (err) => { file.close(); reject(err); });
+      req.end();
+    };
+
+    doRequest(url);
+  });
+});
+
+ipcMain.handle('update:install', (_e, filePath) => {
+  const { spawn } = require('child_process');
+  spawn(filePath, ['/SILENT', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'], {
+    detached: true,
+    stdio: 'ignore',
+  }).unref();
+  setTimeout(() => app.quit(), 1000);
 });
 
 ipcMain.handle('update:releases', () => {
