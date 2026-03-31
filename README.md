@@ -3,7 +3,7 @@
 > An AI-powered Dungeons & Dragons interactive experience built with Electron.
 
 ![Build and Release](https://github.com/nisaChampagne/Artificial-Realms/actions/workflows/release.yaml/badge.svg)
-![Version](https://img.shields.io/badge/version-1.1.1-gold)
+![Version](https://img.shields.io/badge/version-2.1.0-gold)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Electron](https://img.shields.io/badge/electron-28-47848F)
 
@@ -17,21 +17,43 @@ Artificial Realms is a desktop RPG powered by OpenAI's Chat Completions API (or 
 
 ## Features
 
-- **7-step character creation** — name, race, class, background, appearance, stats, review
+- **8-step character creation** — name, race, class, background, appearance, proficiencies & skills, stats, review
+- **8 premade characters** — one-click Quick Start heroes covering every major archetype
 - **Appearance system** — body type, skin tone, hair style/colour, eye colour, distinguishing mark; generates a layered SVG portrait
-- **AI Dungeon Master** — live OpenAI streaming or fully scripted demo mode (no API key required)
+- **AI Dungeon Master** — live OpenAI / compatible provider streaming or fully scripted demo mode (no API key required)
+- **Multi-provider AI** — OpenAI, Azure OpenAI, Ollama, or any OpenAI-compatible endpoint; built-in connection test
+- **Text-to-speech** — optional TTS narration with configurable voice and speed
 - **Initiative system** — overlay dice roll required before player attacks and before incoming damage lands
 - **Combat mechanics** — death saving throws, quick actions (Attack / Dodge / Hide / Help / Assess / Persuade)
 - **Rest system** — short rest (spend hit dice) and long rest (full restore)
 - **Level-up HP modal** — roll or take average on level-up
-- **Parchment character sheet** — styled full stat block with portrait, skills, equipment, and XP bar
+- **Inventory & gold** — item management with add / remove / equip and gold tracking
+- **Parchment character sheet** — styled full stat block with portrait, proficiencies, skills, equipment, and XP bar
 - **Mini HP bar** — always-visible health bar and HP counter in the game toolbar
 - **Choice cards** — numbered action cards with stagger animation and keyboard shortcuts
 - **Keyboard shortcuts** — `1`–`4` pick choices, `R` to roll, `C` / `D` open sheet / dice, `Escape` closes modals
 - **Dice roller** — animated d4–d100, advantage/disadvantage, modifiers
 - **Scene-aware audio** — ambient music that shifts with dungeon / combat / tavern / rest scenes
 - **Minimap** — top-down scene map that updates as the story progresses
+- **Auto-update** — in-app notifications when a new release is available
 - **Save / load** — multiple save slots with auto-save
+
+---
+
+## Premade Characters
+
+Select a premade hero on the Campaign screen for an instant start — no character creation required.
+
+| Hero | Race | Class | Playstyle |
+|---|---|---|---|
+| Thorin Ironwall | Dwarf | Fighter | Tank / frontline warrior |
+| Seraphina Dawnwhisper | Aasimar | Cleric | Healer / divine support |
+| Zara Nightshade | Tiefling | Warlock | Eldritch striker / trickster |
+| Elaryn Swiftstep | Elf | Rogue | Stealth / skill monkey |
+| Grak Stonehide | Half-Orc | Barbarian | Raging berserker |
+| Pip Tumblebottom | Halfling | Bard | Charisma / party support |
+| Aldric Spellweave | Human | Wizard | Arcane controller |
+| Sylvara Moonbow | Half-Elf | Ranger | Archer / tracker |
 
 ---
 
@@ -96,6 +118,9 @@ src/
     dice.js          Dice roller with canvas animation
     audio.js         Scene-aware ambient audio
     map.js           Minimap renderer
+    inventory.js     Inventory & gold management
+    journal.js       Session journal / adventure log
+    open5e.js        Open5e API integration (spells, monsters, items)
     save.js          Save/load slots
 assets/
   icon.png           App icon (256×256)
@@ -120,7 +145,7 @@ The workflow (`release.yaml`):
 3. Runs `npm run make` (Electron Forge — Squirrel installer + ZIP)
 4. Uploads `ArtificialRealms-{version}-Setup.exe` as a release asset
 
-**Latest release:** `v1.1.1`
+**Latest release:** `v2.1.0`
 
 To cut a new release:
 1. Bump `version` in `package.json`

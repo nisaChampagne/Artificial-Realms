@@ -356,6 +356,69 @@ class App {
     const arrow = document.getElementById('custom-toggle-arrow');
     if (arrow) arrow.textContent = '▾';
     this._updateBeginBtn();
+    this._buildPremadeGrid();
+  }
+
+  _buildPremadeGrid() {
+    const grid    = document.getElementById('premade-grid');
+    const premades = window.characterSystem?.PREMADE_CHARACTERS || [];
+    if (!grid || !premades.length) return;
+
+    const raceLabelMap = { halforc:'Half-Orc', halfelf:'Half-Elf', dragonborn:'Dragonborn',
+      tiefling:'Tiefling', aasimar:'Aasimar', gnome:'Gnome', halfling:'Halfling',
+      dwarf:'Dwarf', elf:'Elf', human:'Human' };
+
+    grid.innerHTML = premades.map(p => {
+      const raceDisplay  = raceLabelMap[p.raceId]  || (p.raceId.charAt(0).toUpperCase()  + p.raceId.slice(1));
+      const classDisplay = p.classId.charAt(0).toUpperCase() + p.classId.slice(1);
+      return `
+        <div class="premade-card" data-premade="${p.id}">
+          <div class="premade-icon">${p.icon}</div>
+          <div class="premade-name">${p.name}</div>
+          <div class="premade-tagline">${p.tagline}</div>
+          <div class="premade-badges">
+            <span class="premade-badge">${raceDisplay}</span>
+            <span class="premade-badge">${classDisplay}</span>
+          </div>
+          <div class="premade-desc">${p.desc}</div>
+          <button class="premade-play-btn" data-premade="${p.id}">⚡ Play</button>
+
+        </div>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.premade-card').forEach(card => {
+      card.addEventListener('click', () => this._selectPremade(card.dataset.premade));
+    });
+    grid.querySelectorAll('.premade-play-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._launchPremade(btn.dataset.premade);
+      });
+    });
+  }
+
+  _selectPremade(id) {
+    document.querySelectorAll('#premade-grid .premade-card').forEach(c => {
+      c.classList.toggle('selected', c.dataset.premade === id);
+    });
+  }
+
+  _launchPremade(id) {
+    if (!this.gameState.campaignType) {
+      this.showToast('Choose a campaign type first!', 'error'); return;
+    }
+    if (!this.gameState.difficulty) {
+      this.showToast('Choose a difficulty first!', 'error'); return;
+    }
+    const desc = document.getElementById('custom-campaign-desc').value.trim();
+    if (desc) {
+      this.gameState.campaignType = 'custom';
+      this.gameState.customDesc   = desc;
+    } else {
+      this.gameState.customDesc = '';
+    }
+    window.characterSystem.loadPremade(id);
   }
 
   _updateBeginBtn() {

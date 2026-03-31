@@ -1661,3 +1661,167 @@ class CharacterSystem {
 }
 
 window.characterSystem = new CharacterSystem();
+
+// ── Premade Characters ────────────────────────────────────────────────────────
+// 8 ready-to-play characters covering common D&D archetypes.
+// stats are BASE values before racial ability bonus is applied.
+const PREMADE_CHARACTERS = [
+  {
+    id: 'thorin',
+    name: 'Thorin Ironwall',
+    raceId: 'dwarf',
+    classId: 'fighter',
+    backgroundId: 'soldier',
+    icon: '⚔',
+    tagline: 'Dwarven Warrior',
+    desc: 'A battle-scarred dwarf veteran who has fought in a dozen campaigns. Tough as mountain stone and twice as stubborn.',
+    stats: { str:16, dex:10, con:14, int:10, wis:11, cha:8 },
+    skills: ['Athletics','Intimidation'],
+    attacks: ['Longsword (1d8 slashing)','Handaxe (1d6 slashing)','Heavy Crossbow (1d10 piercing)'],
+    extraItems: ['Shield','Chain Mail','Dungeoneer\'s Pack'],
+    languages: 'Common, Dwarvish',
+    appearance: { bodyType:'muscular', skinTone:'#9a9a9c', hairStyle:'short', hairColor:'#3d2008', eyeColor:'#7a5828', mark:'Battle scar across left cheek' },
+  },
+  {
+    id: 'seraphina',
+    name: 'Seraphina Dawnwhisper',
+    raceId: 'aasimar',
+    classId: 'cleric',
+    backgroundId: 'acolyte',
+    icon: '✨',
+    tagline: 'Celestial Healer',
+    desc: 'Born touched by celestial light, Seraphina serves as a conduit for divine grace. Her healing hands have brought many back from death\'s door.',
+    stats: { str:8, dex:10, con:13, int:12, wis:15, cha:14 },
+    skills: ['Insight','Religion'],
+    attacks: ['Mace (1d6 bludgeoning)','Sacred Flame — cantrip (1d8 radiant)','Toll the Dead — cantrip (1d8/1d12 necrotic)'],
+    extraItems: ['Holy Water ×2','Prayer Beads','Healing Kit'],
+    languages: 'Common, Celestial',
+    appearance: { bodyType:'slight', skinTone:'#f0dfc4', hairStyle:'long', hairColor:'#ece8e0', eyeColor:'#a0b0c0', mark:'Faint golden glow at brow' },
+  },
+  {
+    id: 'zara',
+    name: 'Zara Nightshade',
+    raceId: 'tiefling',
+    classId: 'warlock',
+    backgroundId: 'criminal',
+    icon: '🌑',
+    tagline: 'Infernal Pact-Maker',
+    desc: 'A tiefling street thief who struck a desperate pact with a fiend. Now she wields eldritch power — but at what cost?',
+    stats: { str:8, dex:14, con:13, int:13, wis:10, cha:14 },
+    skills: ['Deception','Intimidation'],
+    attacks: ['Eldritch Blast — cantrip (1d10 force)','Hex (extra 1d6 necrotic)','Dagger (1d4 piercing)'],
+    extraItems: ['Arcane Focus (orb)','Dark Robes','Eldritch Tome'],
+    languages: 'Common, Infernal',
+    appearance: { bodyType:'slight', skinTone:'#6b3f20', hairStyle:'wild', hairColor:'#1a1848', eyeColor:'#6848a0', mark:'Curved horns, arrow-tipped tail' },
+  },
+  {
+    id: 'elaryn',
+    name: 'Elaryn Swiftstep',
+    raceId: 'elf',
+    classId: 'rogue',
+    backgroundId: 'entertainer',
+    icon: '🗡',
+    tagline: 'Shadow Dancer',
+    desc: 'A nimble elven acrobat turned thief. Elaryn moves like smoke and strikes before her target even knows she\'s there.',
+    stats: { str:8, dex:16, con:12, int:13, wis:12, cha:12 },
+    skills: ['Acrobatics','Stealth','Perception','Deception'],
+    attacks: ['Shortsword (1d6 piercing)','Sneak Attack (extra 1d6 piercing)','Hand Crossbow (1d6 piercing)'],
+    extraItems: ['Thieves\' Tools','Dark Cloak','Caltrops'],
+    languages: 'Common, Elvish',
+    appearance: { bodyType:'slight', skinTone:'#e3c49a', hairStyle:'long', hairColor:'#1a1848', eyeColor:'#4878b0', mark:'Delicate silver ear-cuff with a tiny blade charm' },
+  },
+  {
+    id: 'grak',
+    name: 'Grak Stonehide',
+    raceId: 'halforc',
+    classId: 'barbarian',
+    backgroundId: 'outlander',
+    icon: '🪓',
+    tagline: 'Raging Berserker',
+    desc: 'Raised among the wild steppes, Grak\'s fury is a force of nature. He charges headlong into battle with a thunderous roar.',
+    stats: { str:16, dex:12, con:15, int:8, wis:10, cha:8 },
+    skills: ['Athletics','Intimidation'],
+    attacks: ['Greataxe (1d12 slashing)','Reckless Attack','Handaxe (1d6 slashing)'],
+    extraItems: ['Bear Pelt Cloak','Healing Potion','Trophy Necklace'],
+    languages: 'Common, Orc',
+    appearance: { bodyType:'muscular', skinTone:'#4a2010', hairStyle:'wild', hairColor:'#1a1008', eyeColor:'#3d2008', mark:'Clan brands on both arms' },
+  },
+  {
+    id: 'pip',
+    name: 'Pip Tumblebottom',
+    raceId: 'halfling',
+    classId: 'bard',
+    backgroundId: 'folk_hero',
+    icon: '🎵',
+    tagline: 'Merry Storyteller',
+    desc: 'This cheerful halfling bard has sung in hundred taverns and talked his way out of a thousand scrapes. His luck is almost magical.',
+    stats: { str:8, dex:14, con:12, int:12, wis:10, cha:15 },
+    skills: ['Performance','Persuasion','Deception'],
+    attacks: ['Rapier (1d8 piercing)','Vicious Mockery — cantrip (1d4 psychic)','Dagger (1d4 piercing)'],
+    extraItems: ['Lute','Fine Wine ×2','Disguise Kit'],
+    languages: 'Common, Halfling',
+    appearance: { bodyType:'slight', skinTone:'#c8906a', hairStyle:'curly', hairColor:'#7a4420', eyeColor:'#c89030', mark:'Permanent ink stains on fingers' },
+  },
+  {
+    id: 'aldric',
+    name: 'Aldric Spellweave',
+    raceId: 'human',
+    classId: 'wizard',
+    backgroundId: 'sage',
+    icon: '📚',
+    tagline: 'Arcane Scholar',
+    desc: 'A meticulous human scholar who spent decades in the great library before the call of adventure proved too strong. His spellbook is annotated in three languages.',
+    stats: { str:7, dex:12, con:13, int:16, wis:12, cha:9 },
+    skills: ['Arcana','History'],
+    attacks: ['Fire Bolt — cantrip (1d10 fire)','Ray of Frost — cantrip (1d8 cold)','Magic Missile (3× 1d4+1 force)'],
+    extraItems: ['Crystal Ball','Arcane Tome','Wand of Magic Missiles'],
+    languages: 'Common, Elvish, Dwarvish',
+    appearance: { bodyType:'slight', skinTone:'#e3c49a', hairStyle:'medium', hairColor:'#b0b8c0', eyeColor:'#788090', mark:'Arcane sigil tattooed on right palm' },
+  },
+  {
+    id: 'sylvara',
+    name: 'Sylvara Moonbow',
+    raceId: 'halfelf',
+    classId: 'ranger',
+    backgroundId: 'outlander',
+    icon: '🏹',
+    tagline: 'Elven Archer',
+    desc: 'Half-elven and wholly at home in the wild, Sylvara can track a ghost through stone. Her arrows rarely miss.',
+    stats: { str:12, dex:17, con:13, int:10, wis:14, cha:10 },
+    skills: ['Perception','Survival','Stealth'],
+    attacks: ['Longbow (1d8 piercing)','Shortsword (1d6 piercing)','Hunter\'s Mark (extra 1d6)'],
+    extraItems: ['Hunting Trap','Camouflage Cloak','Compass'],
+    languages: 'Common, Elvish, Sylvan',
+    appearance: { bodyType:'athletic', skinTone:'#c8906a', hairStyle:'braided', hairColor:'#d4a640', eyeColor:'#3a7840', mark:'Green ivy tattoo winding up left forearm' },
+  },
+];
+
+// Attach premade data and helper to the system instance
+window.characterSystem.PREMADE_CHARACTERS = PREMADE_CHARACTERS;
+
+CharacterSystem.prototype.loadPremade = function(premadeId) {
+  const premade = PREMADE_CHARACTERS.find(p => p.id === premadeId);
+  if (!premade) return;
+
+  const race       = RACES.find(r => r.id === premade.raceId);
+  const cls        = CLASSES.find(c => c.id === premade.classId);
+  const background = BACKGROUNDS.find(b => b.id === premade.backgroundId);
+
+  this._selections = {
+    name:       premade.name,
+    race,
+    cls,
+    background,
+    appearance: { ...premade.appearance, portraitUrl: undefined },
+    stats:      { ...premade.stats },
+    skills:     [...premade.skills],
+    skillBonuses: {},
+    languages:  premade.languages || (race?.lang ?? 'Common'),
+    acOverride:   null,
+    initOverride: null,
+    attacks:    [...premade.attacks],
+    extraItems: [...premade.extraItems],
+  };
+
+  this._finalize();
+};

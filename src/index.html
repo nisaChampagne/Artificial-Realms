@@ -362,91 +362,89 @@
 
 <!-- ═══════════════════════════════ SCREEN: CAMPAIGN SELECT ═════════════════ -->
 <div id="screen-campaign" class="screen">
-  <div class="screen-content">
-    <h2 class="screen-title">Choose Your Adventure</h2>
-    <p class="screen-subtitle">Pick a campaign and difficulty — then forge your character.</p>
+  <div class="camp-layout">
 
-    <div class="camp-section-label">Campaign Type</div>
-    <div class="campaign-cards" id="campaign-cards">
-
-      <div class="campaign-card" data-type="quick">
-        <div class="card-glow"></div>
-        <div class="campaign-icon">⚡</div>
-        <h3>Quick Quest</h3>
-        <div class="campaign-time">~1 Hour</div>
-        <p>A focused, single-objective adventure. Fast action, tight story. Perfect for a quick fix.</p>
-        <ul>
-          <li>1–2 combat encounters</li>
-          <li>Single dungeon or location</li>
-          <li>Clear beginning &amp; end</li>
-        </ul>
+    <!-- ── LEFT: Build Your Hero ───────────────────────────────────────────── -->
+    <div class="camp-col camp-col--left">
+      <div class="camp-col-header">
+        <h2 class="camp-col-title">⚔ Build Your Hero</h2>
+        <p class="camp-col-sub">Configure your adventure, then forge a character from scratch.</p>
       </div>
 
-      <div class="campaign-card" data-type="standard">
-        <div class="card-glow"></div>
-        <div class="campaign-icon">⚔</div>
-        <h3>Standard Campaign</h3>
-        <div class="campaign-time">3–4 Hours</div>
-        <p>A full session with story, exploration, and multiple encounters. The classic experience.</p>
-        <ul>
-          <li>3–5 combat encounters</li>
-          <li>Multiple locations</li>
-          <li>Rich NPCs &amp; subplots</li>
-        </ul>
+      <div class="camp-section-label">Campaign Type</div>
+      <div class="campaign-pills" id="campaign-cards">
+        <div class="campaign-card" data-type="quick">
+          <span class="pill-icon">⚡</span>
+          <div class="pill-body">
+            <span class="pill-name">Quick Quest</span>
+            <span class="pill-meta">~1 hr &nbsp;·&nbsp; 1–2 encounters, single location</span>
+          </div>
+        </div>
+        <div class="campaign-card" data-type="standard">
+          <span class="pill-icon">⚔</span>
+          <div class="pill-body">
+            <span class="pill-name">Standard Campaign</span>
+            <span class="pill-meta">3–4 hrs &nbsp;·&nbsp; Multiple locations &amp; rich NPCs</span>
+          </div>
+        </div>
+        <div class="campaign-card" data-type="epic">
+          <span class="pill-icon">🏆</span>
+          <div class="pill-body">
+            <span class="pill-name">Epic Campaign</span>
+            <span class="pill-meta">8+ hrs &nbsp;·&nbsp; Multi-act saga with leveling</span>
+          </div>
+        </div>
       </div>
 
-      <div class="campaign-card" data-type="epic">
-        <div class="card-glow"></div>
-        <div class="campaign-icon">🏆</div>
-        <h3>Epic Campaign</h3>
-        <div class="campaign-time">8+ Hours</div>
-        <p>An epic multi-act saga. Level up, make choices that matter, and forge your legend.</p>
-        <ul>
-          <li>Multiple acts &amp; leveling</li>
-          <li>Vast worldbuilding</li>
-          <li>Legendary encounters</li>
-        </ul>
+      <div class="custom-toggle-row">
+        <button class="custom-toggle-btn" id="btn-custom-toggle">✍ Custom Adventure <span class="custom-toggle-arrow" id="custom-toggle-arrow">▾</span></button>
+      </div>
+      <div class="custom-campaign-section hidden" id="custom-campaign-section">
+        <p>Describe the adventure you want the DM to run.</p>
+        <textarea id="custom-campaign-desc" rows="3" placeholder="e.g. A pirate adventure in treacherous seas, hunting a mythical sea monster…"></textarea>
       </div>
 
+      <div class="camp-section-label">Difficulty</div>
+      <div class="difficulty-cards" id="difficulty-cards">
+        <div class="difficulty-card" data-diff="cozy">
+          <div class="diff-icon">🌸</div>
+          <div class="diff-name">Cozy</div>
+          <div class="diff-dice">3d6</div>
+        </div>
+        <div class="difficulty-card" data-diff="adventure">
+          <div class="diff-icon">⚔</div>
+          <div class="diff-name">Adventure</div>
+          <div class="diff-dice">2d6</div>
+        </div>
+        <div class="difficulty-card" data-diff="hard">
+          <div class="diff-icon">💀</div>
+          <div class="diff-name">Hard</div>
+          <div class="diff-dice">1d6</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full btn-lg" id="btn-begin-adventure" disabled>⚔ Create Character</button>
+      <button class="btn-ghost back-btn" id="btn-back-campaign">← Main Menu</button>
     </div>
 
-    <div class="custom-toggle-row">
-      <button class="custom-toggle-btn" id="btn-custom-toggle">✍ Custom Adventure <span class="custom-toggle-arrow" id="custom-toggle-arrow">▾</span></button>
-    </div>
-    <div class="custom-campaign-section hidden" id="custom-campaign-section">
-      <p>Describe the adventure you want the DM to run.</p>
-      <textarea id="custom-campaign-desc" rows="3" placeholder="e.g. A pirate adventure in treacherous seas, hunting a mythical sea monster…"></textarea>
-    </div>
-
-    <div class="camp-section-label">Difficulty</div>
-    <div class="difficulty-cards" id="difficulty-cards">
-
-      <div class="difficulty-card" data-diff="cozy">
-        <div class="diff-icon">🌸</div>
-        <div class="diff-name">Cozy</div>
-        <div class="diff-dice">3d6</div>
-        <div class="diff-desc">Roll 3 dice per ability score. A gentler journey where story shines.</div>
-      </div>
-
-      <div class="difficulty-card" data-diff="adventure">
-        <div class="diff-icon">⚔</div>
-        <div class="diff-name">Adventure</div>
-        <div class="diff-dice">2d6</div>
-        <div class="diff-desc">Roll 2 dice per ability score. The classic balanced experience.</div>
-      </div>
-
-      <div class="difficulty-card" data-diff="hard">
-        <div class="diff-icon">💀</div>
-        <div class="diff-name">Hard</div>
-        <div class="diff-dice">1d6</div>
-        <div class="diff-desc">Roll 1 die per ability score. Only the strongest will survive.</div>
-      </div>
-
+    <!-- ── OR Divider ──────────────────────────────────────────────────────── -->
+    <div class="camp-or-divider">
+      <div class="camp-or-line"></div>
+      <span class="camp-or-label">or</span>
+      <div class="camp-or-line"></div>
     </div>
 
-    <button class="btn btn-primary btn-full btn-lg" id="btn-begin-adventure" disabled>⚔ Create Character</button>
+    <!-- ── RIGHT: Quick Start ─────────────────────────────────────────────── -->
+    <div class="camp-col camp-col--right">
+      <div class="camp-col-header">
+        <h2 class="camp-col-title">⚡ Quick Start</h2>
+        <p class="camp-col-sub">Pick a premade hero and jump straight in. Difficulty is shared with the left panel.</p>
+      </div>
+      <div class="premade-grid" id="premade-grid">
+        <!-- Populated by app.js -->
+      </div>
+    </div>
 
-    <button class="btn-ghost back-btn" id="btn-back-campaign">← Main Menu</button>
   </div>
 </div>
 
