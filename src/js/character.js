@@ -726,8 +726,10 @@ class CharacterSystem {
       const input  = box.querySelector(`#mi-${ab}`);
       const modEl  = box.querySelector(`#sm-manual-${ab}`);
       const refresh = () => {
-        const val = parseInt(input.value);
-        if (val >= 1 && val <= 20) {
+        let val = parseInt(input.value);
+        if (!isNaN(val)) {
+          val = Math.max(1, Math.min(20, val));
+          input.value = val;
           const mod = this._mod(val + bonus);
           modEl.textContent = `(${mod >= 0 ? '+' : ''}${mod})`;
         } else {
@@ -787,8 +789,8 @@ class CharacterSystem {
     const initHint = document.getElementById('prof-init-hint');
     if (acHint)   acHint.textContent   = `Default: ${10 + dexMod}`;
     if (initHint) initHint.textContent = `Default: ${dexMod >= 0 ? '+' : ''}${dexMod}`;
-    if (acEl)   { acEl.value   = r.acOverride   != null ? r.acOverride   : ''; acEl.oninput   = () => { const v=parseInt(acEl.value);   r.acOverride   = isNaN(v)?null:v; }; }
-    if (initEl) { initEl.value = r.initOverride != null ? r.initOverride : ''; initEl.oninput = () => { const v=parseInt(initEl.value); r.initOverride = isNaN(v)?null:v; }; }
+    if (acEl)   { acEl.value   = r.acOverride   != null ? r.acOverride   : ''; acEl.oninput   = () => { let v=parseInt(acEl.value);   if(!isNaN(v)){v=Math.max(0,Math.min(20,v));acEl.value=v;}   r.acOverride   = isNaN(v)?null:v; }; }
+    if (initEl) { initEl.value = r.initOverride != null ? r.initOverride : ''; initEl.oninput = () => { let v=parseInt(initEl.value); if(!isNaN(v)){v=Math.max(-10,Math.min(20,v));initEl.value=v;} r.initOverride = isNaN(v)?null:v; }; }
 
     // ── All Skills with proficiency toggle + bonus input ─────
     const skillTableEl = document.getElementById('prof-skill-table');
@@ -841,7 +843,11 @@ class CharacterSystem {
         bonusInput.max         = '20';
         bonusInput.title       = 'Extra bonus to this skill';
         bonusInput.oninput = () => {
-          const v = parseInt(bonusInput.value);
+          let v = parseInt(bonusInput.value);
+          if (!isNaN(v)) {
+            v = Math.max(-10, Math.min(20, v));
+            bonusInput.value = v;
+          }
           r.skillBonuses[sk.name] = isNaN(v) ? 0 : v;
         };
 
