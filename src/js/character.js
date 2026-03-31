@@ -1082,6 +1082,17 @@ class CharacterSystem {
     if (tbFill) { tbFill.style.width = `${pct * 100}%`; tbFill.style.background = bar.style.background; }
     if (tbCur)  tbCur.textContent = c.currentHp;
     if (tbMax)  tbMax.textContent = c.maxHp;
+    // XP bar
+    const thr    = CharacterSystem.XP_THRESHOLDS;
+    const lvl    = c.level || 1;
+    const xpCur  = c.xp || 0;
+    const xpThis = thr[lvl]     || 0;
+    const xpNext = thr[lvl + 1] || null;
+    const xpPct  = xpNext ? Math.min(1, (xpCur - xpThis) / (xpNext - xpThis)) : 1;
+    const xpBar  = document.getElementById('hud-xp-bar');
+    const xpTxt  = document.getElementById('hud-xp-text');
+    if (xpBar) xpBar.style.width = `${xpPct * 100}%`;
+    if (xpTxt) xpTxt.textContent = xpNext ? `${xpCur} / ${xpNext} XP` : `${xpCur} XP · Max`;
   }
 
   openSheet() {
@@ -1128,6 +1139,17 @@ class CharacterSystem {
     document.getElementById('s-init').textContent  = (initVal >= 0 ? '+' : '') + initVal;
     document.getElementById('s-speed').textContent = `${c.speed} ft`;
     document.getElementById('s-prof').textContent  = `+${c.profBonus}`;
+    // XP on sheet
+    const thr2   = CharacterSystem.XP_THRESHOLDS;
+    const xpNext2 = thr2[(c.level || 1) + 1];
+    const sXP = document.getElementById('s-xp');
+    if (sXP) sXP.textContent = xpNext2 ? `${c.xp || 0} / ${xpNext2}` : `${c.xp || 0} (Max)`;
+    const sXPBar = document.getElementById('s-xp-bar');
+    if (sXPBar) {
+      const xpThis2 = thr2[c.level || 1] || 0;
+      const frac = xpNext2 ? Math.min(1, ((c.xp || 0) - xpThis2) / (xpNext2 - xpThis2)) : 1;
+      sXPBar.style.width = `${frac * 100}%`;
+    }
     document.getElementById('s-hp').textContent    = c.currentHp;
     document.getElementById('s-hp-max').textContent= c.maxHp;
     const pct = Math.max(0, c.currentHp / c.maxHp);
@@ -1626,22 +1648,42 @@ class CharacterSystem {
     </svg>`;
   }
 
+  // D&D 5e XP thresholds — minimum XP required to reach each level (index = level)
+  static get XP_THRESHOLDS() {
+    return [0, 0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000,
+            64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
+  }
+
+  static profBonusForLevel(level) {
+    if (level >= 17) return 6;
+    if (level >= 13) return 5;
+    if (level >= 9)  return 4;
+    if (level >= 5)  return 3;
+    return 2;
+  }
+
   gainXP(amount) {
     if (!this.character) return;
-    this.character.xp += amount;
-    window.app.showToast(`+${amount} XP gained!`, 'success');
-    // Simple level up at milestone XP thresholds
-    const thresholds = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000];
+    this.character.xp = (this.character.xp || 0) + amount;
+    const thr = CharacterSystem.XP_THRESHOLDS;
     let newLevel = 1;
-    for (let i = thresholds.length - 1; i >= 0; i--) {
-      if (this.character.xp >= thresholds[i]) { newLevel = i + 1; break; }
+    for (let i = thr.length - 1; i >= 1; i--) {
+      if (this.character.xp >= thr[i]) { newLevel = i; break; }
     }
-    if (newLevel > this.character.level && newLevel <= 10) {
-      this.character.level = newLevel;
-      const bonus = newLevel < 5 ? 2 : newLevel < 9 ? 3 : 4;
-      this.character.profBonus = bonus;
+    newLevel = Math.min(newLevel, 20);
+
+    if (newLevel > this.character.level) {
+      this.character.level    = newLevel;
+      this.character.profBonus = CharacterSystem.profBonusForLevel(newLevel);
       if (this.character.hitDice) this.character.hitDice.total = newLevel;
       this._openLevelUpModal(newLevel);
+    } else {
+      const nextThr = thr[Math.min(this.character.level + 1, 20)];
+      const remaining = nextThr ? nextThr - this.character.xp : 0;
+      const msg = remaining > 0
+        ? `+${amount} XP · ${remaining} to next level`
+        : `+${amount} XP · Max level!`;
+      window.app.showToast(msg, 'success');
     }
     this.updateHUD();
   }

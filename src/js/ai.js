@@ -311,7 +311,17 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 • Whenever the narrative describes a specific named structure, landmark, or point of interest that the player is approaching or can see — such as a manor house, bridge, gate, well, altar, statue, encampment, mill, watchtower, or fallen monument — include [MAP:Short Name] immediately after [SCENE:X]. Use the structure's specific name (e.g. [MAP:Thornwick Manor] or [MAP:Collapsed Gate] or [MAP:Stone Bridge]). This places a visible glowing beacon with the name on the map so the player can see exactly what is ahead. Omit this tag only when the player is already deep inside a location with nothing new in sight.
 • When the character takes damage, include [HP:-N] (e.g. [HP:-5]).
 • When the character is healed, include [HP:+N].
-• When the character earns XP, include [XP:+N].
+• During any combat, include [ENEMY:Name:currentHp:maxHp] to drive the enemy health bar (e.g. [ENEMY:Goblin Leader:18:18] when the fight starts, then updated after every exchange where the enemy takes damage, e.g. [ENEMY:Goblin Leader:10:18]). Use realistic D&D 5e HP values for the creature type and CR. When the enemy is defeated or all combat ends, include [ENEMY:clear].
+• When the character earns XP, include [XP:+N]. Award XP using realistic D&D 5e values:
+  - Trivial task / minor info: 10–25 XP
+  - Easy encounter / small obstacle: 50–100 XP
+  - Medium encounter / meaningful challenge: 150–250 XP
+  - Hard encounter / dangerous fight: 300–500 XP
+  - Boss / deadly climactic encounter: 600–1000 XP
+  - Clever roleplay / social resolution: 50–150 XP
+  - Significant discovery / exploration milestone: 25–100 XP
+  - Quest / arc completion: 200–500 XP
+  Award XP at the natural end of an encounter or scene, not mid-action. Scale rewards to the character's current level.
 • If the character gains a status condition (Poisoned, Blinded, Frightened, etc.), include [CONDITION:name].
 • If the character finds, is given, or picks up ANY notable object — magic items, maps, documents, keys, gemstones, strange stones, relics, tokens, letters, fetishes, or other curiosities — include [ITEM:exact name]. Use the object's specific name, not a generic label.
 • When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]). For smaller rewards use [SILVER:+N] (silver pieces) or [BRASS:+N] (brass pieces). 10 sp = 1 gp, 10 bp = 1 sp. Use silver for tavern tips, small jobs, minor loot. Use brass for trivial finds (beggar's coin, table scraps). Use gold for meaningful treasure.
@@ -469,6 +479,27 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
             const charName = window.characterSystem?.character?.name || 'You';
             const sign = bDelta >= 0 ? '+' : '';
             this._addSystemEntry(`🟤 ${charName} ${bDelta >= 0 ? 'finds' : 'loses'} <strong>${sign}${bDelta} bp</strong>.`);
+          }
+          break;
+        }
+        case 'ENEMY': {
+          if (val.toLowerCase() === 'clear') {
+            document.getElementById('enemy-hp-pill').style.display = 'none';
+            document.getElementById('enemy-hud-sep').style.display = 'none';
+          } else {
+            const ep = val.split(':');
+            const eName = ep[0]?.trim() || 'Enemy';
+            const eCur  = Math.max(0, parseInt(ep[1]) || 0);
+            const eMax  = Math.max(1, parseInt(ep[2]) || eCur || 1);
+            const ePct  = Math.min(100, Math.round((eCur / eMax) * 100));
+            document.getElementById('enemy-hud-name').textContent = eName;
+            document.getElementById('enemy-hud-hp').textContent = eCur;
+            document.getElementById('enemy-hud-hp-max').textContent = eMax;
+            const bar = document.getElementById('enemy-hud-bar');
+            bar.style.width = ePct + '%';
+            bar.style.background = ePct > 50 ? 'var(--red-lt)' : ePct > 25 ? 'var(--gold)' : 'var(--red)';
+            document.getElementById('enemy-hp-pill').style.display = 'flex';
+            document.getElementById('enemy-hud-sep').style.display = '';
           }
           break;
         }

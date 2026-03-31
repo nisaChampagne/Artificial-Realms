@@ -472,6 +472,22 @@
         </div>
         <span class="hp-text"><span id="hud-hp">10</span>/<span id="hud-hp-max">10</span></span>
       </div>
+      <div class="xp-pill">
+        <span class="xp-icon">✦</span>
+        <div class="xp-pill-bar-bg">
+          <div class="xp-pill-bar" id="hud-xp-bar" style="width:0%"></div>
+        </div>
+        <span class="xp-text" id="hud-xp-text">0 XP</span>
+      </div>
+      <span class="hud-divider" id="enemy-hud-sep" style="display:none">|</span>
+      <div class="enemy-hp-pill" id="enemy-hp-pill" style="display:none">
+        <span class="enemy-icon">💀</span>
+        <span class="enemy-hud-name" id="enemy-hud-name">Enemy</span>
+        <div class="enemy-hp-bar-bg">
+          <div class="enemy-hp-bar" id="enemy-hud-bar" style="width:100%"></div>
+        </div>
+        <span class="enemy-hp-text"><span id="enemy-hud-hp">?</span>/<span id="enemy-hud-hp-max">?</span></span>
+      </div>
     </div>
     <div class="game-title-center">⚔ ARTIFICIAL REALMS</div>
     <div class="game-header-actions">
@@ -635,6 +651,10 @@
           <div class="smg-item"><span class="smg-label">Class</span><span class="smg-val" id="s-class">—</span></div>
           <div class="smg-item"><span class="smg-label">Level</span><span class="smg-val" id="s-level">1</span></div>
           <div class="smg-item"><span class="smg-label">Background</span><span class="smg-val" id="s-bg">—</span></div>
+          <div class="smg-item smg-full"><span class="smg-label">Experience</span><span class="smg-val" id="s-xp">0 / 300</span></div>
+          <div class="smg-item smg-full">
+            <div class="xp-sheet-bar-bg"><div class="xp-sheet-bar" id="s-xp-bar" style="width:0%"></div></div>
+          </div>
           <div class="smg-item"><span class="smg-label">AC</span><span class="smg-val smg-editable" id="s-ac" contenteditable="true" spellcheck="false" title="Click to edit">—</span></div>
           <div class="smg-item"><span class="smg-label">Initiative</span><span class="smg-val smg-editable" id="s-init" contenteditable="true" spellcheck="false" title="Click to edit">—</span></div>
           <div class="smg-item"><span class="smg-label">Speed</span><span class="smg-val smg-editable" id="s-speed" contenteditable="true" spellcheck="false" title="Click to edit">30 ft</span></div>
@@ -1030,6 +1050,7 @@
         <button class="tab-btn" data-help-tab="map">🗺 Map</button>
         <button class="tab-btn" data-help-tab="toolbar">🧰 Toolbar</button>
         <button class="tab-btn" data-help-tab="economy">🪙 Economy</button>
+        <button class="tab-btn" data-help-tab="xp">⭐ XP</button>
         <button class="tab-btn" data-help-tab="tips">💡 Tips</button>
       </div>
 
@@ -1136,6 +1157,41 @@
           <div class="help-row"><span class="help-icon" style="color:#5a82a0">◆</span><div><strong>Rare</strong> — 2 gp 5 sp sell value.</div></div>
           <div class="help-row"><span class="help-icon" style="color:#7a5a9e">◆</span><div><strong>Very Rare</strong> — 25 gp sell value.</div></div>
           <div class="help-row"><span class="help-icon" style="color:var(--gold)">◆</span><div><strong>Legendary</strong> — 250 gp sell value.</div></div>
+        </div>
+      </div>
+
+      <!-- XP -->
+      <div class="help-panel hidden" id="help-panel-xp">
+        <div class="help-section">
+          <div class="help-section-title">Earning Experience</div>
+          <div class="help-row"><span class="help-icon">⚔</span><div><strong>Combat</strong> — defeating enemies awards XP based on their challenge rating. Harder foes give more.</div></div>
+          <div class="help-row"><span class="help-icon">🧩</span><div><strong>Exploration</strong> — discovering new locations, solving puzzles, and bypassing obstacles awards XP.</div></div>
+          <div class="help-row"><span class="help-icon">🤝</span><div><strong>Roleplay &amp; Social</strong> — persuading, deceiving, or negotiating your way through encounters earns XP too.</div></div>
+          <div class="help-row"><span class="help-icon">📜</span><div><strong>Quests</strong> — completing a quest or major story milestone gives a significant XP bonus.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">XP Scale (Approximate)</div>
+          <div class="help-row"><span class="help-icon" style="color:#aaa">◆</span><div><strong>Trivial</strong> (picking a lock, minor discovery) — <em>10–25 XP</em></div></div>
+          <div class="help-row"><span class="help-icon" style="color:#6a9e6a">◆</span><div><strong>Easy</strong> (weak enemy, simple puzzle) — <em>50–100 XP</em></div></div>
+          <div class="help-row"><span class="help-icon" style="color:#5a82a0">◆</span><div><strong>Medium</strong> (tough enemy, side quest) — <em>150–300 XP</em></div></div>
+          <div class="help-row"><span class="help-icon" style="color:#7a5a9e">◆</span><div><strong>Hard</strong> (dangerous fight, major puzzle) — <em>350–500 XP</em></div></div>
+          <div class="help-row"><span class="help-icon" style="color:var(--gold)">◆</span><div><strong>Boss / Milestone</strong> (story climax, legendary enemy) — <em>600–1,000 XP</em></div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Levelling Up</div>
+          <div class="help-row"><span class="help-icon">🔼</span><div>When you reach the XP threshold for your next level, a <strong>Level Up!</strong> notification appears and the DM narrates the moment.</div></div>
+          <div class="help-row"><span class="help-icon">📈</span><div>Your <strong>Proficiency Bonus</strong> increases at levels 5, 9, 13, and 17, boosting all skills and attacks.</div></div>
+          <div class="help-row"><span class="help-icon">⭐</span><div>Track your progress in the <strong>XP bar</strong> in the top header, or open your <em>Character Sheet</em> for the full breakdown.</div></div>
+          <div class="help-row"><span class="help-icon">🏆</span><div>The maximum level is <strong>20</strong>, requiring 355,000 total XP — the pinnacle of D&amp;D 5e power.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">D&amp;D 5e Level Thresholds</div>
+          <div class="help-row"><span class="help-icon">1</span><div>Level 1–2: <em>0 / 300 XP</em></div></div>
+          <div class="help-row"><span class="help-icon">3</span><div>Level 3–4: <em>900 / 2,700 XP</em></div></div>
+          <div class="help-row"><span class="help-icon">5</span><div>Level 5–6: <em>6,500 / 14,000 XP</em> — major power spike</div></div>
+          <div class="help-row"><span class="help-icon">7</span><div>Level 7–10: <em>23,000 → 64,000 XP</em></div></div>
+          <div class="help-row"><span class="help-icon">11</span><div>Level 11–15: <em>85,000 → 165,000 XP</em></div></div>
+          <div class="help-row"><span class="help-icon">16</span><div>Level 16–20: <em>195,000 → 355,000 XP</em></div></div>
         </div>
       </div>
 
