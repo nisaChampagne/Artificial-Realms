@@ -40,7 +40,6 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false
     },
     frame: false,
     backgroundColor: '#0a0a0f',
@@ -180,8 +179,8 @@ function _chatGemini(messages, apiKey, model) {
     };
     const body    = JSON.stringify(payload);
     const mdl     = model || 'gemini-2.0-flash';
-    const apiPath = `/v1beta/models/${mdl}:generateContent?key=${apiKey}`;
-    const headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) };
+    const apiPath = `/v1beta/models/${mdl}:generateContent`;
+    const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey, 'Content-Length': Buffer.byteLength(body) };
     const req = https.request({ hostname: 'generativelanguage.googleapis.com', path: apiPath, method: 'POST', headers }, (res) => {
       let data = '';
       res.on('data', c => { data += c; });
@@ -261,7 +260,12 @@ ipcMain.handle('ai:image', async (_event, prompt, apiKey) => {
 // ── Save / Load ───────────────────────────────────────────────────────────────
 const savesDir = () => path.join(app.getPath('userData'), 'saves');
 
+function isValidSlot(slot) {
+  return typeof slot === 'string' && /^[a-zA-Z0-9_-]+$/.test(slot);
+}
+
 ipcMain.handle('save:write', (_e, slot, data) => {
+  if (!isValidSlot(slot)) throw new Error('Invalid save slot');
   const dir = savesDir();
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, `save_${slot}.json`), JSON.stringify(data, null, 2));
@@ -269,6 +273,7 @@ ipcMain.handle('save:write', (_e, slot, data) => {
 });
 
 ipcMain.handle('save:read', (_e, slot) => {
+  if (!isValidSlot(slot)) return null;
   const fp = path.join(savesDir(), `save_${slot}.json`);
   if (!fs.existsSync(fp)) return null;
   return JSON.parse(fs.readFileSync(fp, 'utf8'));
@@ -296,6 +301,7 @@ ipcMain.handle('save:list', () => {
 });
 
 ipcMain.handle('save:delete', (_e, slot) => {
+  if (!isValidSlot(slot)) throw new Error('Invalid save slot');
   const fp = path.join(savesDir(), `save_${slot}.json`);
   if (fs.existsSync(fp)) fs.unlinkSync(fp);
   return { success: true };
@@ -378,9 +384,9 @@ ipcMain.handle('provider:ping', async (_e, provider, apiKey, model) => {
   if (provider === 'gemini') {
     return new Promise((resolve) => {
       const mdl  = model || 'gemini-2.0-flash';
-      const path = `/v1beta/models/${mdl}?key=${apiKey}`;
+      const path = `/v1beta/models/${mdl}`;
       const req = https.request(
-        { hostname: 'generativelanguage.googleapis.com', path, method: 'GET', headers: {} },
+        { hostname: 'generativelanguage.googleapis.com', path, method: 'GET', headers: { 'x-goog-api-key': apiKey } },
         (res) => {
           let data = '';
           res.on('data', c => { data += c; });
@@ -459,7 +465,9 @@ ipcMain.handle('update:check', () => {
 });
 
 ipcMain.handle('update:open-release', (_e, url) => {
-  shell.openExternal(url);
+  if (typeof url === 'string' && url.startsWith(`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/`)) {
+    shell.openExternal(url);
+  }
 });
 
 ipcMain.handle('update:download', (_e, url) => {
@@ -470,16 +478,24 @@ ipcMain.handle('update:download', (_e, url) => {
 
     const doRequest = (requestUrl) => {
       const parsedUrl = new URL(requestUrl);
+      if (parsedUrl.protocol !== 'https:') {
+        file.close();
+        return reject(new Error('Download URL must use HTTPS'));
+      }
       const options = {
         hostname: parsedUrl.hostname,
         path:     parsedUrl.pathname + parsedUrl.search,
         method:   'GET',
         headers:  { 'User-Agent': 'artificial-realms-updater' },
       };
-      const mod = parsedUrl.protocol === 'https:' ? https : http;
-      const req = mod.request(options, (res) => {
+      const req = https.request(options, (res) => {
         if (res.statusCode === 302 || res.statusCode === 301) {
-          return doRequest(res.headers.location);
+          const location = res.headers.location || '';
+          if (!location.startsWith('https://')) {
+            file.close();
+            return reject(new Error('Redirect to non-HTTPS blocked'));
+          }
+          return doRequest(location);
         }
         if (res.statusCode !== 200) {
           file.close();
