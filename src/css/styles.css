@@ -2992,6 +2992,72 @@ input[type=range]::-webkit-slider-thumb {
   color: var(--text-dim);
   border-bottom: 1px solid var(--border-dim);
 }
+.market-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+.market-tab {
+  background: transparent;
+  border: 1px solid var(--border-dim);
+  color: var(--text-dim);
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.market-tab:hover {
+  background: rgba(201,162,39,0.1);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.market-tab.active {
+  background: rgba(201,162,39,0.15);
+  border-color: var(--gold);
+  color: var(--gold);
+  font-weight: 600;
+}
+.market-sort {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-dim);
+}
+.market-sort-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+.market-sort-btn {
+  background: transparent;
+  border: 1px solid var(--border-dim);
+  color: var(--text-dim);
+  padding: 4px 12px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.market-sort-btn:hover {
+  background: rgba(201,162,39,0.08);
+  border-color: rgba(201,162,39,0.4);
+  color: var(--text-primary);
+}
+.market-sort-btn.active {
+  background: rgba(201,162,39,0.12);
+  border-color: var(--gold);
+  color: var(--gold);
+  font-weight: 600;
+}
 .market-list {
   overflow-y: auto;
   max-height: 340px;
@@ -3015,6 +3081,18 @@ input[type=range]::-webkit-slider-thumb {
   color: var(--text-parchment);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.market-item-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+.market-stock {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 400;
+  margin-left: 6px;
+  font-style: italic;
+}
 .market-item-price {
   font-family: var(--font-heading);
   font-size: 13px;
@@ -3037,19 +3115,6 @@ input[type=range]::-webkit-slider-thumb {
   font-style: italic;
   font-size: 13px;
 }
-.inv-btn-sell {
-  background: rgba(45,122,45,0.18);
-  border: 1px solid var(--green);
-  color: var(--green-lt);
-  border-radius: 3px;
-  padding: 3px 10px;
-  font-size: 11px;
-  font-family: var(--font-heading);
-  cursor: pointer;
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-.inv-btn-sell:hover { background: var(--green); color: var(--text-parchment); }
 
 /* ── Inventory qty badge ────────────────────────────────────────────── */
 .inv-qty-tag {

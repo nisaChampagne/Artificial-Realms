@@ -101,7 +101,14 @@ class App {
     this.settings.ttsEnabled = document.getElementById('tts-toggle').checked;
     this.settings.ttsVoice   = document.getElementById('tts-voice-select').value;
     await window.electronAPI.saveSettings(this.settings);
-    this.showToast('Settings saved', 'success');
+    
+    // Show appropriate message based on demo mode
+    if (this.settings.demoMode) {
+      this.showToast('Demo Mode enabled — no API calls will be made', 'success');
+    } else {
+      this.showToast('Settings saved', 'success');
+    }
+    
     this.showScreen('menu');
   }
 
@@ -915,7 +922,7 @@ class App {
       window.characterSystem.character,
       type,
       customDesc,
-      this._getActiveApiKey(),
+      this.settings.demoMode ? '' : this._getActiveApiKey(), // Don't pass API key in demo mode
       this.settings.model,
       parseInt(this.settings.textSpeed),
       this.settings.demoMode ?? false

@@ -395,11 +395,19 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     this._lastSentSystem = isSystem;
 
     try {
-      const response = await this._callWithRetry(() =>
-        (this.demoMode || !this.apiKey)
-          ? this._mockResponse()
-          : window.electronAPI.sendToAI(trimmed, this.apiKey, this.model, this.provider)
-      );
+      // In demo mode, NEVER call AI API - always use mock responses
+      const response = await this._callWithRetry(() => {
+        if (this.demoMode) {
+          console.log('[AI] Demo mode active - using scripted responses (no API call)');
+          return this._mockResponse();
+        }
+        if (!this.apiKey) {
+          console.log('[AI] No API key provided - using fallback demo responses');
+          return this._mockResponse();
+        }
+        console.log(`[AI] Sending request to ${this.provider} API`);
+        return window.electronAPI.sendToAI(trimmed, this.apiKey, this.model, this.provider);
+      });
       this.messages.push({ role: 'assistant', content: response });
       await this._processResponse(response);
     } catch (err) {

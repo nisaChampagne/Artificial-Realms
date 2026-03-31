@@ -25,12 +25,16 @@ class InventorySystem {
     this.items    = [];   // [{ id, name, type, slot, rarity, desc, reqAtune, equipped, qty }]
     this._uid     = 1;
     this.currency = 0;   // total in brass pieces (1 gp = 100 bp, 1 sp = 10 bp)
+    this._shopStock = null; // Track shop inventory
+    this._marketSortBy = 'default'; // 'default', 'price-asc', 'price-desc'
   }
 
   reset() {
     this.items    = [];
     this._uid     = 1;
     this.currency = 0;
+    this._shopStock = null;
+    this._marketSortBy = 'default';
     this._updateBadge();
     this._renderCurrency();
   }
@@ -418,17 +422,61 @@ class InventorySystem {
     return Math.floor(base / 2);
   }
 
+  // Shop catalog with items for purchase (prices in brass pieces)
+  _shopCatalog() {
+    return [
+      // Consumables
+      { name: 'Potion of Healing', type: 'Consumable', price: 500, stock: 5, desc: 'Restores 2d4+2 hit points when consumed.' },
+      { name: 'Potion of Greater Healing', type: 'Consumable', price: 2000, stock: 2, desc: 'Restores 4d4+4 hit points when consumed.' },
+      { name: 'Antitoxin', type: 'Consumable', price: 300, stock: 3, desc: 'Grants advantage on saving throws against poison for 1 hour.' },
+      { name: 'Holy Water', type: 'Consumable', price: 250, stock: 4, desc: 'As an action, you can splash this on a creature. Deals 2d6 radiant damage to fiends and undead.' },
+      // Tools & Gear
+      { name: "Healer's Kit", type: 'Misc', price: 50, stock: 3, desc: 'Contains bandages, salves, and splints. Has 10 uses for stabilizing dying creatures.' },
+      { name: "Thieves' Tools", type: 'Misc', price: 500, stock: 2, desc: 'Essential for picking locks and disarming traps. Proficiency required for best results.' },
+      { name: 'Rope (50 feet)', type: 'Misc', price: 10, stock: 8, desc: 'Hemp rope that can support up to 600 lbs. Essential for climbing and securing.' },
+      { name: 'Torches (10)', type: 'Misc', price: 5, stock: 12, desc: 'Each torch burns for 1 hour, providing bright light in a 20-foot radius.' },
+      { name: 'Rations (7 days)', type: 'Misc', price: 35, stock: 10, desc: 'Dried meats, hardtack, and preserved food for one week of travel.' },
+      { name: 'Bedroll', type: 'Misc', price: 10, stock: 6, desc: 'A warm sleeping roll for comfortable rest during long journeys.' },
+      // Weapons (common)
+      { name: 'Dagger', type: 'Weapon', price: 20, stock: 8, desc: 'Simple melee weapon. 1d4 piercing damage. Finesse, light, thrown (20/60).' },
+      { name: 'Shortsword', type: 'Weapon', price: 100, stock: 4, desc: 'Martial melee weapon. 1d6 piercing damage. Finesse, light.' },
+      { name: 'Longsword', type: 'Weapon', price: 150, stock: 3, desc: 'Martial melee weapon. 1d8 slashing damage (1d10 two-handed). Versatile.' },
+      { name: 'Shortbow', type: 'Weapon', price: 250, stock: 3, desc: 'Simple ranged weapon. 1d6 piercing damage. Ammunition (80/320), two-handed.' },
+      { name: 'Longbow', type: 'Weapon', price: 500, stock: 2, desc: 'Martial ranged weapon. 1d8 piercing damage. Ammunition (150/600), heavy, two-handed.' },
+      { name: 'Arrows (20)', type: 'Consumable', price: 10, stock: 15, desc: 'Standard arrows for bows. Required for ranged attacks.' },
+      // Armor
+      { name: 'Leather Armor', type: 'Armor', price: 100, stock: 4, desc: 'Light armor. AC 11 + Dex modifier. Worn by rogues and rangers.' },
+      { name: 'Chain Shirt', type: 'Armor', price: 500, stock: 2, desc: 'Medium armor. AC 13 + Dex modifier (max 2). Discreet under clothing.' },
+      { name: 'Shield', type: 'Shield', price: 100, stock: 5, desc: 'Wooden or metal shield. +2 bonus to AC while wielded.' },
+      // Spell scrolls
+      { name: 'Scroll of Identify', type: 'Scroll', price: 300, stock: 2, desc: 'Reveals magical properties of one item or creature when read.' },
+      { name: 'Scroll of Cure Wounds', type: 'Scroll', price: 300, stock: 3, desc: 'Heals 1d8 + spellcasting modifier hit points when cast.' },
+      // Curiosities & useful items
+      { name: 'Spyglass', type: 'Wondrous', price: 10000, stock: 1, desc: 'Objects viewed through a spyglass are magnified to twice their size.' },
+      { name: 'Lantern (Hooded)', type: 'Misc', price: 50, stock: 6, desc: 'Casts bright light in a 30-foot radius. Burns oil for 6 hours.' },
+      { name: 'Flask of Oil', type: 'Consumable', price: 1, stock: 20, desc: 'Burns for 6 hours in a lantern. Can be thrown and ignited (1d6 fire damage).' },
+      { name: 'Crowbar', type: 'Misc', price: 20, stock: 4, desc: 'Grants advantage on Strength checks where leverage can be applied.' },
+      { name: 'Grappling Hook', type: 'Misc', price: 20, stock: 5, desc: 'Secures rope for climbing. Can be thrown up to 50 feet with a check.' },
+      { name: 'Tinderbox', type: 'Misc', price: 5, stock: 8, desc: 'Flint, steel, and tinder for lighting fires and torches.' },
+    ];
+  }
+
   openMarket() {
+    // Initialize shop stock on first visit
+    if (!this._shopStock) {
+      this._shopStock = this._shopCatalog().map(item => ({ ...item }));
+    }
+    this._marketTab = this._marketTab || 'buy';
     this._renderMarket();
     document.getElementById('modal-market').classList.remove('hidden');
   }
 
   _renderMarket() {
-    const sellable = this.items.filter(i => !i.equipped && this._itemValue(i) > 0);
     const wallet   = document.getElementById('market-wallet');
     const list     = document.getElementById('market-items');
     const sellAll  = document.getElementById('market-sell-all');
 
+    // Render currency
     if (wallet) {
       const total = Math.max(0, Math.round(this.currency));
       const gp = Math.floor(total / 100);
@@ -441,34 +489,134 @@ class InventorySystem {
         `<span class="market-coin market-coin-bp">🟤 ${bp} bp</span></span>`;
     }
 
-    if (!sellable.length) {
-      list.innerHTML = `<div class="market-empty">Nothing in your pack to sell.</div>`;
-      if (sellAll) sellAll.disabled = true;
+    // Render tabs and sort controls
+    const subtitle = document.querySelector('.market-subtitle');
+    if (subtitle) {
+      subtitle.innerHTML = `
+        <div class="market-tabs">
+          <button class="market-tab ${this._marketTab === 'buy' ? 'active' : ''}" data-tab="buy">🛒 Buy</button>
+          <button class="market-tab ${this._marketTab === 'sell' ? 'active' : ''}" data-tab="sell">💰 Sell</button>
+        </div>
+        <div class="market-sort">
+          <span class="market-sort-label">Sort:</span>
+          <button class="market-sort-btn ${this._marketSortBy === 'default' ? 'active' : ''}" data-sort="default">Default</button>
+          <button class="market-sort-btn ${this._marketSortBy === 'price-asc' ? 'active' : ''}" data-sort="price-asc">Price ↑</button>
+          <button class="market-sort-btn ${this._marketSortBy === 'price-desc' ? 'active' : ''}" data-sort="price-desc">Price ↓</button>
+        </div>`;
+      subtitle.querySelectorAll('.market-tab').forEach(btn =>
+        btn.addEventListener('click', () => {
+          this._marketTab = btn.dataset.tab;
+          this._renderMarket();
+        }));
+      subtitle.querySelectorAll('.market-sort-btn').forEach(btn =>
+        btn.addEventListener('click', () => {
+          this._marketSortBy = btn.dataset.sort;
+          this._renderMarket();
+        }));
+    }
+
+    if (this._marketTab === 'buy') {
+      // BUY TAB
+      if (sellAll) sellAll.style.display = 'none';
+      let catalog = this._shopStock || this._shopCatalog();
+      
+      // Apply sorting
+      catalog = this._sortMarketItems([...catalog], 'price');
+
+      list.innerHTML = catalog.map((item, idx) => {
+        // Need to find original index for buying
+        const origIdx = (this._shopStock || this._shopCatalog()).findIndex(orig => 
+          orig.name === item.name && orig.type === item.type);
+        const icon = TYPE_ICONS[item.type] || '📦';
+        const priceStr = this._formatCurrency(item.price);
+        const canAfford = this.currency >= item.price;
+        const inStock = (item.stock || 0) > 0;
+        const stockLabel = item.stock ? ` (${item.stock} in stock)` : ' (Out of stock)';
+        return `
+          <div class="market-item" data-idx="${origIdx}">
+            <span class="market-item-icon">${icon}</span>
+            <div class="market-item-info">
+              <span class="market-item-name">${item.name}<span class="market-stock">${stockLabel}</span></span>
+              <span class="market-item-desc">${item.desc}</span>
+            </div>
+            <div class="market-item-price">${priceStr}</div>
+            <button class="inv-btn inv-btn-buy ${canAfford && inStock ? '' : 'inv-btn-disabled'}" data-idx="${origIdx}" ${canAfford && inStock ? '' : 'disabled'}>Buy</button>
+          </div>`;
+      }).join('');
+
+      list.querySelectorAll('.inv-btn-buy').forEach(btn =>
+        btn.addEventListener('click', () => this.buyItem(parseInt(btn.dataset.idx))));
+
+    } else {
+      // SELL TAB
+      let sellable = this.items.filter(i => !i.equipped && this._itemValue(i) > 0);
+
+      if (!sellable.length) {
+        list.innerHTML = `<div class="market-empty">Nothing in your pack to sell.</div>`;
+        if (sellAll) { sellAll.disabled = true; sellAll.style.display = ''; }
+        return;
+      }
+      if (sellAll) { sellAll.disabled = false; sellAll.style.display = ''; }
+
+      // Apply sorting
+      sellable = this._sortMarketItems(sellable, 'value');
+
+      list.innerHTML = sellable.map(item => {
+        const icon       = TYPE_ICONS[item.type] || '📦';
+        const price      = this._itemValue(item);
+        const priceStr   = this._formatCurrency(price);
+        const totalPrice = this._formatCurrency(price * (item.qty || 1));
+        const rarityClass = (item.rarity || 'common').toLowerCase().replace(/\s+/g, '-');
+        const qtyStr = (item.qty || 1) > 1 ? ` ×${item.qty}` : '';
+        return `
+          <div class="market-item" data-id="${item.id}">
+            <span class="market-item-icon">${icon}</span>
+            <div class="market-item-info">
+              <span class="market-item-name">${item.name}${qtyStr}</span>
+              <span class="inv-rarity inv-rarity-${rarityClass}">${item.rarity || item.type}</span>
+            </div>
+            <div class="market-item-price">${(item.qty||1)>1?totalPrice:priceStr}<span class="market-each">${(item.qty||1)>1?` (${priceStr} ea.)`:''}</span></div>
+            <button class="inv-btn inv-btn-sell" data-id="${item.id}">Sell</button>
+          </div>`;
+      }).join('');
+
+      list.querySelectorAll('.inv-btn-sell').forEach(btn =>
+        btn.addEventListener('click', () => this.sellItem(parseInt(btn.dataset.id))));
+    }
+  }
+
+  buyItem(catalogIdx) {
+    if (!this._shopStock) this._shopStock = this._shopCatalog().map(item => ({ ...item }));
+    const shopItem = this._shopStock[catalogIdx];
+    if (!shopItem) return;
+    
+    // Check stock
+    if (!shopItem.stock || shopItem.stock <= 0) {
+      const charName = window.characterSystem?.character?.name || 'You';
+      window.aiSystem?._addSystemEntry(`⚠️ The merchant is out of ${shopItem.name}.`);
       return;
     }
-    if (sellAll) sellAll.disabled = false;
+    
+    // Check if player can afford it
+    if (this.currency < shopItem.price) {
+      const charName = window.characterSystem?.character?.name || 'You';
+      window.aiSystem?._addSystemEntry(`⚠️ ${charName} cannot afford ${shopItem.name}. Need ${this._formatCurrency(shopItem.price - this.currency)} more.`);
+      return;
+    }
 
-    list.innerHTML = sellable.map(item => {
-      const icon       = TYPE_ICONS[item.type] || '📦';
-      const price      = this._itemValue(item);
-      const priceStr   = this._formatCurrency(price);
-      const totalPrice = this._formatCurrency(price * (item.qty || 1));
-      const rarityClass = (item.rarity || 'common').toLowerCase().replace(/\s+/g, '-');
-      const qtyStr = (item.qty || 1) > 1 ? ` ×${item.qty}` : '';
-      return `
-        <div class="market-item" data-id="${item.id}">
-          <span class="market-item-icon">${icon}</span>
-          <div class="market-item-info">
-            <span class="market-item-name">${item.name}${qtyStr}</span>
-            <span class="inv-rarity inv-rarity-${rarityClass}">${item.rarity || item.type}</span>
-          </div>
-          <div class="market-item-price">${(item.qty||1)>1?totalPrice:priceStr}<span class="market-each">${(item.qty||1)>1?` (${priceStr} ea.)`:''}</span></div>
-          <button class="inv-btn inv-btn-sell" data-id="${item.id}">Sell</button>
-        </div>`;
-    }).join('');
+    // Deduct currency, reduce stock, and add item
+    this.currency = Math.max(0, this.currency - shopItem.price);
+    shopItem.stock = Math.max(0, shopItem.stock - 1);
+    this.addItem(shopItem.name, { desc: shopItem.desc });
 
-    list.querySelectorAll('.inv-btn-sell').forEach(btn =>
-      btn.addEventListener('click', () => this.sellItem(parseInt(btn.dataset.id))));
+    const charName = window.characterSystem?.character?.name || 'You';
+    window.aiSystem?._addSystemEntry(
+      `🛒 ${charName} purchased <strong>${shopItem.name}</strong> for <strong>${this._formatCurrency(shopItem.price)}</strong>.`
+    );
+
+    this._updateBadge();
+    this._renderCurrency();
+    this._renderMarket();
   }
 
   sellItem(id) {
@@ -504,9 +652,31 @@ class InventorySystem {
     this._renderMarket();
   }
 
+  _sortMarketItems(items, priceKey) {
+    // priceKey can be 'price' (for buy catalog) or 'value' (for sell items)
+    if (this._marketSortBy === 'default') {
+      return items; // Keep original order
+    }
+    
+    const sorted = [...items];
+    sorted.sort((a, b) => {
+      const priceA = priceKey === 'price' ? a.price : this._itemValue(a);
+      const priceB = priceKey === 'price' ? b.price : this._itemValue(b);
+      
+      if (this._marketSortBy === 'price-asc') {
+        return priceA - priceB;
+      } else if (this._marketSortBy === 'price-desc') {
+        return priceB - priceA;
+      }
+      return 0;
+    });
+    
+    return sorted;
+  }
+
   // ── Serialize / Restore ─────────────────────────────────────
   serialize() {
-    return { items: this.items, uid: this._uid, currency: this.currency };
+    return { items: this.items, uid: this._uid, currency: this.currency, shopStock: this._shopStock };
   }
 
   restore(data) {
@@ -515,6 +685,7 @@ class InventorySystem {
     this._uid     = data.uid   || (this.items.length + 1);
     // Migrate old saves that stored gold in gp
     this.currency = data.currency ?? ((data.gold || 0) * 100);
+    this._shopStock = data.shopStock || null;
     this._updateBadge();
     this._renderCurrency();
   }
