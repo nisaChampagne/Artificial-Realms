@@ -4,7 +4,7 @@
 class App {
   constructor() {
     this.currentScreen = 'menu';
-    this.settings = { apiKey: '', model: 'gpt-4o', demoMode: false, volume: 70, textSpeed: 15 };
+    this.settings = { apiKey: '', model: 'gpt-4o', provider: 'openai', demoMode: false, volume: 70, textSpeed: 15, ttsEnabled: false, ttsVoice: '' };
     this.gameState  = { campaignType: null, customDesc: '', difficulty: null };
     this._toastTimer = null;
   }
@@ -29,6 +29,9 @@ class App {
 
     // Check for updates (non-blocking, runs in background)
     this._checkForUpdates();
+
+    // Apply TTS icon from loaded settings
+    this._applyTTSIcon();
 
     // Apply volume from settings
     document.getElementById('vol-slider').value       = this.settings.volume;
@@ -66,11 +69,17 @@ class App {
   }
 
   async persistSettings() {
-    this.settings.apiKey    = document.getElementById('api-key-input').value.trim();
-    this.settings.model     = document.getElementById('model-select').value;
-    this.settings.demoMode  = document.getElementById('demo-mode-toggle').checked;
-    this.settings.volume    = parseInt(document.getElementById('settings-volume').value);
-    this.settings.textSpeed = parseInt(document.getElementById('text-speed').value);
+    this.settings.apiKey     = document.getElementById('api-key-input').value.trim();
+    this.settings.provider   = document.getElementById('provider-select').value;
+    const ollamaInp = document.getElementById('ollama-model-input');
+    this.settings.model      = this.settings.provider === 'ollama'
+      ? (ollamaInp?.value.trim() || 'llama3')
+      : document.getElementById('model-select').value;
+    this.settings.demoMode   = document.getElementById('demo-mode-toggle').checked;
+    this.settings.volume     = parseInt(document.getElementById('settings-volume').value);
+    this.settings.textSpeed  = parseInt(document.getElementById('text-speed').value);
+    this.settings.ttsEnabled = document.getElementById('tts-toggle').checked;
+    this.settings.ttsVoice   = document.getElementById('tts-voice-select').value;
     await window.electronAPI.saveSettings(this.settings);
     this.showToast('Settings saved', 'success');
     this.showScreen('menu');
@@ -81,9 +90,83 @@ class App {
     document.getElementById('settings-volume').value     = this.settings.volume    ?? 70;
     document.getElementById('text-speed').value          = this.settings.textSpeed ?? 15;
     document.getElementById('vol-label').textContent     = `${this.settings.volume ?? 70}%`;
-    document.getElementById('model-select').value        = this.settings.model     || 'gpt-4o';
+    document.getElementById('provider-select').value     = this.settings.provider  || 'openai';
+    document.getElementById('tts-toggle').checked        = this.settings.ttsEnabled ?? false;
     document.getElementById('demo-mode-toggle').checked  = this.settings.demoMode  ?? false;
     this._applyDemoModeUI(this.settings.demoMode ?? false);
+    this._applyProviderUI(this.settings.provider || 'openai');
+    this._populateTTSVoices();
+  }
+
+  _applyProviderUI(provider) {
+    const modelGroup  = document.getElementById('model-select-group');
+    const ollamaGroup = document.getElementById('ollama-model-group');
+    const apiKeyGroup = document.getElementById('api-key-group');
+    const linkEl      = document.getElementById('link-provider');
+    const keyLabel    = document.getElementById('api-key-label');
+    const modelHint   = document.getElementById('model-select-hint');
+    const isOllama    = provider === 'ollama';
+
+    if (modelGroup)  modelGroup.classList.toggle('hidden',  isOllama);
+    if (ollamaGroup) ollamaGroup.classList.toggle('hidden', !isOllama);
+
+    // Update model options
+    const modelSelect = document.getElementById('model-select');
+    if (modelSelect) {
+      const options = {
+        openai: [
+          ['gpt-4o',        'GPT-4o (Recommended)'],
+          ['gpt-4-turbo',   'GPT-4 Turbo'],
+          ['gpt-4',         'GPT-4'],
+          ['gpt-3.5-turbo', 'GPT-3.5 Turbo (Faster / Cheaper)'],
+        ],
+        anthropic: [
+          ['claude-opus-4-5',          'Claude Opus 4.5 (Most capable)'],
+          ['claude-sonnet-4-5',        'Claude Sonnet 4.5 (Recommended)'],
+          ['claude-3-haiku-20240307',  'Claude 3 Haiku (Faster / Cheaper)'],
+        ],
+        gemini: [
+          ['gemini-2.0-flash',  'Gemini 2.0 Flash (Recommended)'],
+          ['gemini-1.5-flash',  'Gemini 1.5 Flash'],
+          ['gemini-1.5-pro',    'Gemini 1.5 Pro'],
+        ],
+      };
+      const list = options[provider] || options.openai;
+      modelSelect.innerHTML = list.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+      const saved = this.settings.model;
+      if (saved && list.some(([v]) => v === saved)) modelSelect.value = saved;
+    }
+
+    // Update Ollama model input
+    const ollamaInp = document.getElementById('ollama-model-input');
+    if (ollamaInp && isOllama && this.settings.model) ollamaInp.value = this.settings.model;
+
+    // Update API key label & link
+    const providerInfo = {
+      openai:    { label: 'OpenAI API Key',    href: 'https://platform.openai.com/api-keys',                  hint: 'Billing required at platform.openai.com/settings/billing' },
+      anthropic: { label: 'Anthropic API Key', href: 'https://console.anthropic.com/settings/keys',           hint: 'Usage info at console.anthropic.com' },
+      gemini:    { label: 'Gemini API Key',    href: 'https://aistudio.google.com/app/apikey',                 hint: 'Free tier available at Google AI Studio' },
+      ollama:    { label: 'API Key',           href: 'https://ollama.ai',                                      hint: 'No key needed for local Ollama' },
+    };
+    const info = providerInfo[provider] || providerInfo.openai;
+    if (keyLabel)   keyLabel.textContent = info.label;
+    if (linkEl)     linkEl.href = info.href;
+    if (modelHint)  modelHint.textContent = info.hint;
+    if (apiKeyGroup) apiKeyGroup.style.opacity      = isOllama ? '0.35' : '1';
+    if (apiKeyGroup) apiKeyGroup.style.pointerEvents = isOllama ? 'none' : '';
+  }
+
+  _populateTTSVoices() {
+    const sel = document.getElementById('tts-voice-select');
+    if (!sel || !window.speechSynthesis) return;
+    const populate = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const saved  = this.settings.ttsVoice || '';
+      sel.innerHTML = '<option value="">Default System Voice</option>' +
+        voices.map(v => `<option value="${v.name}"${v.name === saved ? ' selected' : ''}>${v.name} (${v.lang})</option>`).join('');
+    };
+    populate();
+    window.speechSynthesis.onvoiceschanged = populate;
   }
 
   // ── Menu Buttons ─────────────────────────────────────────────
@@ -111,16 +194,30 @@ class App {
     document.getElementById('demo-mode-toggle').addEventListener('change', (e) => {
       this._applyDemoModeUI(e.target.checked);
     });
+    document.getElementById('provider-select').addEventListener('change', (e) => {
+      this._applyProviderUI(e.target.value);
+    });
     document.getElementById('link-provider').onclick = (e) => {
       e.preventDefault();
-      window.open('https://platform.openai.com/settings/billing', '_blank');
+      const provider = document.getElementById('provider-select').value;
+      const links = {
+        openai:    'https://platform.openai.com/settings/billing',
+        anthropic: 'https://console.anthropic.com/settings/keys',
+        gemini:    'https://aistudio.google.com/app/apikey',
+        ollama:    'https://ollama.ai',
+      };
+      window.open(links[provider] || links.openai, '_blank');
     };
+    const ollamaLink = document.getElementById('link-ollama');
+    if (ollamaLink) ollamaLink.onclick = (e) => { e.preventDefault(); window.open('https://ollama.ai', '_blank'); };
   }
 
   _applyDemoModeUI(on) {
-    const apiGroup   = document.getElementById('api-key-input').closest('.form-group');
-    const modelGroup = document.getElementById('model-select').closest('.form-group');
-    [apiGroup, modelGroup].forEach(g => {
+    const apiGroup   = document.getElementById('api-key-group');
+    const modelGroup = document.getElementById('model-select-group');
+    const provGroup  = document.getElementById('provider-select')?.closest('.form-group');
+    [apiGroup, modelGroup, provGroup].forEach(g => {
+      if (!g) return;
       g.style.opacity        = on ? '0.35' : '1';
       g.style.pointerEvents  = on ? 'none' : '';
     });
@@ -208,6 +305,7 @@ class App {
   _bindGameButtons() {
     document.getElementById('btn-quit-game').onclick = () => {
       if (confirm('Return to main menu? (Unsaved progress will be lost)')) {
+        window.speechSynthesis?.cancel();
         window.audioSystem?.stopAll();
         window.saveSystem.stopAutoSave();
         this.showScreen('menu');
@@ -217,11 +315,42 @@ class App {
     document.getElementById('btn-open-dice').onclick = () => window.diceSystem.openModal();
     document.getElementById('btn-open-char').onclick = () => window.characterSystem.openSheet();
     document.getElementById('btn-rules').onclick     = () => this._openRulesPanel();
+    document.getElementById('btn-perception-log').onclick = () => this._openPerceptionLog();
+
+    document.getElementById('btn-journal').onclick  = () => window.journalSystem?.open();
+    document.getElementById('close-modal-journal').onclick = () => window.journalSystem?.close();
+
+    // Journal tabs
+    ['npcs','lore','decisions'].forEach(tab => {
+      const btn = document.getElementById(`journal-tab-${tab}`);
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[id^="journal-tab-"]').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('[id^="journal-panel-"]').forEach(p => p.classList.add('hidden'));
+        btn.classList.add('active');
+        document.getElementById(`journal-panel-${tab}`)?.classList.remove('hidden');
+      });
+    });
+
+    // TTS toggle button
+    const ttsBtn = document.getElementById('btn-tts');
+    if (ttsBtn) {
+      ttsBtn.addEventListener('click', () => {
+        this.settings.ttsEnabled = !this.settings.ttsEnabled;
+        this._applyTTSIcon();
+        if (!this.settings.ttsEnabled) window.speechSynthesis?.cancel();
+        window.electronAPI.saveSettings(this.settings).catch(() => {});
+      });
+    }
 
     // Quick action buttons
     document.getElementById('quick-actions').addEventListener('click', (e) => {
       const btn = e.target.closest('.quick-btn');
       if (!btn || window.aiSystem.isTyping) return;
+      if (btn.id === 'btn-quick-perception') {
+        this._rerollPerception(window.mapSystem?.currentScene);
+        return;
+      }
       const action = btn.dataset.action;
       document.getElementById('player-input').value = '';
       document.getElementById('input-hints').innerHTML = '';
@@ -243,6 +372,15 @@ class App {
     document.getElementById('rules-search-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this._searchRules();
     });
+
+    // Perception log modal
+    document.getElementById('close-modal-perception-log').onclick = () =>
+      document.getElementById('modal-perception-log').classList.add('hidden');
+  }
+
+  _applyTTSIcon() {
+    const icon = document.getElementById('tts-icon');
+    if (icon) icon.textContent = this.settings.ttsEnabled ? '🔊' : '🔇';
   }
 
   _onPlayerSend() {
@@ -326,7 +464,85 @@ class App {
       if ((e.key === 'd' || e.key === 'D') && openModals().length === 0) {
         window.diceSystem?.openModal(); return;
       }
+
+      // J : journal (no modal open)
+      if ((e.key === 'j' || e.key === 'J') && openModals().length === 0) {
+        window.journalSystem?.open(); return;
+      }
+
+      // P : perception log (no modal open)
+      if ((e.key === 'p' || e.key === 'P') && openModals().length === 0) {
+        this._openPerceptionLog(); return;
+      }
     });
+  }
+
+  // ── Perception Log Panel ─────────────────────────────────────
+  _openPerceptionLog() {
+    const cache   = window.mapSystem?._perceptionCache || {};
+    const entries = Object.entries(cache);
+    const container = document.getElementById('perception-log-entries');
+    const currentScene = window.mapSystem?.currentScene;
+
+    if (entries.length === 0) {
+      container.innerHTML = '<div class="rules-hint">No perception checks recorded yet. Enter a location to roll.</div>';
+    } else {
+      container.innerHTML = entries.map(([scene, data]) => {
+        const total  = data.roll + data.bonus;
+        const icon   = total >= 20 ? '👁️' : total >= 16 ? '🔍' : total >= 11 ? '👀' : total >= 6 ? '🌫️' : '⚫';
+        const bonusStr = data.bonus >= 0 ? `+${data.bonus}` : `${data.bonus}`;
+        const tierClass = total >= 20 ? 'perc-tier-exc'
+                        : total >= 16 ? 'perc-tier-good'
+                        : total >= 11 ? 'perc-tier-mid'
+                        : 'perc-tier-low';
+        const desc = this._perceptionDesc(total);
+        const isCurrent = scene === currentScene;
+        const rerollBtn = isCurrent
+          ? `<button class="perc-reroll-btn" data-scene="${scene}">🎲 Re-roll</button>`
+          : '';
+        return `<div class="perc-entry">
+          <div class="perc-entry-header">
+            <span class="perc-icon">${icon}</span>
+            <span class="perc-location">${data.label}${isCurrent ? ' <span class="perc-current-badge">current</span>' : ''}</span>
+            <span class="perc-total ${tierClass}">${total}</span>
+          </div>
+          <div class="perc-breakdown">d20(${data.roll}) ${bonusStr} = <strong>${total}</strong></div>
+          <div class="perc-desc">${desc}</div>
+          <div class="perc-entry-footer">
+            <span class="perc-cached-note">✓ Revisits this location will not require another check.</span>
+            ${rerollBtn}
+          </div>
+        </div>`;
+      }).join('');
+
+      container.querySelectorAll('.perc-reroll-btn').forEach(btn => {
+        btn.addEventListener('click', () => this._rerollPerception(btn.dataset.scene));
+      });
+    }
+
+    document.getElementById('modal-perception-log').classList.remove('hidden');
+  }
+
+  _rerollPerception(scene) {
+    const ms = window.mapSystem;
+    if (!ms || scene !== ms.currentScene) return;
+
+    // Clear cache and re-roll immediately, applying new fog reveal
+    delete ms._perceptionCache[scene];
+    const { radius } = ms._rollPerception(scene);
+    ms._revealAround(ms.playerX, ms.playerY, radius);
+    ms._dirty = true;
+
+    // Refresh the log
+    this._openPerceptionLog();
+  }
+
+  _perceptionDesc(total) {
+    if (total >= 20) return 'You take in every detail of the surroundings.';
+    if (total >= 16) return 'You notice most of the area around you.';
+    if (total >= 11) return 'You get a reasonable sense of the space.';
+    if (total >= 6)  return 'You can make out the immediate area.';
+    return 'Everything beyond arm\'s reach is shrouded in darkness.';
   }
 
   // ── Rules Reference Panel ────────────────────────────────────

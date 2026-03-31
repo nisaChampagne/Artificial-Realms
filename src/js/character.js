@@ -405,6 +405,117 @@ class CharacterSystem {
       <input class="appear-mark-input" id="app-mark" type="text" maxlength="60" placeholder="A scar, tattoo, birthmark…" />`;
     markSec.querySelector('#app-mark').oninput = e => { this._selections.appearance.mark = e.target.value; };
     container.appendChild(markSec);
+
+    // Portrait generation section
+    const genSec = document.createElement('div');
+    genSec.className = 'appear-section portrait-gen-section';
+    genSec.innerHTML = `
+      <div class="appear-label">AI Portrait <span class="appear-optional">(OpenAI key required)</span></div>
+      <div class="portrait-gen-row">
+        <button class="btn btn-outline btn-sm" id="btn-gen-portrait">🎨 Generate with DALL·E 3</button>
+        <span class="portrait-gen-status" id="portrait-gen-status"></span>
+      </div>
+      <div class="portrait-gen-result hidden" id="portrait-gen-result">
+        <img id="portrait-gen-img" src="" alt="Generated portrait" class="gen-portrait-img" />
+      </div>`;
+    genSec.querySelector('#btn-gen-portrait').onclick = () => this._generatePortrait();
+    container.appendChild(genSec);
+  }
+
+  // ── AI Portrait Generation ───────────────────────────────────
+  _buildPortraitPrompt() {
+    const r    = this._selections;
+    const a    = r.appearance || {};
+    const name = r.name || 'an adventurer';
+    const race = r.race?.name  || 'Human';
+    const cls  = r.cls?.name   || 'Fighter';
+    const body = a.bodyType    || '';
+    const skin = a.skinTone?.name || '';
+    const hairStyle = a.hairStyle || '';
+    const hairColor = a.hairColor?.name || '';
+    const eyeColor  = a.eyeColor?.name  || '';
+    const mark      = a.mark || '';
+    const parts = [
+      body && `${body} build`,
+      skin && `${skin} skin`,
+      (hairStyle && hairColor) ? `${hairStyle.toLowerCase()} ${hairColor.toLowerCase()} hair`
+        : hairStyle || hairColor || null,
+      eyeColor && `${eyeColor.toLowerCase()} eyes`,
+      mark || null,
+    ].filter(Boolean);
+    return `Fantasy D&D character portrait of ${name}, a ${race} ${cls}.${parts.length ? ' Appearance: ' + parts.join(', ') + '.' : ''} Detailed fantasy oil-painting style, dramatic dark atmospheric background, parchment-toned warm lighting, upper body portrait, heroic and resolute expression. No text.`;
+  }
+
+  async _generatePortrait() {
+    const apiKey = window.app?.settings?.apiKey;
+    const provider = window.app?.settings?.provider || 'openai';
+    if (provider !== 'openai' || !apiKey) {
+      window.app?.showToast('Portrait generation requires an OpenAI API key.', 'error');
+      return;
+    }
+    const statusEl = document.getElementById('portrait-gen-status');
+    const btn      = document.getElementById('btn-gen-portrait');
+    if (!statusEl || !btn) return;
+    btn.disabled     = true;
+    statusEl.textContent = '⏳ Generating…';
+    try {
+      const prompt = this._buildPortraitPrompt();
+      const url    = await window.electronAPI.generatePortrait(prompt, apiKey);
+      if (!url) throw new Error('No image returned');
+      this._selections.appearance.portraitUrl = url;
+      const img = document.getElementById('portrait-gen-img');
+      const res = document.getElementById('portrait-gen-result');
+      if (img && res) { img.src = url; res.classList.remove('hidden'); }
+      // Also update the creation preview if it exists
+      const preview = document.getElementById('portrait-preview');
+      if (preview) preview.innerHTML = `<img src="${url}" class="gen-portrait-img" style="width:100%;height:100%;object-fit:cover;border-radius:4px;" />`;
+      statusEl.textContent = '✓ Done';
+    } catch (err) {
+      statusEl.textContent = '';
+      window.app?.showToast('Portrait generation failed: ' + err, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async _generatePortraitFromSheet() {
+    const c = this.character;
+    if (!c) return;
+    const apiKey = window.app?.settings?.apiKey;
+    const provider = window.app?.settings?.provider || 'openai';
+    if (provider !== 'openai' || !apiKey) {
+      window.app?.showToast('Portrait generation requires an OpenAI API key.', 'error');
+      return;
+    }
+    const statusEl = document.getElementById('sheet-portrait-status');
+    const btn      = document.getElementById('btn-gen-portrait-sheet');
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.textContent = '⏳ Generating…';
+    try {
+      const a         = c.appearance || {};
+      const parts     = [
+        a.bodyType && `${a.bodyType} build`,
+        a.skinTone?.name && `${a.skinTone.name} skin`,
+        (a.hairStyle && a.hairColor?.name) ? `${a.hairStyle.toLowerCase()} ${a.hairColor.name.toLowerCase()} hair` : null,
+        a.eyeColor?.name && `${a.eyeColor.name.toLowerCase()} eyes`,
+        a.mark || null,
+      ].filter(Boolean);
+      const prompt = `Fantasy D&D character portrait of ${c.name}, a ${c.race} ${c.class}.${parts.length ? ' Appearance: ' + parts.join(', ') + '.' : ''} Detailed fantasy oil-painting style, dramatic dark atmospheric background, warm parchment-toned lighting, upper body portrait, heroic expression. No text.`;
+      const url    = await window.electronAPI.generatePortrait(prompt, apiKey);
+      if (!url) throw new Error('No image returned');
+      c.appearance.portraitUrl = url;
+      const genImg = document.getElementById('sheet-portrait-img');
+      const frame  = document.getElementById('sheet-portrait-frame');
+      if (genImg) { genImg.src = url; genImg.classList.remove('hidden'); }
+      const svg = frame?.querySelector('svg');
+      if (svg) svg.style.display = 'none';
+      if (statusEl) statusEl.textContent = '✓ Done';
+    } catch (err) {
+      if (statusEl) statusEl.textContent = '';
+      window.app?.showToast('Portrait generation failed: ' + err, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   // ── Stats ────────────────────────────────────────────────────
@@ -510,6 +621,11 @@ class CharacterSystem {
     const stats = this._computeFinalStats();
     const cls   = r.cls;
     const maxHp = (cls?.hpDie || 8) + this._mod(stats.con);
+    const appearance = { ...r.appearance };
+    // Carry over generated portrait URL if one was produced during creation
+    if (this._selections.appearance?.portraitUrl) {
+      appearance.portraitUrl = this._selections.appearance.portraitUrl;
+    }
 
     this.character = {
       name:       r.name,
@@ -517,7 +633,7 @@ class CharacterSystem {
       class:      cls?.name    || 'Fighter',
       classId:    cls?.id      || 'fighter',
       background:  r.background?.name || 'Acolyte',
-      appearance:  r.appearance || {},
+      appearance,
       level:       1,
       xp:         0,
       stats,
@@ -573,10 +689,24 @@ class CharacterSystem {
     document.getElementById('s-class').textContent = c.class;
     document.getElementById('s-level').textContent = c.level;
     document.getElementById('s-bg').textContent    = c.background;
-    // Portrait skin tone
+    // Portrait — show AI-generated image if available, otherwise SVG
     const ap = c.appearance || {};
-    // Rebuild portrait with appearance
-    document.getElementById('sheet-portrait-frame').innerHTML = this._buildPortraitSVG(ap);
+    const frame   = document.getElementById('sheet-portrait-frame');
+    const genImg  = document.getElementById('sheet-portrait-img');
+    if (ap.portraitUrl && genImg) {
+      genImg.src = ap.portraitUrl;
+      genImg.classList.remove('hidden');
+      const svg = frame?.querySelector('svg');
+      if (svg) svg.style.display = 'none';
+    } else {
+      if (genImg) genImg.classList.add('hidden');
+      frame.innerHTML = this._buildPortraitSVG(ap);
+    }
+    // Bind sheet portrait generate button
+    const genBtn = document.getElementById('btn-gen-portrait-sheet');
+    if (genBtn) {
+      genBtn.onclick = () => this._generatePortraitFromSheet();
+    }
     // Appearance summary
     const sAppear = document.getElementById('s-appearance');
     if (sAppear) {
@@ -884,11 +1014,14 @@ class CharacterSystem {
   _openDeathSaves() {
     this._deathSuccesses = 0;
     this._deathFailures  = 0;
+    this._deathRolls     = 0;
     this._resetDeathDots();
     document.getElementById('death-roll-result').className = 'death-roll-result hidden';
-    document.getElementById('btn-death-roll').disabled = false;
+    const rollBtn = document.getElementById('btn-death-roll');
+    rollBtn.disabled = false;
+    rollBtn.textContent = '🎲 Roll d20 (3 left)';
     document.getElementById('modal-death').classList.remove('hidden');
-    window.aiSystem?.addSystemMessage('💀 You drop to 0 HP! Roll death saving throws!');
+    window.aiSystem?.addSystemMessage('💀 You drop to 0 HP! Roll death saving throws (3 rolls total)!');
   }
 
   _resetDeathDots() {
@@ -900,21 +1033,25 @@ class CharacterSystem {
   }
 
   _rollDeathSave() {
-    const roll = Math.floor(Math.random() * 20) + 1;
-    const el   = document.getElementById('death-roll-result');
-    el.className = 'death-roll-result';
+    const roll    = Math.floor(Math.random() * 20) + 1;
+    const el      = document.getElementById('death-roll-result');
+    const rollBtn = document.getElementById('btn-death-roll');
+    el.className  = 'death-roll-result';
 
     if (roll === 20) {
-      // Nat 20 — regain 1 HP
+      // Nat 20 — instant revive with 1 HP
       this.character.currentHp = 1;
       document.getElementById('modal-death').classList.add('hidden');
       this.updateHUD();
+      rollBtn.textContent = '🎲 Roll d20';
       window.app.showToast('Natural 20! You regain 1 HP!', 'success');
       window.aiSystem?.addSystemMessage(`⚡ Natural 20 on a death save — ${this.character.name} surges back with 1 HP!`);
       return;
     }
+
+    this._deathRolls++;
+
     if (roll === 1) {
-      // Nat 1 — two failures
       this._deathFailures += 2;
       el.textContent = `Rolled 1 — Critical Failure! (2 failures)`;
       el.style.color = 'var(--red-lt)';
@@ -934,18 +1071,31 @@ class CharacterSystem {
         d.className = 'dt-dot' + (i < count ? ' filled' : '');
       });
     };
-    fillDots('death-success-dots', this._deathSuccesses);
-    fillDots('death-fail-dots',    this._deathFailures);
+    fillDots('death-success-dots', Math.min(this._deathSuccesses, 3));
+    fillDots('death-fail-dots',    Math.min(this._deathFailures,  3));
 
-    if (this._deathSuccesses >= 3) {
-      document.getElementById('modal-death').classList.add('hidden');
-      window.app.showToast('Stable! You are no longer dying.', 'success');
-      window.aiSystem?.addSystemMessage(`🙏 ${this.character.name} stabilises and is no longer dying.`);
-      document.getElementById('btn-death-roll').disabled = true;
-    } else if (this._deathFailures >= 3) {
-      document.getElementById('modal-death').classList.add('hidden');
-      window.aiSystem?._handleDeath();
+    const resolved = this._deathSuccesses >= 2 || this._deathFailures >= 2 || this._deathRolls >= 3;
+
+    if (!resolved) {
+      const left = 3 - this._deathRolls;
+      rollBtn.textContent = `🎲 Roll d20 (${left} left)`;
+      return;
     }
+
+    rollBtn.disabled    = true;
+    rollBtn.textContent = '🎲 Roll d20';
+
+    setTimeout(() => {
+      document.getElementById('modal-death').classList.add('hidden');
+      if (this._deathSuccesses >= 2 || this._deathSuccesses > this._deathFailures) {
+        this.character.currentHp = 1;
+        this.updateHUD();
+        window.app.showToast('You survive with 1 HP!', 'success');
+        window.aiSystem?.addSystemMessage(`🙏 ${this.character.name} clings to life and stabilises with 1 HP!`);
+      } else {
+        window.aiSystem?._handleDeath();
+      }
+    }, 900);
   }
 
   // ── Portrait SVG ─────────────────────────────────────────────

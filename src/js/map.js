@@ -197,6 +197,144 @@ S....########.########.......#
 ###############`,
 };
 
+// ── ProceduralMapGen ─────────────────────────────────────────
+class ProceduralMapGen {
+
+  static generate(type) {
+    switch (type) {
+      case 'cave':               return this._cellular(30, 20);
+      case 'dungeon':
+      case 'combat':
+      case 'castle':
+      case 'boss':               return this._bsp(32, 22, type);
+      default:                   return null;
+    }
+  }
+
+  // Room-corridor BSP dungeon
+  static _bsp(w, h, type) {
+    const map = Array.from({ length: h }, () => new Array(w).fill(T.WALL));
+    const rooms = [];
+    const minR  = 3;
+    const maxR  = type === 'boss' ? 12 : type === 'combat' ? 5 : 7;
+    const target = type === 'boss' ? 4 : type === 'combat' ? 6 : 9;
+
+    for (let attempts = 0; attempts < 120 && rooms.length < target; attempts++) {
+      const rw = minR + ~~(Math.random() * (maxR - minR));
+      const rh = minR + ~~(Math.random() * (maxR - minR));
+      const rx = 1 + ~~(Math.random() * (w - rw - 2));
+      const ry = 1 + ~~(Math.random() * (h - rh - 2));
+      if (rooms.some(r => rx < r.x + r.w + 2 && rx + rw + 2 > r.x && ry < r.y + r.h + 2 && ry + rh + 2 > r.y)) continue;
+      for (let y = ry; y < ry + rh; y++)
+        for (let x = rx; x < rx + rw; x++)
+          map[y][x] = T.FLOOR;
+      rooms.push({ x: rx, y: ry, w: rw, h: rh, cx: ~~(rx + rw / 2), cy: ~~(ry + rh / 2) });
+    }
+
+    // Shuffle connections so layout feels less linear
+    for (let i = rooms.length - 1; i > 0; i--) {
+      const j  = ~~(Math.random() * (i + 1));
+      [rooms[i], rooms[j]] = [rooms[j], rooms[i]];
+    }
+
+    // Connect rooms with L-corridors
+    for (let i = 1; i < rooms.length; i++) {
+      const a = rooms[i - 1], b = rooms[i];
+      let cx = a.cx, cy = a.cy;
+      const horizontal = Math.random() < 0.5;
+      if (horizontal) {
+        while (cx !== b.cx) { if (cy >= 0 && cy < h && cx >= 0 && cx < w) map[cy][cx] = T.FLOOR; cx += cx < b.cx ? 1 : -1; }
+        while (cy !== b.cy) { if (cy >= 0 && cy < h && cx >= 0 && cx < w) map[cy][cx] = T.FLOOR; cy += cy < b.cy ? 1 : -1; }
+      } else {
+        while (cy !== b.cy) { if (cy >= 0 && cy < h && cx >= 0 && cx < w) map[cy][cx] = T.FLOOR; cy += cy < b.cy ? 1 : -1; }
+        while (cx !== b.cx) { if (cy >= 0 && cy < h && cx >= 0 && cx < w) map[cy][cx] = T.FLOOR; cx += cx < b.cx ? 1 : -1; }
+      }
+    }
+
+    // Place Stairs in room 0, chest in last room
+    if (rooms.length > 0) {
+      map[rooms[0].cy][rooms[0].cx] = T.STAIRS;
+      const last = rooms[rooms.length - 1];
+      map[last.cy][last.cx] = T.CHEST;
+    }
+
+    // Torches in interior corners of each room
+    rooms.forEach((r, i) => {
+      if (i === 0) return;
+      if (r.w > 3 && r.h > 3) {
+        map[r.y + 1][r.x + 1]           = T.TORCH;
+        map[r.y + 1][r.x + r.w - 2]     = T.TORCH;
+      }
+    });
+
+    // Doors at corridor-room junctions (simple: place on first floor tile entering a room)
+    rooms.forEach(r => {
+      const entries = [
+        [r.x - 1, r.cy], [r.x + r.w, r.cy],
+        [r.cx, r.y - 1], [r.cx, r.y + r.h],
+      ];
+      entries.forEach(([ex, ey]) => {
+        if (ey >= 0 && ey < h && ex >= 0 && ex < w && map[ey][ex] === T.FLOOR) {
+          if (Math.random() < 0.6) map[ey][ex] = T.DOOR;
+        }
+      });
+    });
+
+    // Boss room gets lava ring
+    if (type === 'boss' && rooms.length > 1) {
+      const br = rooms[rooms.length - 1];
+      for (let y = br.y; y < br.y + br.h; y++)
+        for (let x = br.x; x < br.x + br.w; x++)
+          if (y === br.y || y === br.y + br.h - 1 || x === br.x || x === br.x + br.w - 1)
+            if (map[y][x] === T.FLOOR) map[y][x] = T.LAVA;
+    }
+
+    return map;
+  }
+
+  // Cellular automata cave
+  static _cellular(w, h) {
+    let map = Array.from({ length: h }, (_, y) =>
+      Array.from({ length: w }, (_, x) =>
+        (x === 0 || x === w - 1 || y === 0 || y === h - 1)
+          ? T.WALL
+          : Math.random() < 0.44 ? T.WALL : T.FLOOR
+      )
+    );
+
+    for (let iter = 0; iter < 5; iter++) {
+      map = map.map((row, y) => row.map((_, x) => {
+        if (x === 0 || x === w - 1 || y === 0 || y === h - 1) return T.WALL;
+        let walls = 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++)
+            if (!(dx === 0 && dy === 0) && map[y + dy]?.[x + dx] === T.WALL) walls++;
+        return walls >= 5 ? T.WALL : T.FLOOR;
+      }));
+    }
+
+    // Place stairs at first open cell near top-left
+    let startX = 2, startY = 2;
+    outer: for (let y = 2; y < h - 2; y++)
+      for (let x = 2; x < w - 2; x++)
+        if (map[y][x] === T.FLOOR) { startX = x; startY = y; break outer; }
+    map[startY][startX] = T.STAIRS;
+
+    // Scatter torches in open areas
+    let tc = 0;
+    for (let y = 1; y < h - 1 && tc < 6; y++)
+      for (let x = 1; x < w - 1 && tc < 6; x++)
+        if (map[y][x] === T.FLOOR && Math.random() < 0.025) { map[y][x] = T.TORCH; tc++; }
+
+    // Chest near bottom-right
+    for (let y = h - 3; y > h / 2; y--)
+      for (let x = w - 3; x > w / 2; x--)
+        if (map[y][x] === T.FLOOR) { map[y][x] = T.CHEST; return map; }
+
+    return map;
+  }
+}
+
 // ── MapSystem ────────────────────────────────────────────────
 class MapSystem {
   constructor() {
@@ -255,7 +393,16 @@ class MapSystem {
     this.currentScene = name;
     document.getElementById('map-location').textContent = this._sceneLabel(name);
     document.getElementById('music-now').textContent    = this._musicLabel(name);
-    this._parseLayout(LAYOUTS[name] || LAYOUTS.dungeon);
+
+    // Use procedural generation for dungeon-type scenes
+    const proceduralScenes = new Set(['dungeon', 'cave', 'combat', 'castle', 'boss']);
+    const generatedMap = proceduralScenes.has(name) ? ProceduralMapGen.generate(name) : null;
+    if (generatedMap) {
+      this.map = generatedMap;
+    } else {
+      this._parseLayout(LAYOUTS[name] || LAYOUTS.dungeon);
+    }
+
     // Find player start (S tile or default position)
     let startX = 3, startY = 5;
     for (let y = 0; y < this.map.length; y++) {
@@ -272,16 +419,6 @@ class MapSystem {
     const { radius, roll, bonus, label } = this._rollPerception(name);
     this._revealAround(this.playerX, this.playerY, radius);
     this._dirty = true;
-
-    // Log result to the narrative (deferred so aiSystem is ready)
-    setTimeout(() => {
-      if (window.aiSystem) {
-        const icon = roll + bonus >= 20 ? '👁️' : roll + bonus >= 15 ? '🔍' : roll + bonus >= 10 ? '👀' : '🌫️';
-        window.aiSystem.addSystemMessage(
-          `${icon} <em>Perception check</em> — ${label} (d20: ${roll}${bonus >= 0 ? '+' : ''}${bonus} = <strong>${roll + bonus}</strong>) — ${this._perceptionDesc(roll + bonus)}`
-        );
-      }
-    }, 100);
 
     // Cancel any existing loop then restart fresh
     if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }

@@ -23,6 +23,7 @@ class AISystem {
     this.messages    = [];
     this.apiKey      = '';
     this.model       = 'gpt-4o';
+    this.provider    = 'openai';
     this.demoMode    = false;
     this.isTyping    = false;
     this.textSpeed   = 15;
@@ -34,10 +35,12 @@ class AISystem {
   async start(character, campaignType, customDesc, apiKey, model, textSpeed, demoMode = false) {
     this.apiKey    = apiKey;
     this.model     = model;
+    this.provider  = window.app?.settings?.provider || 'openai';
     this.demoMode  = demoMode;
     this.textSpeed = textSpeed;
     this.messages   = [];
     this._demoState  = null;
+    window.journalSystem?.reset();
 
     const sysPrompt = this._buildSystemPrompt(character, campaignType, customDesc);
     this.messages.push({ role: 'system', content: sysPrompt });
@@ -190,10 +193,30 @@ class AISystem {
       epilogue: `[SCENE:town][MUSIC:tavern]Three days later. The **Tarnished Flagon** is warm and full again — the kind of noise that means people feel safe enough to be careless.\n\nSister Vael sits across from you, clean hands, bowl of Brom's stew, the watchful calm of someone who was underground too long. The letter is with a courier in the capital. Aldric Vane is gone — Greyvast empty when anyone reached it — but the payment record has names, and names have consequences.\n\n*"What was behind the seal?"* you asked her, that first night. She considered a long time. *"Something old. Something that shouldn't be accessible from this side of the world. Now that the ritual is broken, it will try another anchor. Within the year."*\n\nA log settles in the fire. Outside: ordinary stars, ordinary wind. [XP:+200]\n\n1. Ask where the next anchor point might be\n2. Begin preparing — this isn't over\n3. Enjoy the peace while it lasts\n4. Study the letter — look for more names in Vane's network`,
     };
 
+    // ── Journal tags appended to key demo states ──────────────
+    const TAGS = {
+      tavern:         '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:The Order of the Ashen Veil uses a jagged black sun as their seal]',
+      brom_info:      '[NPC:Brom Ashkettle:innkeeper:Friendly][NPC:Sister Vael:hedge-witch:Unknown][LORE:Greyvast Keep lies abandoned three miles north of the village]',
+      read_letter:    '[NPC:Aldric Vane:Consortium agent:Hostile][LORE:A phrase in Old Common warns the seal on the deep place must not be broken]',
+      head_out:       '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:A Consortium agent was asking about Sister Vael by name shortly before the goblin raids]',
+      second_drink:   '[NPC:Sister Vael:hedge-witch:Unknown][LORE:Cold blue goblin-fire was seen in the Ashwood two nights running]',
+      forest_road:    '[LORE:A cave beneath the ruined mill appears to be the goblin staging point]',
+      combat_listen:  '[NPC:Sister Vael:hedge-witch:Captured][LORE:Goblins are waiting three nights for a signal from deeper in the tunnels]',
+      interrogate:    '[LORE:Three passages lead deeper under the Ashwood — one to a ritual space, one back to the surface, one to Sister Vael]',
+      post_combat:    '[DECISION:Player cleared goblin scouts from the cave entrance and found a bark map showing the tunnel layout]',
+      return_brom:    '[NPC:Brom Ashkettle:innkeeper:Friendly][DECISION:Player rescued the miller\'s wife and returned her to the village][LORE:The miller\'s wife confirmed a Shaman is operating from Greyvast Keep]',
+      brom_reward:    '[NPC:Aldric Vane:Consortium agent:Hostile][LORE:Aldric Vane ran Consortium intelligence work and people who looked too hard at him went quiet]',
+      deeper_dungeon: '[NPC:Hobgoblin Shaman:ritual leader:Hostile][NPC:Sister Vael:hedge-witch:Captive][LORE:Sister Vael is being used as a binding lock on a pulsing green-black crystal]',
+      shaman_observe: '[DECISION:Player observed the ritual and learned Sister Vael must be freed cleanly — killing the shaman carelessly could release what she is containing]',
+      shaman_confront:'[DECISION:Player stepped into the torchlight and confronted the Hobgoblin Shaman directly][LORE:Aldric Vane warned the shaman that an adventurer would come and said they were three moves behind]',
+      victory:        '[DECISION:Player defeated the Hobgoblin Shaman and broke the ritual binding][NPC:Sister Vael:hedge-witch:Friendly][NPC:Aldric Vane:Consortium mastermind:Hostile][LORE:Aldric Vane paid the Consortium to orchestrate the goblin raids and capture Sister Vael four months ago]',
+      epilogue:       '[LORE:Sister Vael warned that whatever she was containing will seek a new anchor within the year]',
+    };
+
     // ── Opening call ───────────────────────────────────────────
     if (!this._demoState) {
       this._demoState = 'tavern';
-      return new Promise(r => setTimeout(() => r(R.tavern), 800));
+      return new Promise(r => setTimeout(() => r(R.tavern + ' ' + (TAGS.tavern || '')), 800));
     }
 
     // ── Parse player's choice and transition ──────────────────
@@ -203,7 +226,8 @@ class AISystem {
     const nextId  = node[choice] || node.default || 'epilogue';
     this._demoState = nextId;
 
-    return new Promise(r => setTimeout(() => r(R[nextId] || R.epilogue), 800));
+    const responseText = (R[nextId] || R.epilogue) + ' ' + (TAGS[nextId] || '');
+    return new Promise(r => setTimeout(() => r(responseText), 800));
   }
 
   // ── Build System Prompt ──────────────────────────────────────
@@ -213,6 +237,8 @@ class AISystem {
       ['str','dex','con','int','wis','cha'].map(ab => [ab, Math.floor((c.stats[ab] - 10) / 2)])
     );
     const modStr = (v) => (v >= 0 ? `+${v}` : `${v}`);
+
+    const memoryBlock = window.journalSystem?.buildMemoryBlock();
 
     return `You are a master Dungeon Master running ${CAMPAIGN_DESC[campaignType] || CAMPAIGN_DESC.standard}
 ${campaignType === 'custom' && customDesc ? `The player has requested: "${customDesc}"` : ''}
@@ -227,7 +253,7 @@ AC:         ${c.ac}    Speed: ${c.speed}ft    Proficiency: +${c.profBonus}
 STR ${c.stats.str}(${modStr(mods.str)})  DEX ${c.stats.dex}(${modStr(mods.dex)})  CON ${c.stats.con}(${modStr(mods.con)})
 INT ${c.stats.int}(${modStr(mods.int)})  WIS ${c.stats.wis}(${modStr(mods.wis)})  CHA ${c.stats.cha}(${modStr(mods.cha)})
 Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
-
+${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 ═══ DM INSTRUCTIONS ═══
 • Narrate in vivid, atmospheric prose (2–4 paragraphs per turn).
 • Present 3–4 **numbered choices** at the end of most turns for the player to pick from. Honor free-text input too.
@@ -245,7 +271,11 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
 • When the adventure concludes successfully, include [WIN].
 • Keep implied D&D 5e rules: proficiency, saving throws, spell slots, etc.
 • NEVER break character or mention that you are an AI.
-• Maintain a consistent tone: dark and atmospheric for dungeons/caves, warm for taverns, epic for boss fights.`;
+• Maintain a consistent tone: dark and atmospheric for dungeons/caves, warm for taverns, epic for boss fights.
+• MEMORY TAGS (include these silently in every response as applicable; they are parsed by the game engine):
+  - When you introduce or reference a named NPC, include [NPC:Name:Role:Attitude] — e.g. [NPC:Brom Ashkettle:innkeeper:Friendly]
+  - When the story reveals a significant fact or piece of lore, include [LORE:one-sentence fact]
+  - When the player makes a key story decision that shapes the narrative, include [DECISION:one-sentence summary]`;
   }
 
   // ── Send Player Message ──────────────────────────────────────
@@ -276,17 +306,28 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
       this.messages.push({ role: 'user', content: text });
     }
 
+    window.journalSystem?.incTurn();
+
     // Disable input
     document.getElementById('player-input').disabled = true;
     document.getElementById('btn-send').disabled     = true;
 
-    // Trim context to last 20 messages + system
-    const trimmed = [this.messages[0], ...this.messages.slice(-20)];
+    // Trim context to last 20 messages + system, updating memory in system prompt
+    const sysMsg  = { ...this.messages[0] };
+    const char = window.characterSystem?.character;
+    if (char) {
+      sysMsg.content = this._buildSystemPrompt(
+        char,
+        window.app?.gameState?.campaignType || 'standard',
+        window.app?.gameState?.customDesc   || ''
+      );
+    }
+    const trimmed = [sysMsg, ...this.messages.slice(1).slice(-20)];
 
     try {
       const response = (this.demoMode || !this.apiKey)
         ? await this._mockResponse()
-        : await window.electronAPI.sendToAI(trimmed, this.apiKey, this.model);
+        : await window.electronAPI.sendToAI(trimmed, this.apiKey, this.model, this.provider);
       this.messages.push({ role: 'assistant', content: response });
       await this._processResponse(response);
     } catch (err) {
@@ -319,10 +360,8 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
           const delta = parseInt(val);
           if (!isNaN(delta)) {
             if (delta < 0) {
-              // Damage — hold until after initiative roll
               pendingDamage += delta;
             } else {
-              // Healing applies immediately
               window.characterSystem?.applyHPChange(delta);
               const name = window.characterSystem?.character?.name || 'You';
               this._addSystemEntry(`💚 ${name} heals ${delta} HP!`);
@@ -330,11 +369,27 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
           }
           break;
         }
-        case 'XP':   window.characterSystem?.gainXP(parseInt(val) || 0); break;
-        case 'DEAD': this._handleDeath(); break;
-        case 'WIN':  this._handleVictory(); break;
+        case 'XP':       window.characterSystem?.gainXP(parseInt(val) || 0); break;
+        case 'DEAD':     this._handleDeath(); break;
+        case 'WIN':      this._handleVictory(); break;
         case 'CONDITION': this._showConditionCard(val); break;
         case 'ITEM':      this._fetchAndShowItem(val); break;
+        // ── Memory tags ───────────────────────────────────────
+        case 'NPC': {
+          const [name, role, attitude] = val.split(':');
+          window.journalSystem?.addNPC(name, role, attitude);
+          break;
+        }
+        case 'NPC': {
+          const parts = val.split(':');
+          const npcName = parts[0]?.trim();
+          const npcRole = parts[1]?.trim() || '';
+          const npcAtt  = parts[2]?.trim() || '';
+          if (npcName) window.journalSystem?.addNPC(npcName, npcRole, npcAtt);
+          break;
+        }
+        case 'LORE':     window.journalSystem?.addLore(val); break;
+        case 'DECISION': window.journalSystem?.addDecision(val); break;
       }
     });
 
@@ -343,6 +398,9 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
 
     // Typewriter effect for the DM entry
     await this._typewriterEntry(prose, choices);
+
+    // TTS narration (after typewriter finishes)
+    this._speakTTS(prose);
 
     // Helper to trigger the regular skill-check dice prompt (if any)
     const triggerDiceRequest = () => {
@@ -355,19 +413,63 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
     };
 
     if (pendingDamage < 0) {
-      // Require an initiative roll overlay before damage lands
       const dex    = window.characterSystem?.character?.stats?.dex ?? 10;
       const dexMod = Math.floor((dex - 10) / 2);
-      const spec   = dexMod >= 0 ? `d20+${dexMod}` : `d20${dexMod}`;
-      this._openInitiativeModal(dexMod, Math.abs(pendingDamage), () => {
-        window.characterSystem?.applyHPChange(pendingDamage);
-        // Chain the regular skill-check dice prompt after damage resolves
+      this._openInitiativeModal(dexMod, Math.abs(pendingDamage), (rollTotal) => {
+        if (rollTotal < 10) {
+          window.characterSystem?.applyHPChange(pendingDamage);
+        } else {
+          const charName = window.characterSystem?.character?.name || 'You';
+          this._addSystemEntry(`🛡 ${charName} reacts swiftly and dodges the attack!`);
+        }
         triggerDiceRequest();
       });
     } else {
-      // No incoming damage — show any regular dice prompt immediately
       triggerDiceRequest();
     }
+  }
+
+  // ── TTS ──────────────────────────────────────────────────────
+  _speakTTS(text) {
+    if (!window.app?.settings?.ttsEnabled) return;
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+
+    // Strip HTML, markdown, and numbered choice lines (those are UI, not narration)
+    let plain = text
+      .replace(/<[^>]+>/g, '')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/[_`]/g, '')
+      .replace(/^\s*\d+[.)]\s+.+$/gm, '')  // strip numbered choices
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    // Only narrate first 2 sentences — keeps it punchy, not a wall of speech
+    const sentMatch = plain.match(/^(.*?[.!?…]+\s+.*?[.!?…]+)/s);
+    if (sentMatch) plain = sentMatch[1].trim();
+    if (!plain) return;
+
+    const utt  = new SpeechSynthesisUtterance(plain);
+    utt.rate   = 0.85;
+    utt.pitch  = 0.9;
+
+    const voices     = window.speechSynthesis.getVoices();
+    const preferred  = window.app?.settings?.ttsVoice;
+    if (preferred) {
+      const match = voices.find(v => v.name === preferred);
+      if (match) utt.voice = match;
+    } else {
+      // Auto-pick best voice: neural/natural first, then known good Windows/Google voices
+      const pick =
+        voices.find(v => /natural|neural/i.test(v.name) && v.lang.startsWith('en')) ||
+        voices.find(v => /Microsoft (Aria|Guy|David|Zira|Mark)/i.test(v.name)) ||
+        voices.find(v => /google/i.test(v.name) && v.lang.startsWith('en')) ||
+        voices.find(v => v.lang.startsWith('en-'));
+      if (pick) utt.voice = pick;
+    }
+
+    window.speechSynthesis.speak(utt);
   }
 
   // ── Initiative Roll Overlay ──────────────────────────────────
@@ -389,7 +491,7 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
       flavour.textContent  = 'You move to attack! Roll initiative to determine how quickly you act.';
     } else {
       heading.textContent  = '⚡ Roll for Initiative';
-      flavour.textContent  = 'Combat begins! Roll your initiative to determine when damage lands.';
+      flavour.textContent  = 'Combat begins! Roll 10 or higher to react in time and dodge. 9 or lower — the hit lands.';
     }
 
     // Reset state
@@ -404,6 +506,7 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
     overlay.classList.remove('hidden');
 
     // Roll handler
+    let lastTotal = 0;
     const doRoll = () => {
       rollBtn.disabled = true;
       svg.classList.remove('spinning');
@@ -419,12 +522,18 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
           clearInterval(ticker);
           const raw   = Math.ceil(Math.random() * 20);
           const total = raw + dexMod;
+          lastTotal = total;
           face.textContent = raw;
 
           const name = window.characterSystem?.character?.name || 'You';
-          const outcomeHtml = damage > 0
-            ? `<span class="init-damage-warn">💔 ${name} takes ${damage} damage!</span>`
-            : `<span class="init-attack-go">⚔ ${name} moves to strike!</span>`;
+          let outcomeHtml;
+          if (damage > 0) {
+            outcomeHtml = total >= 10
+              ? `<span class="init-dodge-ok">🛡 ${name} reacts in time — attack dodged!</span>`
+              : `<span class="init-damage-warn">💔 ${name} takes ${damage} damage!</span>`;
+          } else {
+            outcomeHtml = `<span class="init-attack-go">⚔ ${name} moves to strike!</span>`;
+          }
           result.innerHTML =
             `${total}<span class="init-breakdown">d20(${raw}) ${dexMod >= 0 ? '+' : ''}${dexMod} = ${total}</span>` +
             outcomeHtml;
@@ -440,7 +549,7 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
       overlay.classList.add('hidden');
       rollBtn.onclick = null;
       confirm.onclick = null;
-      onConfirm();
+      onConfirm(lastTotal);
     };
   }
 
@@ -486,17 +595,18 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
       diceRequest = { spec: diceMatch[1].toLowerCase(), label: diceMatch[2]?.trim() || 'Check' };
     }
 
-    // Extract numbered choices from the end of the prose
-    const choicePattern = /\n?\s*(\d+)[.)]\s+(.+)/g;
+    // Extract numbered choices — only match at the START of a line to avoid
+    // false positives like "pressing on 3." mid-sentence
+    const choicePattern = /^[ \t]*(\d+)[.)]\s+(.+)/gm;
     const choices = [];
+    let firstChoiceIdx = -1;
     let match;
-    let lastIdx = -1;
     while ((match = choicePattern.exec(text)) !== null) {
+      if (firstChoiceIdx === -1) firstChoiceIdx = match.index;
       choices.push({ num: match[1], label: match[2].trim() });
-      lastIdx = match.index;
     }
-    const prose = lastIdx > 0
-      ? text.slice(0, text.lastIndexOf('\n' + text.match(/\n?\s*1[.)]/)?.[0]?.trim() || text)).trim()
+    const prose = firstChoiceIdx > 0
+      ? text.slice(0, firstChoiceIdx).trim()
       : text.trim();
 
     return { prose: prose || text.trim(), choices, diceRequest };
@@ -601,7 +711,12 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
   rebuildLog() {
     const log = document.getElementById('story-log');
     log.innerHTML = '';
-    this.messages.forEach(msg => {
+
+    // Find index of the last assistant message so we can make its choices interactive
+    let lastAssistantIdx = -1;
+    this.messages.forEach((msg, i) => { if (msg.role === 'assistant') lastAssistantIdx = i; });
+
+    this.messages.forEach((msg, idx) => {
       if (msg.role === 'system') return;
       if (msg.role === 'user' && !msg.content.startsWith('Begin the adventure') && !msg.content.includes('[ROLL RESULT:')) {
         this._addPlayerEntry(msg.content);
@@ -615,13 +730,37 @@ Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
         if (choices.length) {
           const cb = document.createElement('div');
           cb.className = 'story-choices';
+          const isLatest = idx === lastAssistantIdx;
           choices.forEach(c => {
             const btn = document.createElement('button');
-            btn.className = 'choice-btn'; btn.disabled = true;
-            btn.textContent = `${c.num}. ${c.label}`;
+            btn.className = 'choice-btn';
+            if (isLatest) {
+              btn.innerHTML = `<span class="choice-num">${c.num}</span><span class="choice-label">${c.label}</span><span class="choice-key">${c.num}</span>`;
+              btn.onclick = () => {
+                cb.querySelectorAll('.choice-btn').forEach(b => { b.disabled = true; b.classList.remove('selected'); });
+                btn.classList.add('selected');
+                this.sendMessage(`${c.num}. ${c.label}`);
+              };
+            } else {
+              btn.disabled = true;
+              btn.textContent = `${c.num}. ${c.label}`;
+            }
             cb.appendChild(btn);
           });
           entry.appendChild(cb);
+
+          // Restore input-hints for the latest message
+          if (isLatest) {
+            const hints = document.getElementById('input-hints');
+            hints.innerHTML = '';
+            choices.slice(0, 4).forEach(c => {
+              const chip = document.createElement('span');
+              chip.className = 'hint-chip';
+              chip.textContent = `${c.num}. ${c.label.slice(0, 30)}${c.label.length > 30 ? '…' : ''}`;
+              chip.onclick = () => { hints.innerHTML = ''; this.sendMessage(`${c.num}. ${c.label}`); };
+              hints.appendChild(chip);
+            });
+          }
         }
         log.appendChild(entry);
       }

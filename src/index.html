@@ -74,11 +74,20 @@
       </div>
     </div>
     <div class="form-group">
-      <label>API Key</label>
-      <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" />
-      <small>Paste your OpenAI key above. Get one at <a href="#" id="link-provider">platform.openai.com/api-keys</a></small>
+      <label>AI Provider</label>
+      <select id="provider-select">
+        <option value="openai">OpenAI (ChatGPT)</option>
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="gemini">Google (Gemini)</option>
+        <option value="ollama">Ollama (Local / Free)</option>
+      </select>
     </div>
-    <div class="form-group">
+    <div class="form-group" id="api-key-group">
+      <label id="api-key-label">API Key</label>
+      <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" />
+      <small>Get your key at <a href="#" id="link-provider">platform.openai.com/api-keys</a></small>
+    </div>
+    <div class="form-group" id="model-select-group">
       <label>AI Model</label>
       <select id="model-select">
         <option value="gpt-4o">GPT-4o (Recommended)</option>
@@ -86,7 +95,12 @@
         <option value="gpt-4">GPT-4</option>
         <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Faster / Cheaper)</option>
       </select>
-      <small>Requires billing at platform.openai.com/settings/billing</small>
+      <small id="model-select-hint">Requires billing at platform.openai.com/settings/billing</small>
+    </div>
+    <div class="form-group hidden" id="ollama-model-group">
+      <label>Ollama Model</label>
+      <input type="text" id="ollama-model-input" placeholder="llama3" autocomplete="off" />
+      <small>Enter the model name to use (e.g. llama3, mistral, gemma3). <a href="#" id="link-ollama">ollama.ai</a></small>
     </div>
     <div class="form-group">
       <label>Master Volume — <span id="vol-label">70%</span></label>
@@ -100,6 +114,22 @@
         <option value="5">Fast</option>
         <option value="0">Instant</option>
       </select>
+    </div>
+    <div class="form-group form-group-toggle">
+      <div class="toggle-row">
+        <div>
+          <label class="toggle-label-text" for="tts-toggle">DM Voice (TTS)</label>
+          <small>Narrate the Dungeon Master's text aloud using your system voices</small>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="tts-toggle" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+    </div>
+    <div class="form-group" id="tts-voice-group">
+      <label>TTS Voice</label>
+      <select id="tts-voice-select"><option value="">Default System Voice</option></select>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
@@ -333,6 +363,7 @@
           <button class="quick-btn" data-action="I help an ally with their action.">🤝 Help</button>
           <button class="quick-btn" data-action="I look around carefully and assess the situation.">🔍 Assess</button>
           <button class="quick-btn" data-action="I try to persuade or reason with them.">💬 Persuade</button>
+          <button class="quick-btn" id="btn-quick-perception">👁 Perception</button>
         </div>
         <div class="input-row">
           <input type="text" id="player-input" placeholder="What do you do? (or choose a numbered option)" autocomplete="off" />
@@ -356,6 +387,15 @@
     </button>
     <button class="toolbar-btn" id="btn-rules">
       <span class="tb-icon">📖</span><span>Rules</span>
+    </button>
+    <button class="toolbar-btn" id="btn-perception-log">
+      <span class="tb-icon">👁</span><span>Perception</span>
+    </button>
+    <button class="toolbar-btn" id="btn-journal">
+      <span class="tb-icon">📓</span><span>Journal</span>
+    </button>
+    <button class="toolbar-btn" id="btn-tts" title="Toggle DM voice narration">
+      <span class="tb-icon" id="tts-icon">🔇</span><span>DM Voice</span>
     </button>
     <div class="toolbar-hp-mini" id="toolbar-hp-mini">
       <span class="toolbar-hp-mini-icon">♥</span>
@@ -432,11 +472,14 @@
       <!-- Left Column -->
       <div class="sheet-col sheet-col-left">
         <div class="sheet-portrait-frame" id="sheet-portrait-frame">
+          <img class="generated-portrait hidden" id="sheet-portrait-img" alt="AI portrait" />
           <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
             <circle cx="40" cy="28" r="16" fill="#2a2010" stroke="#c9a227" stroke-width="1.5"/>
             <path d="M10 80 Q40 52 70 80" fill="#2a2010" stroke="#c9a227" stroke-width="1.5"/>
           </svg>
         </div>
+        <button class="btn btn-outline btn-sm" id="btn-gen-portrait-sheet" title="Generate AI portrait with DALL-E 3 (needs OpenAI key)">🎨 Generate Portrait</button>
+        <div class="portrait-gen-status" id="sheet-portrait-status"></div>
         <div class="sheet-meta-grid">
           <div class="smg-item"><span class="smg-label">Race</span><span class="smg-val" id="s-race">—</span></div>
           <div class="smg-item"><span class="smg-label">Class</span><span class="smg-val" id="s-class">—</span></div>
@@ -573,7 +616,7 @@
       <h3>💀 Death Saving Throws</h3>
     </div>
     <div class="modal-body" style="align-items:center;text-align:center;gap:20px">
-      <p class="death-flavour">You are at 0 HP and unconscious. Roll a d20 each turn.<br>10 or higher = <strong>success</strong> · 9 or lower = <strong>failure</strong><br>3 successes = stable · 3 failures = dead.</p>
+      <p class="death-flavour">You are at 0 HP and unconscious. You have <strong>3 rolls</strong>.<br>10 or higher = <strong>success</strong> · 9 or lower = <strong>failure</strong> · Nat 1 = <strong>2 failures</strong><br>2 successes = survive at 1 HP · 2 failures = death.</p>
       <div class="death-track">
         <div class="dt-row">
           <span class="dt-label success">Successes</span>
@@ -653,6 +696,21 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ MODAL: PERCEPTION LOG ══════════════════════ -->
+<div class="modal-overlay hidden" id="modal-perception-log">
+  <div class="modal modal-xl">
+    <div class="modal-head">
+      <h3>👁 Perception Log</h3>
+      <button class="modal-x" id="close-modal-perception-log">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="perception-log-entries" class="perception-log-entries">
+        <div class="rules-hint">No perception checks recorded yet. Enter a location to roll.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ MODAL: RULES REFERENCE ══════════════════════ -->
 <div class="modal-overlay hidden" id="modal-rules">
   <div class="modal modal-xl">
@@ -694,11 +752,38 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ MODAL: JOURNAL ══════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-journal">
+  <div class="modal modal-xl">
+    <div class="modal-head">
+      <h3>📓 Campaign Journal</h3>
+      <button class="modal-x" id="close-modal-journal">✕</button>
+    </div>
+    <div class="modal-body" style="flex-direction:column;gap:0;padding:0">
+      <div class="tab-row" style="padding:0 24px;border-bottom:1px solid var(--border-dim);">
+        <button class="tab-btn active" id="journal-tab-npcs">👥 NPCs</button>
+        <button class="tab-btn" id="journal-tab-lore">📜 Lore</button>
+        <button class="tab-btn" id="journal-tab-decisions">⚔ Decisions</button>
+      </div>
+      <div class="journal-panel" id="journal-panel-npcs">
+        <div id="journal-npcs" class="journal-entries"></div>
+      </div>
+      <div class="journal-panel hidden" id="journal-panel-lore">
+        <div id="journal-lore" class="journal-entries"></div>
+      </div>
+      <div class="journal-panel hidden" id="journal-panel-decisions">
+        <div id="journal-decisions" class="journal-entries"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
 <!-- Scripts -->
 <script src="js/open5e.js"></script>
+<script src="js/journal.js"></script>
 <script src="js/save.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/character.js"></script>

@@ -17,6 +17,7 @@ class SaveSystem {
       perceptionCache:  window.mapSystem?._perceptionCache          || {},
       campaignType:     window.app?.gameState?.campaignType         || 'standard',
       customDesc:       window.app?.gameState?.customDesc           || '',
+      journal:          window.journalSystem?.serialize()           || null,
       savedAt:          new Date().toLocaleString(),
     };
   }
@@ -50,6 +51,9 @@ class SaveSystem {
       window.aiSystem.model     = window.app.settings.model;
       window.aiSystem.provider  = window.app.settings.provider || 'openai';
       window.aiSystem.textSpeed = window.app.settings.textSpeed ?? 15;
+
+      // Restore journal
+      window.journalSystem?.restore(data.journal || null);
 
       // Restore scene — must show screen first so canvas has dimensions
       window.app.showScreen('game');
