@@ -456,3 +456,26 @@ ipcMain.handle('update:check', () => {
 ipcMain.handle('update:open-release', (_e, url) => {
   shell.openExternal(url);
 });
+
+ipcMain.handle('update:releases', () => {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.github.com',
+      path:     `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`,
+      method:   'GET',
+      headers:  { 'User-Agent': 'artificial-realms-updater' },
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', c => { data += c; });
+      res.on('end', () => {
+        try {
+          const releases = JSON.parse(data);
+          resolve(Array.isArray(releases) ? releases : []);
+        } catch { resolve([]); }
+      });
+    });
+    req.on('error', () => resolve([]));
+    req.end();
+  });
+});
