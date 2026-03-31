@@ -230,6 +230,32 @@ class AISystem {
     return new Promise(r => setTimeout(() => r(responseText), 800));
   }
 
+  // ── Scene inference from response text (fallback when AI omits tags) ──
+  _inferScene(text) {
+    const t = text.toLowerCase();
+    // Priority: most specific / highest-stakes first
+    if (/\b(lich|demon lord|dragon|archlich|ancient evil|dark god|eldritch horror)\b/.test(t))
+      return 'boss';
+    if (/\b(attack|combat|fight(?:ing)?|battle|clash|brawl|skirmish|sword|blade|spear|arrow|wound|blood|strikes?|parr(?:y|ied)|dodge|slay|slain|slaughter)\b/.test(t)
+        && /\b(enemy|enemies|goblin|orc|bandit|monster|creature|foe|opponent|assailant)\b/.test(t))
+      return 'combat';
+    if (/\b(cave|cavern|stalactite|stalagmite|spelunk|grotto|underground.*chamber|echoes.*rock|dripping.*stone)\b/.test(t))
+      return 'cave';
+    if (/\b(dungeon|corridor|torch(?:lit|es?)?|iron sconce|stone floor|damp.*stone|passage|portcullis|crypt|underground ruin|iron door|dark hall)\b/.test(t))
+      return 'dungeon';
+    if (/\b(castle|keep|great hall|throne(?: room)?|rampart|battlement|parapet|tower|fortress|baron|lord.*hall)\b/.test(t))
+      return 'castle';
+    if (/\b(tavern|inn|alehouse|common room|fireplace|hearth|mug|tankard|bard|barkeep|innkeeper|taproom)\b/.test(t))
+      return 'tavern';
+    if (/\b(town|village|market(?:place)?|cobble|street|town square|settlement|merchant|blacksmith|guard post|city)\b/.test(t))
+      return 'town';
+    if (/\b(forest|wood(?:s|land)|trees?|canopy|undergrowth|leaves|thicket|birdsong|wilderness|trail|clearing|overgrown)\b/.test(t))
+      return 'forest';
+    if (/\b(rest(?:ing)?|camp(?:fire|site)?|safe haven|recover(?:ing)?|tend.*wound|sleep|shelter|warmth.*night)\b/.test(t))
+      return 'rest';
+    return null;
+  }
+
   // ── Build System Prompt ──────────────────────────────────────
   _buildSystemPrompt(character, campaignType, customDesc) {
     const c      = character;
@@ -259,9 +285,18 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 • Present 3–4 **numbered choices** at the end of most turns for the player to pick from. Honor free-text input too.
 • When a skill/attack check is needed, include a roll tag: [DICE:d20+3] (replace 3 with the relevant modifier).
   Use D&D 5e DCs: Easy=10, Medium=15, Hard=20, Very Hard=25.
-• When the scene changes significantly, include [SCENE:X] where X is one of:
-  dungeon, tavern, forest, cave, castle, town, combat, boss, rest
-• When music should shift (e.g. during combat), include [MUSIC:X] with the same scene values.
+• EVERY response MUST begin with [SCENE:X] matching the current location and environment. X must be one of:
+  dungeon  — underground corridors, torchlit passages, ruins, crypts
+  tavern   — inns, alehouses, common rooms, hearths
+  forest   — woods, wilderness, canopy, trails, clearings
+  cave     — natural caverns, stalactites, deep rock, echoes
+  castle   — keeps, halls, towers, battlements, fortresses
+  town     — villages, markets, streets, town squares, settlements
+  combat   — any active fight or skirmish (use MUSIC:combat too)
+  boss     — major villain showdown or climactic encounter
+  rest     — camps, safe havens, recovery moments
+  Choose based on where the player is RIGHT NOW and what surrounds them (objects, creatures, terrain, lighting, sounds).
+• EVERY response must also include [MUSIC:X] when the atmosphere should change — combat always gets [MUSIC:combat], boss always gets [MUSIC:boss], peaceful moments get [MUSIC:rest], etc. If the scene and music are the same value, emit both anyway.
 • When the character takes damage, include [HP:-N] (e.g. [HP:-5]).
 • When the character is healed, include [HP:+N].
 • When the character earns XP, include [XP:+N].
@@ -324,6 +359,10 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     }
     const trimmed = [sysMsg, ...this.messages.slice(1).slice(-20)];
 
+    // Track the last user message so errors can offer a retry
+    this._lastSentText   = text;
+    this._lastSentSystem = isSystem;
+
     try {
       const response = (this.demoMode || !this.apiKey)
         ? await this._mockResponse()
@@ -331,7 +370,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
       this.messages.push({ role: 'assistant', content: response });
       await this._processResponse(response);
     } catch (err) {
-      this._addSystemEntry(`⚠ The Oracle is silent: ${err}. Check your API key in Settings.`);
+      this._addErrorEntry(err);
     } finally {
       document.getElementById('player-input').disabled = false;
       document.getElementById('btn-send').disabled     = false;
@@ -356,11 +395,15 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     // Accumulate incoming damage separately — applied only after initiative roll
     let pendingDamage = 0;
 
+    // Track whether the AI emitted explicit scene/music tags
+    let sceneSet = false;
+    let musicSet = false;
+
     // Process commands first (scene/music changes happen behind the text)
     commands.forEach(({ cmd, val }) => {
       switch (cmd) {
-        case 'SCENE': try { window.mapSystem?.setScene(val.toLowerCase()); window.audioSystem?.setScene(val.toLowerCase()); } catch (e) { console.warn('Scene error:', e); } break;
-        case 'MUSIC': try { window.audioSystem?.setScene(val.toLowerCase()); } catch (e) { console.warn('Audio error:', e); } break;
+        case 'SCENE': try { window.mapSystem?.setScene(val.toLowerCase()); window.audioSystem?.setScene(val.toLowerCase()); sceneSet = true; musicSet = true; } catch (e) { console.warn('Scene error:', e); } break;
+        case 'MUSIC': try { window.audioSystem?.setScene(val.toLowerCase()); musicSet = true; } catch (e) { console.warn('Audio error:', e); } break;
         case 'HP': {
           const delta = parseInt(val);
           if (!isNaN(delta)) {
@@ -397,6 +440,17 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
         case 'DECISION': window.journalSystem?.addDecision(val); break;
       }
     });
+
+    // ── Fallback: if the AI omitted SCENE/MUSIC tags, infer from the response text ──
+    if (!sceneSet) {
+      const inferred = this._inferScene(raw);
+      if (inferred) {
+        try { window.mapSystem?.setScene(inferred); } catch (e) { console.warn('Scene infer error:', e); }
+        if (!musicSet) {
+          try { window.audioSystem?.setScene(inferred); } catch (e) { console.warn('Music infer error:', e); }
+        }
+      }
+    }
 
     // Parse numbered choices out of response text
     const { prose, choices, diceRequest } = this._parseText(text);
@@ -633,6 +687,27 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     const entry = document.createElement('div');
     entry.className = 'story-entry system';
     entry.innerHTML = `<div class="entry-text system-text">${text}</div>`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  _addErrorEntry(err) {
+    const log   = document.getElementById('story-log');
+    const entry = document.createElement('div');
+    entry.className = 'story-entry system';
+    const msg = String(err).replace(/Error:\s*/i, '').split('\n')[0];
+    entry.innerHTML = `
+      <div class="entry-text system-text error-text">
+        ⚠ The Oracle is silent: <em>${msg}</em>
+        <button class="btn-retry" title="Retry sending your last message">↺ Retry</button>
+      </div>`;
+    entry.querySelector('.btn-retry').addEventListener('click', () => {
+      entry.remove();
+      // Remove the failed user message from history so it isn't duplicated
+      const lastIdx = [...this.messages].map(m => m.role).lastIndexOf('user');
+      if (lastIdx !== -1) this.messages.splice(lastIdx, 1);
+      this._doSend(this._lastSentText, this._lastSentSystem);
+    });
     log.appendChild(entry);
     log.scrollTop = log.scrollHeight;
   }

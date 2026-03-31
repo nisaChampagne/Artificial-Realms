@@ -1067,6 +1067,23 @@ input[type=range]::-webkit-slider-thumb {
   padding: 6px;
   opacity: 0.7;
 }
+.error-text { opacity: 1 !important; color: #c97a4a !important; }
+.btn-retry {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-family: var(--font-heading);
+  letter-spacing: 1px;
+  background: transparent;
+  border: 1px solid #c97a4a;
+  color: #c97a4a;
+  border-radius: var(--radius);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-retry:hover { background: #c97a4a; color: #0d0b08; }
 .entry-label {
   font-family: var(--font-heading);
   font-size: 10px; letter-spacing: 2px;

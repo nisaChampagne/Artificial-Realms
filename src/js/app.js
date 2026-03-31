@@ -141,9 +141,9 @@ class App {
           ['claude-3-haiku-20240307',  'Claude 3 Haiku (Faster / Cheaper)'],
         ],
         gemini: [
-          ['gemini-2.0-flash',  'Gemini 2.0 Flash (Recommended)'],
-          ['gemini-1.5-flash',  'Gemini 1.5 Flash'],
-          ['gemini-1.5-pro',    'Gemini 1.5 Pro'],
+          ['gemini-2.5-flash',      'Gemini 2.5 Flash (Recommended, Free)'],
+          ['gemini-2.5-pro',        'Gemini 2.5 Pro (Free)'],
+          ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash-Lite (Fastest, Free)'],
         ],
       };
       const list = options[provider] || options.openai;
