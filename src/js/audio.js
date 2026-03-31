@@ -214,15 +214,22 @@ class AudioSystem {
     if (!this._initialized) this.init();
     if (!this._ctx) return;
     if (name === this.currentScene) return;
+
+    // Ensure context is running (may be suspended on some platforms)
+    if (this._ctx.state === 'suspended') this._ctx.resume();
+
     this.stopAll();
     this.currentScene = name;
     const config = SCENES[name] || SCENES.dungeon;
     document.getElementById('music-now').textContent = config.label;
 
-    // Short crossfade in
+    // Wipe any stale gain automation accumulated from previous scene changes,
+    // then crossfade in — without this, competing ramps silence the master bus.
+    const now = this._ctx.currentTime;
     const targetVol = (this.muted || !isFinite(this.volume)) ? 0 : this.volume;
-    this._master.gain.setValueAtTime(0, this._ctx.currentTime);
-    this._master.gain.linearRampToValueAtTime(targetVol, this._ctx.currentTime + 2);
+    this._master.gain.cancelScheduledValues(now);
+    this._master.gain.setValueAtTime(0, now);
+    this._master.gain.linearRampToValueAtTime(targetVol, now + 2);
 
     this._buildTrack(config);
   }
@@ -231,15 +238,19 @@ class AudioSystem {
     const safe = (typeof v === 'number' && isFinite(v)) ? Math.max(0, Math.min(1, v)) : this.volume;
     this.volume = isFinite(safe) ? safe : 0.7;
     if (this._master && !this.muted && this._ctx) {
-      this._master.gain.setTargetAtTime(this.volume, this._ctx.currentTime, 0.1);
+      const now = this._ctx.currentTime;
+      this._master.gain.cancelScheduledValues(now);
+      this._master.gain.setTargetAtTime(this.volume, now, 0.1);
     }
   }
 
   toggle() {
     this.muted = !this.muted;
     document.getElementById('btn-mute').textContent = this.muted ? '🔇' : '🔊';
-    if (this._master) {
-      this._master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this._ctx.currentTime, 0.1);
+    if (this._master && this._ctx) {
+      const now = this._ctx.currentTime;
+      this._master.gain.cancelScheduledValues(now);
+      this._master.gain.setTargetAtTime(this.muted ? 0 : this.volume, now, 0.1);
     }
   }
 

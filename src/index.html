@@ -8,6 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
+  <!-- Silence a known Electron/Chromium internal bug: drag-region bootstrap
+       code references `dragEvent` which isn't in scope in newer Chromium. -->
+  <script>window.dragEvent = window.dragEvent || null;</script>
 </head>
 <body>
 
@@ -53,7 +56,11 @@
       <button class="btn btn-secondary" id="btn-load-game">📜&nbsp; Load Game</button>
       <button class="btn btn-outline" id="btn-settings">⚙&nbsp; Settings</button>
     </div>
-    <p class="menu-version">v1.0.0 — Powered by OpenAI</p>
+  </div>
+  <div class="menu-corner">
+    <span class="menu-version" id="app-version">v2.1.0</span>
+    <span class="menu-corner-sep">·</span>
+    <button class="btn-changelog-link" id="btn-changelog">What's New</button>
   </div>
 </div>
 
@@ -544,6 +551,9 @@
     <button class="toolbar-btn" id="btn-tts" title="Toggle DM voice narration">
       <span class="tb-icon" id="tts-icon">🔇</span><span>DM Voice</span>
     </button>
+    <button class="toolbar-btn" id="btn-help" title="Help Guide">
+      <span class="tb-icon">❓</span><span>Help</span>
+    </button>
     <div class="toolbar-sep"></div>
     <div class="music-hud">
       <span class="tb-icon">🎵</span>
@@ -916,13 +926,45 @@
       <button class="modal-x" id="close-modal-inventory">✕</button>
     </div>
     <div class="modal-body" style="flex-direction:column;gap:0;padding:0">
-      <div class="inv-gold-bar" id="inv-gold-bar">
-        <span class="inv-gold-icon">🪙</span>
-        <span class="inv-gold-label">Gold</span>
-        <span class="inv-gold-amount" id="inv-gold-amount">0</span>
-        <span class="inv-gold-unit">gp</span>
+      <div class="inv-currency-bar" id="inv-currency-bar">
+        <div class="inv-currency-group">
+          <span class="inv-currency-icon">🪙</span>
+          <span class="inv-currency-amount" id="inv-gold-amount">0</span>
+          <span class="inv-currency-unit">gp</span>
+        </div>
+        <div class="inv-currency-divider">·</div>
+        <div class="inv-currency-group">
+          <span class="inv-currency-icon">🥈</span>
+          <span class="inv-currency-amount" id="inv-silver-amount">0</span>
+          <span class="inv-currency-unit">sp</span>
+        </div>
+        <div class="inv-currency-divider">·</div>
+        <div class="inv-currency-group">
+          <span class="inv-currency-icon">🟤</span>
+          <span class="inv-currency-amount" id="inv-brass-amount">0</span>
+          <span class="inv-currency-unit">bp</span>
+        </div>
+        <button class="inv-market-btn hidden" id="btn-open-market">🏪 Visit Market</button>
       </div>
       <div id="inventory-items" class="inventory-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ MODAL: MARKET ══════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-market">
+  <div class="modal" style="width:min(560px,96vw)">
+    <div class="modal-head">
+      <h3>🏪 Market</h3>
+      <button class="modal-x" id="close-modal-market">✕</button>
+    </div>
+    <div class="modal-body" style="flex-direction:column;gap:0;padding:0">
+      <div class="market-wallet" id="market-wallet"></div>
+      <div class="market-subtitle">The merchant eyes your pack. Half-price for everything — take it or leave it.</div>
+      <div id="market-items" class="market-list"></div>
+      <div class="market-footer">
+        <button class="btn btn-outline" id="market-sell-all">Sell Everything</button>
+      </div>
     </div>
   </div>
 </div>
@@ -961,6 +1003,161 @@
 <script src="js/journal.js"></script>
 <script src="js/inventory.js"></script>
 <script src="js/save.js"></script>
+<!-- ═══════════════════════════ MODAL: CHANGELOG ════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-changelog">
+  <div class="modal modal-changelog">
+    <div class="modal-head">
+      <h3>📜 What's New</h3>
+      <button class="modal-x" id="close-modal-changelog">✕</button>
+    </div>
+    <div class="modal-body changelog-body" id="changelog-body"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ MODAL: HELP GUIDE ══════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-help">
+  <div class="modal modal-help">
+    <div class="modal-head">
+      <h3>❓ Help Guide</h3>
+      <button class="modal-x" id="close-modal-help">✕</button>
+    </div>
+    <div class="modal-body help-modal-body">
+
+      <!-- Tab nav -->
+      <div class="tab-row help-tab-row">
+        <button class="tab-btn active" data-help-tab="gameplay">⚔ Gameplay</button>
+        <button class="tab-btn" data-help-tab="combat">🗡 Combat</button>
+        <button class="tab-btn" data-help-tab="map">🗺 Map</button>
+        <button class="tab-btn" data-help-tab="toolbar">🧰 Toolbar</button>
+        <button class="tab-btn" data-help-tab="economy">🪙 Economy</button>
+        <button class="tab-btn" data-help-tab="tips">💡 Tips</button>
+      </div>
+
+      <!-- Gameplay -->
+      <div class="help-panel" id="help-panel-gameplay">
+        <div class="help-section">
+          <div class="help-section-title">Talking to the Dungeon Master</div>
+          <div class="help-row"><span class="help-icon">✍</span><div><strong>Type freely</strong> — the AI DM understands full sentences. "I search the chest" or "I try to bluff the guard" work just as well as numbered options.</div></div>
+          <div class="help-row"><span class="help-icon">🔢</span><div><strong>Numbered choices</strong> — when the DM gives you options, type <span class="help-kbd">1</span>, <span class="help-kbd">2</span>, or <span class="help-kbd">3</span> to pick one.</div></div>
+          <div class="help-row"><span class="help-icon">💬</span><div><strong>Hint chips</strong> — suggested follow-ups appear below the input after each DM response. Click one to send it instantly.</div></div>
+          <div class="help-row"><span class="help-icon">⚡</span><div><strong>Quick actions</strong> — the row of buttons (Attack, Dodge, Hide…) sends a common action with one click.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">How the World Works</div>
+          <div class="help-row"><span class="help-icon">📖</span><div>The DM tracks the story — you never need to re-explain what happened earlier.</div></div>
+          <div class="help-row"><span class="help-icon">🌍</span><div>Your choices shape the world. NPCs remember you, quests branch, and consequences are real.</div></div>
+          <div class="help-row"><span class="help-icon">🎲</span><div>The DM will ask you to roll dice at key moments — a prompt appears above the input box.</div></div>
+        </div>
+      </div>
+
+      <!-- Combat -->
+      <div class="help-panel hidden" id="help-panel-combat">
+        <div class="help-section">
+          <div class="help-section-title">Starting Combat</div>
+          <div class="help-row"><span class="help-icon">⚡</span><div><strong>Initiative</strong> — a roll modal appears when combat begins. Your Dexterity modifier is applied automatically. Higher is better.</div></div>
+          <div class="help-row"><span class="help-icon">⚔</span><div><strong>Your turn</strong> — describe your action, or use the quick buttons. The DM resolves the roll and narrates the result.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Hit Points & Death</div>
+          <div class="help-row"><span class="help-icon">♥</span><div><strong>HP to 0</strong> — triggers Death Saving Throws. Roll d20 each turn. Need <strong>10+</strong> to succeed.</div></div>
+          <div class="help-row"><span class="help-icon">✔</span><div><strong>2 successes</strong> before 2 failures — you stabilize at 1 HP.</div></div>
+          <div class="help-row"><span class="help-icon">✖</span><div><strong>2 failures</strong> before 2 successes — your character dies. A natural 1 counts as 2 failures.</div></div>
+          <div class="help-row"><span class="help-icon">🩹</span><div><strong>Healing</strong> — potions (use from Inventory), spells, or a Rest restore HP.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Resting</div>
+          <div class="help-row"><span class="help-icon">⏱</span><div><strong>Short Rest (~1 hr)</strong> — spend Hit Dice to recover HP. Open <em>Rest</em> in the toolbar.</div></div>
+          <div class="help-row"><span class="help-icon">🌟</span><div><strong>Long Rest (~8 hrs)</strong> — fully restores HP and recovers all spent Hit Dice. Should only be taken in a safe location.</div></div>
+        </div>
+      </div>
+
+      <!-- Map -->
+      <div class="help-panel hidden" id="help-panel-map">
+        <div class="help-section">
+          <div class="help-section-title">Reading the Map</div>
+          <div class="help-row"><span class="help-icon legend-you">●</span><div><strong>You</strong> — your current position on the map.</div></div>
+          <div class="help-row"><span class="help-icon legend-enemy">●</span><div><strong>Enemy</strong> — a detected threat nearby.</div></div>
+          <div class="help-row"><span class="help-icon legend-item">✦</span><div><strong>Item</strong> — an object, chest, or point of interest.</div></div>
+          <div class="help-row"><span class="help-icon">▬</span><div><strong>Door</strong> — a passage between rooms or areas.</div></div>
+          <div class="help-row"><span class="help-icon" style="color:var(--gold)">◆</span><div><strong>Landmark</strong> — a named location the DM has mentioned (manor, ruins, altar, etc.). Shown with a floating label.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Exploring</div>
+          <div class="help-row"><span class="help-icon">🌫</span><div><strong>Fog of War</strong> — unexplored areas are hidden. Toggle it with the <em>👁 Fog</em> button on the map panel.</div></div>
+          <div class="help-row"><span class="help-icon">🗺</span><div><strong>Scene changes</strong> — moving to a new location (dungeon, forest, tavern, manor, ruins, crypt…) generates a fresh map layout.</div></div>
+          <div class="help-row"><span class="help-icon">🎯</span><div>As you explore, the map fills in around you. Enemy and item markers are placed by the DM in response to the story.</div></div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="help-panel hidden" id="help-panel-toolbar">
+        <div class="help-section">
+          <div class="help-section-title">Toolbar Buttons</div>
+          <div class="help-row"><span class="help-icon">🎲</span><div><strong>Dice</strong> — roll any die (d4–d100) with a modifier and advantage or disadvantage.</div></div>
+          <div class="help-row"><span class="help-icon">📜</span><div><strong>Character</strong> — full character sheet: HP, Ability Scores, Skills, Saving Throws, Features, and Spells.</div></div>
+          <div class="help-row"><span class="help-icon">🌙</span><div><strong>Rest</strong> — take a Short or Long Rest to recover HP.</div></div>
+          <div class="help-row"><span class="help-icon">📖</span><div><strong>Rules</strong> — search the official D&amp;D 5e SRD: spells, conditions, equipment, monsters, and more.</div></div>
+          <div class="help-row"><span class="help-icon">👁</span><div><strong>Perception</strong> — log of all passive and active perception checks made during this session.</div></div>
+          <div class="help-row"><span class="help-icon">📓</span><div><strong>Journal</strong> — auto-captured NPCs, world lore, and key decisions. Tabs: NPCs · Lore · Decisions.</div></div>
+          <div class="help-row"><span class="help-icon">🎒</span><div><strong>Inventory</strong> — manage your equipped and carried items. Tap an item to inspect, equip, use, or drop it.</div></div>
+          <div class="help-row"><span class="help-icon">🔇</span><div><strong>DM Voice</strong> — toggles text-to-speech narration of the Dungeon Master's responses.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Saving Your Game</div>
+          <div class="help-row"><span class="help-icon">💾</span><div><strong>Save</strong> (header button) — up to 5 named manual save slots.</div></div>
+          <div class="help-row"><span class="help-icon">⏲</span><div><strong>Autosave</strong> — your game is saved automatically every 5 minutes to slot 0.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Keyboard Shortcuts</div>
+          <div class="help-row"><span class="help-kbd">Enter</span><div>Send your message.</div></div>
+          <div class="help-row"><span class="help-kbd">Ctrl+Shift+I</span><div>Open the developer console.</div></div>
+        </div>
+      </div>
+
+      <!-- Economy -->
+      <div class="help-panel hidden" id="help-panel-economy">
+        <div class="help-section">
+          <div class="help-section-title">Currency</div>
+          <div class="help-row"><span class="help-icon">🪙</span><div><strong>Gold (gp)</strong> — the primary currency. Used for expensive equipment and services.</div></div>
+          <div class="help-row"><span class="help-icon">🥈</span><div><strong>Silver (sp)</strong> — mid-tier coin. 10 sp = 1 gp.</div></div>
+          <div class="help-row"><span class="help-icon">🟤</span><div><strong>Brass (bp)</strong> — small change. 10 bp = 1 sp · 100 bp = 1 gp.</div></div>
+          <div class="help-row"><span class="help-icon">🎁</span><div>The DM awards currency during story events — as quest rewards, loot, tips, or found coins.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">The Market</div>
+          <div class="help-row"><span class="help-icon">🏪</span><div><strong>Visit Market</strong> — appears in the Inventory when you're in a <em>town</em> or <em>tavern</em>. Travel to one by asking the DM.</div></div>
+          <div class="help-row"><span class="help-icon">💰</span><div><strong>Selling</strong> — merchants pay <em>50% of market value</em>. Sell individual items or everything at once.</div></div>
+          <div class="help-row"><span class="help-icon">⚠</span><div>Equipped items cannot be sold — unequip them first from the Inventory.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Item Rarity & Value</div>
+          <div class="help-row"><span class="help-icon" style="color:#aaa">◆</span><div><strong>Common</strong> — 50 bp sell value.</div></div>
+          <div class="help-row"><span class="help-icon" style="color:#6a9e6a">◆</span><div><strong>Uncommon</strong> — 5 sp sell value.</div></div>
+          <div class="help-row"><span class="help-icon" style="color:#5a82a0">◆</span><div><strong>Rare</strong> — 2 gp 5 sp sell value.</div></div>
+          <div class="help-row"><span class="help-icon" style="color:#7a5a9e">◆</span><div><strong>Very Rare</strong> — 25 gp sell value.</div></div>
+          <div class="help-row"><span class="help-icon" style="color:var(--gold)">◆</span><div><strong>Legendary</strong> — 250 gp sell value.</div></div>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div class="help-panel hidden" id="help-panel-tips">
+        <div class="help-section">
+          <div class="help-section-title">Getting the Most from Your Adventure</div>
+          <div class="help-row"><span class="help-icon">🗣</span><div><strong>Be specific.</strong> "I carefully examine the inscription on the door" gets a richer response than "I look at the door".</div></div>
+          <div class="help-row"><span class="help-icon">🔍</span><div><strong>Search everything.</strong> Say "I search the room" or "I check for traps" — hidden items and secrets await.</div></div>
+          <div class="help-row"><span class="help-icon">🤝</span><div><strong>Talk to NPCs.</strong> Most characters have knowledge, quests, or goods. Ask them questions by name.</div></div>
+          <div class="help-row"><span class="help-icon">📓</span><div><strong>Check your Journal.</strong> NPC names, lore clues, and decisions are auto-captured so you never lose track.</div></div>
+          <div class="help-row"><span class="help-icon">🌍</span><div><strong>Change the scene.</strong> Say "I travel to the nearest town" or "I enter the dungeon" and the map will update to match.</div></div>
+          <div class="help-row"><span class="help-icon">💡</span><div><strong>Use the Rules panel</strong> when unsure about a spell, condition, or rule — search right inside the game without alt-tabbing.</div></div>
+          <div class="help-row"><span class="help-icon">💾</span><div><strong>Save often.</strong> Auto-save runs every 5 minutes, but manual saves protect against unexpected crashes.</div></div>
+          <div class="help-row"><span class="help-icon">🔊</span><div><strong>Turn up the volume.</strong> The ambient music changes with each scene — dungeon, forest, tavern, manor, and more.</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <script src="js/audio.js"></script>
 <script src="js/character.js"></script>
 <script src="js/map.js"></script>

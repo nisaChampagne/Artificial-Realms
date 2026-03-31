@@ -21,11 +21,18 @@ class App {
     window.saveSystem.init();
     window.diceSystem.init();
     window.characterSystem.init();
+    window.inventorySystem.init();
 
     this._bindKeyboard();
 
     // Animated menu background
     this._startMenuCanvas();
+
+    // Populate version from package.json
+    window.electronAPI.getAppVersion().then(v => {
+      const el = document.getElementById('app-version');
+      if (el) el.textContent = `v${v} — Powered by Gemini`;
+    });
 
     // Check for updates (non-blocking, runs in background)
     this._checkForUpdates();
@@ -215,6 +222,97 @@ class App {
       this._hideDeathScreen();
       this.showScreen('menu');
     };
+
+    // Changelog
+    document.getElementById('btn-changelog').onclick = () => this._openChangelog();
+    document.getElementById('close-modal-changelog').onclick = () =>
+      document.getElementById('modal-changelog').classList.add('hidden');
+  }
+
+  // ── Changelog ────────────────────────────────────────────────
+  static get CHANGELOG() {
+    return [
+      {
+        version: '2.1.0', date: 'March 2026', latest: true,
+        categories: [
+          { type: 'feat', items: [
+            'Dynamic map landmarks — AI emits [MAP:Name] to place a named beacon on the live map',
+            'Three new scene layouts: Manor, Ruins, and Crypt with matching colour palettes',
+            'Music now transitions correctly between scenes (forest → dungeon → manor, etc.)',
+            'Dynamic version label — reads from package.json automatically',
+            'Changelog modal (this screen)',
+          ]},
+          { type: 'fix', items: [
+            'Fixed music getting stuck at silence after multiple scene changes (gain automation queue overflow)',
+            'Gemini rate-limit errors now auto-retry with backoff instead of surfacing a manual button',
+            'Fixed "dragEvent is not defined" Chromium console error on titlebar drag',
+            'Request counter guard now correctly blocks concurrent AI requests',
+          ]},
+          { type: 'ui', items: [
+            'Inventory rarity colours aligned to the dark-fantasy palette',
+            'Equipped items show a gold left-edge accent and a styled badge',
+            'Inventory list groups items into ⚔ Equipped and 🎒 Pack sections',
+            'Send button and all action/hint buttons disabled while DM is responding',
+            'DevTools shortcut: Ctrl+Shift+I',
+          ]},
+        ],
+      },
+      {
+        version: '2.0.0', date: 'February 2026',
+        categories: [
+          { type: 'feat', items: [
+            'AI-powered DM using Google Gemini with streaming responses',
+            'Full D&D 5e character sheet with ability scores, skills, and saving throws',
+            'Procedural dungeon/forest/tavern/cave map generation with fog of war',
+            'Ambient music engine with per-scene generative audio',
+            'Dice roller with physics animation (d4 through d100)',
+            'Inventory system with gold tracking and item rarity',
+            'Journal system with auto-captured adventure log entries',
+            'Save/load with up to 5 manual slots and auto-save',
+            'Open5e integration for rules and spell reference',
+          ]},
+          { type: 'ui', items: [
+            'Dark fantasy theme with Cinzel / Crimson Text typography',
+            'Animated D20 logo on main menu',
+            'Custom frameless window with Electron titlebar',
+            'Short rest and long rest with hit dice rolling',
+            'Death saving throws modal',
+            'Level-up flow with HP roll or average option',
+          ]},
+        ],
+      },
+    ];
+  }
+
+  _openChangelog() {
+    const body = document.getElementById('changelog-body');
+    body.innerHTML = App.CHANGELOG.map(release => {
+      const badge = release.latest ? '<span class="cl-latest-badge">Latest</span>' : '';
+      const cats = release.categories.map(cat => `
+        <div class="cl-category">
+          <span class="cl-cat-label ${cat.type}">${cat.type === 'feat' ? 'Feature' : cat.type === 'fix' ? 'Fix' : 'UI'}</span>
+          <ul class="cl-items">${cat.items.map(i => `<li>${i}</li>`).join('')}</ul>
+        </div>`).join('');
+      return `
+        <div class="cl-release">
+          <div class="cl-release-header">
+            <span class="cl-version">v${release.version}</span>${badge}
+            <span class="cl-date">${release.date}</span>
+          </div>
+          ${cats}
+        </div>`;
+    }).join('');
+    document.getElementById('modal-changelog').classList.remove('hidden');
+  }
+
+  _openHelp() {
+    // Activate first tab by default each time it opens
+    document.querySelectorAll('[data-help-tab]').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.help-panel').forEach(p => p.classList.add('hidden'));
+    const firstTab = document.querySelector('[data-help-tab="gameplay"]');
+    if (firstTab) firstTab.classList.add('active');
+    document.getElementById('help-panel-gameplay')?.classList.remove('hidden');
+    document.getElementById('modal-help').classList.remove('hidden');
   }
 
   // ── Settings Buttons ─────────────────────────────────────────
@@ -448,6 +546,20 @@ class App {
 
     document.getElementById('btn-inventory').onclick = () => window.inventorySystem?.open();
     document.getElementById('close-modal-inventory').onclick = () => window.inventorySystem?.close();
+
+    document.getElementById('btn-help').onclick = () => this._openHelp();
+    document.getElementById('close-modal-help').onclick = () => document.getElementById('modal-help').classList.add('hidden');
+
+    // Help tabs
+    document.querySelectorAll('[data-help-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.helpTab;
+        document.querySelectorAll('[data-help-tab]').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.help-panel').forEach(p => p.classList.add('hidden'));
+        btn.classList.add('active');
+        document.getElementById(`help-panel-${tab}`)?.classList.remove('hidden');
+      });
+    });
 
     // Journal tabs
     ['npcs','lore','decisions'].forEach(tab => {

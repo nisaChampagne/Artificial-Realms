@@ -25,8 +25,9 @@ class AISystem {
     this.model       = 'gpt-4o';
     this.provider    = 'openai';
     this.demoMode    = false;
-    this.isTyping    = false;
-    this.textSpeed   = 15;
+    this.isTyping      = false;
+    this._requestCount = 0;
+    this.textSpeed     = 15;
     this._typeTimer  = null;
     this._demoState  = null;
   }
@@ -240,9 +241,15 @@ class AISystem {
     if (/\b(attack|combat|fight(?:ing)?|battle|clash|brawl|skirmish|sword|blade|spear|arrow|wound|blood|strikes?|parr(?:y|ied)|dodge|slay|slain|slaughter)\b/.test(t)
         && /\b(enemy|enemies|goblin|orc|bandit|monster|creature|foe|opponent|assailant)\b/.test(t))
       return 'combat';
+    if (/\b(crypt|tomb|burial|sarcophag|mausoleum|catacombs?|necropolis|undead.*chamber)\b/.test(t))
+      return 'crypt';
+    if (/\b(manor|estate|mansion|lord(?:'s)? hall|manor house|country house|stately home)\b/.test(t))
+      return 'manor';
+    if (/\b(ruins?|ruined|crumbling|rubble|collapsed|desolate stone|overgrown.*wall|ancient.*wall|broken.*wall)\b/.test(t))
+      return 'ruins';
     if (/\b(cave|cavern|stalactite|stalagmite|spelunk|grotto|underground.*chamber|echoes.*rock|dripping.*stone)\b/.test(t))
       return 'cave';
-    if (/\b(dungeon|corridor|torch(?:lit|es?)?|iron sconce|stone floor|damp.*stone|passage|portcullis|crypt|underground ruin|iron door|dark hall)\b/.test(t))
+    if (/\b(dungeon|corridor|torch(?:lit|es?)?|iron sconce|stone floor|damp.*stone|passage|portcullis|underground ruin|iron door|dark hall)\b/.test(t))
       return 'dungeon';
     if (/\b(castle|keep|great hall|throne(?: room)?|rampart|battlement|parapet|tower|fortress|baron|lord.*hall)\b/.test(t))
       return 'castle';
@@ -293,17 +300,21 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
   cave     — natural caverns, stalactites, deep rock, echoes
   castle   — keeps, halls, towers, battlements, fortresses
   town     — villages, markets, streets, town squares, settlements
+  manor    — manor houses, estates, mansions, lords' halls with fine furnishings
+  ruins    — ruined or crumbling structures, overgrown rubble, desolate remains
+  crypt    — crypts, tombs, burial chambers, mausoleums, necromantic sites
   combat   — any active fight or skirmish (use MUSIC:combat too)
   boss     — major villain showdown or climactic encounter
   rest     — camps, safe havens, recovery moments
   Choose based on where the player is RIGHT NOW and what surrounds them (objects, creatures, terrain, lighting, sounds).
 • EVERY response must also include [MUSIC:X] when the atmosphere should change — combat always gets [MUSIC:combat], boss always gets [MUSIC:boss], peaceful moments get [MUSIC:rest], etc. If the scene and music are the same value, emit both anyway.
+• Whenever the narrative describes a specific named structure, landmark, or point of interest that the player is approaching or can see — such as a manor house, bridge, gate, well, altar, statue, encampment, mill, watchtower, or fallen monument — include [MAP:Short Name] immediately after [SCENE:X]. Use the structure's specific name (e.g. [MAP:Thornwick Manor] or [MAP:Collapsed Gate] or [MAP:Stone Bridge]). This places a visible glowing beacon with the name on the map so the player can see exactly what is ahead. Omit this tag only when the player is already deep inside a location with nothing new in sight.
 • When the character takes damage, include [HP:-N] (e.g. [HP:-5]).
 • When the character is healed, include [HP:+N].
 • When the character earns XP, include [XP:+N].
 • If the character gains a status condition (Poisoned, Blinded, Frightened, etc.), include [CONDITION:name].
 • If the character finds, is given, or picks up ANY notable object — magic items, maps, documents, keys, gemstones, strange stones, relics, tokens, letters, fetishes, or other curiosities — include [ITEM:exact name]. Use the object's specific name, not a generic label.
-• When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]).
+• When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]). For smaller rewards use [SILVER:+N] (silver pieces) or [BRASS:+N] (brass pieces). 10 sp = 1 gp, 10 bp = 1 sp. Use silver for tavern tips, small jobs, minor loot. Use brass for trivial finds (beggar's coin, table scraps). Use gold for meaningful treasure.
 • If the character dies, include [DEAD].
 • When the adventure concludes successfully, include [WIN].
 • Keep implied D&D 5e rules: proficiency, saving throws, spell slots, etc.
@@ -337,6 +348,8 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
   async _doSend(text, isSystem = false) {
     if (this.isTyping) return;
     this.isTyping = true;
+    this._requestCount++;
+    console.log(`[AI] Request #${this._requestCount} sent`);
 
     if (!isSystem) {
       // Show player's action
@@ -348,9 +361,10 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 
     window.journalSystem?.incTurn();
 
-    // Disable input
+    // Disable input and action buttons
     document.getElementById('player-input').disabled = true;
     document.getElementById('btn-send').disabled     = true;
+    document.querySelectorAll('.quick-btn, .hint-chip').forEach(b => { b.disabled = true; });
 
     // Trim context to last 20 messages + system, updating memory in system prompt
     const sysMsg  = { ...this.messages[0] };
@@ -369,9 +383,11 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     this._lastSentSystem = isSystem;
 
     try {
-      const response = (this.demoMode || !this.apiKey)
-        ? await this._mockResponse()
-        : await window.electronAPI.sendToAI(trimmed, this.apiKey, this.model, this.provider);
+      const response = await this._callWithRetry(() =>
+        (this.demoMode || !this.apiKey)
+          ? this._mockResponse()
+          : window.electronAPI.sendToAI(trimmed, this.apiKey, this.model, this.provider)
+      );
       this.messages.push({ role: 'assistant', content: response });
       await this._processResponse(response);
     } catch (err) {
@@ -380,6 +396,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
       this.isTyping = false;
       document.getElementById('player-input').disabled = false;
       document.getElementById('btn-send').disabled     = false;
+      document.querySelectorAll('.quick-btn, .hint-chip').forEach(b => { b.disabled = false; });
       document.getElementById('player-input').focus();
     }
   }
@@ -424,6 +441,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
           break;
         }
         case 'XP':       window.characterSystem?.gainXP(parseInt(val) || 0); break;
+        case 'MAP':      window.mapSystem?.addLandmark(val); break;
         case 'GOLD': {
           const gDelta = parseInt(val);
           if (!isNaN(gDelta)) {
@@ -431,6 +449,26 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
             const charName = window.characterSystem?.character?.name || 'You';
             const sign = gDelta >= 0 ? '+' : '';
             this._addSystemEntry(`🪙 ${charName} ${gDelta >= 0 ? 'gains' : 'loses'} <strong>${sign}${gDelta} gp</strong>.`);
+          }
+          break;
+        }
+        case 'SILVER': {
+          const sDelta = parseInt(val);
+          if (!isNaN(sDelta)) {
+            window.inventorySystem?.addSilver(sDelta);
+            const charName = window.characterSystem?.character?.name || 'You';
+            const sign = sDelta >= 0 ? '+' : '';
+            this._addSystemEntry(`🥈 ${charName} ${sDelta >= 0 ? 'gains' : 'loses'} <strong>${sign}${sDelta} sp</strong>.`);
+          }
+          break;
+        }
+        case 'BRASS': {
+          const bDelta = parseInt(val);
+          if (!isNaN(bDelta)) {
+            window.inventorySystem?.addBrass(bDelta);
+            const charName = window.characterSystem?.character?.name || 'You';
+            const sign = bDelta >= 0 ? '+' : '';
+            this._addSystemEntry(`🟤 ${charName} ${bDelta >= 0 ? 'finds' : 'loses'} <strong>${sign}${bDelta} bp</strong>.`);
           }
           break;
         }
@@ -645,33 +683,47 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 
   async _fetchAndShowItem(name) {
     this._addSystemEntry(`✨ ${window.characterSystem?.character?.name || 'You'} obtained: <strong>${name}</strong>!`);
-    // Always add to inventory; enrich with Open5e data if available
+    // Add to inventory immediately with no data; show modal optimistically
     window.inventorySystem?.addItem(name, null);
+
+    // Show modal right away with a loading state
+    document.getElementById('item-title').textContent = name;
+    document.getElementById('item-body').innerHTML =
+      `<div class="spell-card-desc" style="color:var(--text-dim)">Looking up item details…</div>`;
+    document.getElementById('modal-item').classList.remove('hidden');
+
     try {
-      const item = await window.open5e?.searchMagicItem(name);
-      if (!item) return;
-      // Update inventory entry with full data
+      const result = await window.open5e?.enrichItem(name);
+
       const inv = window.inventorySystem;
-      if (inv) {
+      if (result && inv) {
+        const { data } = result;
         const stored = inv.items.find(i => i.name.toLowerCase() === name.toLowerCase());
         if (stored) {
-          stored.rarity   = item.rarity || '';
-          stored.desc     = item.desc   || '';
-          stored.reqAtune = !!(item.requires_attunement || '').includes('requires');
-          inv._updateBadge();
+          stored.rarity   = data.rarity   || '';
+          stored.desc     = data.desc     || '';
+          stored.reqAtune = !!(data.requires_attunement || '').includes('requires');
         }
       }
-      document.getElementById('item-title').textContent = item.name;
-      const rarity  = item.rarity ? `<span class="spell-card-tag">${item.rarity}</span>` : '';
-      const type    = item.type   ? `<span class="spell-card-tag">${item.type}</span>`   : '';
-      const attune  = (item.requires_attunement || '').includes('requires') ? '<span class="spell-card-tag warn">Attunement</span>' : '';
-      const desc    = (item.desc || '').replace(/\n/g, '<br>');
+
+      // Re-render modal with enriched data (or fallback if nothing found)
+      const itemData  = result?.data || {};
+      const rarity    = itemData.rarity ? `<span class="spell-card-tag">${itemData.rarity}</span>` : '';
+      const typeTag   = itemData.type   ? `<span class="spell-card-tag">${itemData.type}</span>`   : '';
+      const attune    = (itemData.requires_attunement || '').includes('requires')
+        ? '<span class="spell-card-tag warn">Attunement</span>' : '';
+      const desc      = itemData.desc
+        ? itemData.desc.replace(/\n/g, '<br>')
+        : '<em style="color:var(--text-dim)">No description found. The item is yours to interpret.</em>';
+
+      document.getElementById('item-title').textContent = itemData.name || name;
       document.getElementById('item-body').innerHTML = `
-        <div class="spell-card-meta">${rarity}${type}${attune}</div>
-        <div class="spell-card-desc">${desc || 'No description available.'}</div>`;
-      document.getElementById('modal-item').classList.remove('hidden');
+        <div class="spell-card-meta">${rarity}${typeTag}${attune}</div>
+        <div class="spell-card-desc">${desc}</div>`;
     } catch (e) {
-      console.warn('[Open5e] Could not fetch item:', name, e.message);
+      console.warn('[Open5e] Could not enrich item:', name, e.message);
+      document.getElementById('item-body').innerHTML =
+        `<div class="spell-card-desc" style="color:var(--text-dim)">No description found. The item is yours to interpret.</div>`;
     }
   }
 
@@ -718,6 +770,23 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     entry.innerHTML = `<div class="entry-text system-text">${text}</div>`;
     log.appendChild(entry);
     log.scrollTop = log.scrollHeight;
+  }
+
+  async _callWithRetry(fn, maxRetries = 2, baseDelay = 3000) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        const isRateLimit = /rate limit/i.test(String(err));
+        if (isRateLimit && attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt); // 3 s, 6 s
+          this._addSystemEntry(`⏳ Rate limited — retrying in ${delay / 1000}s…`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
   }
 
   _addErrorEntry(err) {

@@ -16,6 +16,9 @@ const PALETTES = {
   combat:  { floor:'#1e1408', wall:'#0e0a04' },
   boss:    { floor:'#1e0808', wall:'#0e0404' },
   rest:    { floor:'#1a2010', wall:'#101408' },
+  manor:   { floor:'#2a1e0e', wall:'#16100a', torch:true },
+  ruins:   { floor:'#181c10', wall:'#0e100a' },
+  crypt:   { floor:'#141018', wall:'#0a080e', torch:true },
 };
 
 // ── Map Layouts ──────────────────────────────────────────────
@@ -195,6 +198,56 @@ S....########.########.......#
 #...t.....t...#
 #.............#
 ###############`,
+
+  manor: `
+##############################
+#p....t....................p.#
+#.##########...##########...#
+#.#.........D.D.........#...#
+#.#...A..t..#.#..t..A...#...#
+#.D.........D.D.........D...#
+#.#...A.....#.#.....A...#...#
+#.##########...##########...#
+#...........t.t.............#
+##########D.....D############
+#.........#.....#...........#
+#...A.A...D..S..D....A.A....#
+#.........#.....#...........#
+##########.#####.############
+##############################`,
+
+  ruins: `
+##....####....####....##.....
+#......#........#......#.....
+#...T..D........D...T..#.....
+####...#....t...#...#####....
+.......####.D.####...........
+.......#...D...#.............
+....T..#.......#...T.........
+.......####.####.............
+.......#.................#...
+.....###...T..S..T...###.....
+.....#...................#...
+.....###################.....
+.............................
+##....####....####....##.....
+#......#........#......#.....
+T......D........D......T.....
+####T...#....t...#...T####...`,
+
+  crypt: `
+##############################
+#...t..#########.########.t.#
+#......D...C...D.D...C...D..#
+#......#########.########...#
+######.#.........#.#.########
+#......D....A....D.D.........#
+#......#########.########...#
+######.#.........#.#.########
+#......D...C...D.D...C...D..#
+#...t..#########.########.t.#
+#..............S.............#
+##############################`,
 };
 
 // ── ProceduralMapGen ─────────────────────────────────────────
@@ -347,6 +400,7 @@ class MapSystem {
     this.playerY      = 10;
     this.enemies      = [];
     this.items        = [];
+    this.landmarks    = [];   // [{ label, x, y }] named POI pins
     this.currentScene = 'dungeon';
     this.fogEnabled   = true;
     this.time         = 0;
@@ -391,6 +445,7 @@ class MapSystem {
   setScene(name) {
     if (!this.canvas) return;
     this.currentScene = name;
+    this.landmarks    = [];
     document.getElementById('map-location').textContent = this._sceneLabel(name);
     document.getElementById('music-now').textContent    = this._musicLabel(name);
 
@@ -453,13 +508,15 @@ class MapSystem {
   _sceneLabel(s) {
     return { dungeon:'The Dungeon', tavern:'The Tavern', forest:'Whispering Forest',
              cave:'Dark Caverns', castle:'The Castle', town:'Town Square',
-             combat:'Battle Arena', boss:"Dragon's Lair", rest:'Safe Camp' }[s] || s;
+             combat:'Battle Arena', boss:"Dragon's Lair", rest:'Safe Camp',
+             manor:'The Manor', ruins:'Ancient Ruins', crypt:'The Crypt' }[s] || s;
   }
 
   _musicLabel(s) {
     return { dungeon:'Dungeon Depths', tavern:'Tavern Lofi', forest:'Forest Ambience',
              cave:'Cave Echoes', castle:'Castle Hall', town:'Town Square',
-             combat:'Battle Theme', boss:'Boss Encounter', rest:'Campfire Rest' }[s] || s;
+             combat:'Battle Theme', boss:'Boss Encounter', rest:'Campfire Rest',
+             manor:'Manor Halls', ruins:'Ancient Ruins', crypt:'Dark Crypt' }[s] || s;
   }
 
   _parseLayout(str) {
@@ -483,6 +540,42 @@ class MapSystem {
         }
       })
     );
+  }
+
+  // ── Named POI landmark beacon ────────────────────────────────
+  addLandmark(label) {
+    const rows = this.map.length;
+    const cols = this.map[0]?.length || 0;
+    if (!rows || !cols) return;
+
+    // Target position: halfway between player and map centre
+    const cx = Math.floor(cols / 2);
+    const cy = Math.floor(rows / 2);
+    const dx = cx - this.playerX;
+    const dy = cy - this.playerY;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const frac = Math.max(4 / dist, 0.5);
+    let tx = Math.round(this.playerX + dx * Math.min(frac, 0.65));
+    let ty = Math.round(this.playerY + dy * Math.min(frac, 0.65));
+    tx = Math.max(1, Math.min(cols - 2, tx));
+    ty = Math.max(1, Math.min(rows - 2, ty));
+
+    // Spiral outward to find nearest walkable tile
+    outer: for (let r = 0; r <= 5; r++) {
+      for (let dy2 = -r; dy2 <= r; dy2++) {
+        for (let dx2 = -r; dx2 <= r; dx2++) {
+          if (Math.abs(dx2) !== r && Math.abs(dy2) !== r) continue;
+          const nx = tx + dx2, ny = ty + dy2;
+          if (ny >= 0 && ny < rows && nx >= 0 && nx < cols && !this._isSolid(nx, ny)) {
+            tx = nx; ty = ny; break outer;
+          }
+        }
+      }
+    }
+
+    this.landmarks.push({ label, x: tx, y: ty });
+    this._revealAround(tx, ty, 3);
+    this._dirty = true;
   }
 
   _spawnEnemies(scene) {
@@ -614,6 +707,49 @@ class MapSystem {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('☠', px, py + 1);
+    });
+
+    // Landmark POI beacons
+    this.landmarks.forEach(({ label, x, y }) => {
+      if (this.fogEnabled && fog[y]?.[x] !== false) return;
+      const px = offX + x * ts + ts / 2;
+      const py = offY + y * ts + ts / 2;
+      const pulse = 0.8 + 0.2 * Math.sin(time * 0.04 + x * 0.7);
+
+      // Outer pulsing glow
+      const gr = ts * (1.9 + 0.5 * Math.sin(time * 0.06 + y));
+      const grd = ctx.createRadialGradient(px, py, 0, px, py, gr);
+      grd.addColorStop(0, `rgba(220,185,40,${0.38 * pulse})`);
+      grd.addColorStop(1, 'transparent');
+      ctx.fillStyle = grd;
+      ctx.fillRect(px - gr, py - gr, gr * 2, gr * 2);
+
+      // Diamond marker
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(Math.PI / 4);
+      const hs = ts * 0.27 * pulse;
+      ctx.fillStyle = `rgba(240,200,50,${0.95 * pulse})`;
+      ctx.fillRect(-hs, -hs, hs * 2, hs * 2);
+      ctx.restore();
+
+      // Vertical stem
+      ctx.strokeStyle = `rgba(240,200,50,${0.55 * pulse})`;
+      ctx.lineWidth = Math.max(1, ts * 0.07);
+      ctx.beginPath();
+      ctx.moveTo(px, py - ts * 0.42);
+      ctx.lineTo(px, py - ts * 1.15);
+      ctx.stroke();
+
+      // Label text
+      ctx.fillStyle = `rgba(250,225,140,${0.95 * pulse})`;
+      ctx.font = `bold ${Math.max(8, Math.round(ts * 0.52))}px Cinzel, serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = 5;
+      ctx.fillText(label, px, py - ts * 1.18);
+      ctx.shadowBlur = 0;
     });
 
     // Player

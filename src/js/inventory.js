@@ -22,16 +22,17 @@ const STACKABLE_TYPES = new Set(['Consumable', 'Scroll']);
 
 class InventorySystem {
   constructor() {
-    this.items  = [];   // [{ id, name, type, slot, rarity, desc, reqAtune, equipped, qty }]
-    this._uid   = 1;
-    this.gold   = 0;
+    this.items    = [];   // [{ id, name, type, slot, rarity, desc, reqAtune, equipped, qty }]
+    this._uid     = 1;
+    this.currency = 0;   // total in brass pieces (1 gp = 100 bp, 1 sp = 10 bp)
   }
 
   reset() {
-    this.items = [];
-    this._uid  = 1;
-    this.gold  = 0;
+    this.items    = [];
+    this._uid     = 1;
+    this.currency = 0;
     this._updateBadge();
+    this._renderCurrency();
   }
 
   // ── Item Classification ─────────────────────────────────────
@@ -164,15 +165,37 @@ class InventorySystem {
     return 0; // potions with no healing (e.g. Potion of Speed)
   }
 
-  // ── Gold ────────────────────────────────────────────────────
-  addGold(amount) {
-    this.gold = Math.max(0, (this.gold || 0) + amount);
-    this._renderGold();
+  // ── Currency ─────────────────────────────────────────────────
+  addGold(amount)   { this.currency = Math.max(0, this.currency + Math.round(amount * 100));  this._renderCurrency(); }
+  addSilver(amount) { this.currency = Math.max(0, this.currency + Math.round(amount * 10));   this._renderCurrency(); }
+  addBrass(amount)  { this.currency = Math.max(0, this.currency + Math.round(amount));        this._renderCurrency(); }
+
+  _renderCurrency() {
+    const total = Math.max(0, Math.round(this.currency));
+    const gp    = Math.floor(total / 100);
+    const sp    = Math.floor((total % 100) / 10);
+    const bp    = total % 10;
+    const gEl = document.getElementById('inv-gold-amount');
+    const sEl = document.getElementById('inv-silver-amount');
+    const bEl = document.getElementById('inv-brass-amount');
+    if (gEl) gEl.textContent = gp.toLocaleString();
+    if (sEl) sEl.textContent = sp;
+    if (bEl) bEl.textContent = bp;
+    // Show/hide market button based on current scene
+    const scene     = window.mapSystem?.currentScene || '';
+    const marketBtn = document.getElementById('btn-open-market');
+    if (marketBtn) marketBtn.classList.toggle('hidden', !['town', 'tavern'].includes(scene));
   }
 
-  _renderGold() {
-    const el = document.getElementById('inv-gold-amount');
-    if (el) el.textContent = this.gold.toLocaleString();
+  _formatCurrency(brass) {
+    const gp = Math.floor(brass / 100);
+    const sp = Math.floor((brass % 100) / 10);
+    const bp = brass % 10;
+    const parts = [];
+    if (gp) parts.push(`${gp} gp`);
+    if (sp) parts.push(`${sp} sp`);
+    if (bp) parts.push(`${bp} bp`);
+    return parts.length ? parts.join(' ') : '0 bp';
   }
 
   // ── Equip / Unequip ─────────────────────────────────────────
@@ -220,12 +243,23 @@ class InventorySystem {
   // ── Modal ───────────────────────────────────────────────────
   open() {
     this._render();
-    this._renderGold();
+    this._renderCurrency();
     document.getElementById('modal-inventory').classList.remove('hidden');
   }
 
   close() {
     document.getElementById('modal-inventory').classList.add('hidden');
+  }
+
+  init() {
+    document.getElementById('close-modal-market')?.addEventListener('click', () => {
+      document.getElementById('modal-market').classList.add('hidden');
+    });
+    document.getElementById('btn-open-market')?.addEventListener('click', () => {
+      this.close();
+      this.openMarket();
+    });
+    document.getElementById('market-sell-all')?.addEventListener('click', () => this.sellAll());
   }
 
   // ── Render Item List ────────────────────────────────────────
@@ -303,6 +337,38 @@ class InventorySystem {
     const item = this.items.find(i => i.id === id);
     if (!item) return;
 
+    document.getElementById('modal-item').classList.remove('hidden');
+    this._renderInspect(item);
+
+    // If no description stored yet, fetch live and update (once per item)
+    if (!item.desc && !item._descFetched) {
+      item._descFetched = true;
+      document.getElementById('item-body').querySelector('.spell-card-desc')
+        .innerHTML = '<em style="color:var(--text-dim)">Looking up item details…</em>';
+      window.open5e?.enrichItem(item.name).then(result => {
+        const stillOpen = document.getElementById('item-title').textContent === item.name;
+        if (!result) {
+          if (stillOpen) {
+            const el = document.getElementById('item-body')?.querySelector('.spell-card-desc');
+            if (el) el.innerHTML = '<em style="color:var(--text-dim)">No description found. The item is yours to interpret.</em>';
+          }
+          return;
+        }
+        const { data } = result;
+        item.rarity   = item.rarity   || data.rarity   || '';
+        item.desc     = data.desc     || '';
+        item.reqAtune = item.reqAtune || !!(data.requires_attunement || '').toString().includes('requires');
+        if (stillOpen) this._renderInspect(item);
+      }).catch(() => {
+        item._descFetched = false; // allow retry on next inspect after network error
+        const el = document.getElementById('item-body')?.querySelector('.spell-card-desc');
+        if (el) el.innerHTML = '<em style="color:var(--text-dim)">No description found. The item is yours to interpret.</em>';
+      });
+    }
+  }
+
+  _renderInspect(item) {
+    const id = item.id;
     document.getElementById('item-title').textContent = item.name;
 
     const rarityTag  = item.rarity   ? `<span class="spell-card-tag">${item.rarity}</span>` : '';
@@ -336,21 +402,121 @@ class InventorySystem {
     });
     document.getElementById('inspect-use-btn')?.addEventListener('click', () => this.useConsumable(id));
     document.getElementById('inspect-drop-btn')?.addEventListener('click', () => this.dropItem(id));
+  }
 
-    document.getElementById('modal-item').classList.remove('hidden');
+  // ── Market ──────────────────────────────────────────────────
+  _itemValue(item) {
+    // Base sell price in brass (50% of typical market value)
+    const base = {
+      'common':    100,    // 1 gp base  → sell 50 bp
+      'uncommon':  1000,   // 10 gp base → sell 5 gp
+      'rare':      5000,   // 50 gp base → sell 25 gp
+      'very rare': 20000,  // 200 gp     → sell 100 gp
+      'legendary': 100000, // 1000 gp    → sell 500 gp
+      'artifact':  0,      // priceless — not sellable
+    }[(item.rarity || '').toLowerCase()] ?? 50; // default ~5 sp
+    return Math.floor(base / 2);
+  }
+
+  openMarket() {
+    this._renderMarket();
+    document.getElementById('modal-market').classList.remove('hidden');
+  }
+
+  _renderMarket() {
+    const sellable = this.items.filter(i => !i.equipped && this._itemValue(i) > 0);
+    const wallet   = document.getElementById('market-wallet');
+    const list     = document.getElementById('market-items');
+    const sellAll  = document.getElementById('market-sell-all');
+
+    if (wallet) {
+      const total = Math.max(0, Math.round(this.currency));
+      const gp = Math.floor(total / 100);
+      const sp = Math.floor((total % 100) / 10);
+      const bp = total % 10;
+      wallet.innerHTML =
+        `<span class="market-purse-label">Your Purse</span>` +
+        `<span class="market-purse-coins"><span class="market-coin market-coin-gp">🪙 ${gp.toLocaleString()} gp</span>` +
+        `<span class="market-coin market-coin-sp">🥈 ${sp} sp</span>` +
+        `<span class="market-coin market-coin-bp">🟤 ${bp} bp</span></span>`;
+    }
+
+    if (!sellable.length) {
+      list.innerHTML = `<div class="market-empty">Nothing in your pack to sell.</div>`;
+      if (sellAll) sellAll.disabled = true;
+      return;
+    }
+    if (sellAll) sellAll.disabled = false;
+
+    list.innerHTML = sellable.map(item => {
+      const icon       = TYPE_ICONS[item.type] || '📦';
+      const price      = this._itemValue(item);
+      const priceStr   = this._formatCurrency(price);
+      const totalPrice = this._formatCurrency(price * (item.qty || 1));
+      const rarityClass = (item.rarity || 'common').toLowerCase().replace(/\s+/g, '-');
+      const qtyStr = (item.qty || 1) > 1 ? ` ×${item.qty}` : '';
+      return `
+        <div class="market-item" data-id="${item.id}">
+          <span class="market-item-icon">${icon}</span>
+          <div class="market-item-info">
+            <span class="market-item-name">${item.name}${qtyStr}</span>
+            <span class="inv-rarity inv-rarity-${rarityClass}">${item.rarity || item.type}</span>
+          </div>
+          <div class="market-item-price">${(item.qty||1)>1?totalPrice:priceStr}<span class="market-each">${(item.qty||1)>1?` (${priceStr} ea.)`:''}</span></div>
+          <button class="inv-btn inv-btn-sell" data-id="${item.id}">Sell</button>
+        </div>`;
+    }).join('');
+
+    list.querySelectorAll('.inv-btn-sell').forEach(btn =>
+      btn.addEventListener('click', () => this.sellItem(parseInt(btn.dataset.id))));
+  }
+
+  sellItem(id) {
+    const item = this.items.find(i => i.id === id);
+    if (!item || item.equipped) return;
+    const price = this._itemValue(item);
+    if (price <= 0) return;
+    const qty   = item.qty || 1;
+    const total = price * qty;
+    this.currency = Math.max(0, this.currency + total);
+    this.items.splice(this.items.indexOf(item), 1);
+    const charName = window.characterSystem?.character?.name || 'You';
+    window.aiSystem?._addSystemEntry(
+      `🏪 ${charName} sold <strong>${item.name}${qty>1?` ×${qty}`:''}</strong> for <strong>${this._formatCurrency(total)}</strong>.`
+    );
+    this._updateBadge();
+    this._renderCurrency();
+    this._renderMarket();
+  }
+
+  sellAll() {
+    const sellable = this.items.filter(i => !i.equipped && this._itemValue(i) > 0);
+    if (!sellable.length) return;
+    const total = sellable.reduce((sum, i) => sum + this._itemValue(i) * (i.qty || 1), 0);
+    this.items = this.items.filter(i => i.equipped || this._itemValue(i) <= 0);
+    this.currency = Math.max(0, this.currency + total);
+    const charName = window.characterSystem?.character?.name || 'You';
+    window.aiSystem?._addSystemEntry(
+      `🏪 ${charName} sold everything for <strong>${this._formatCurrency(total)}</strong>.`
+    );
+    this._updateBadge();
+    this._renderCurrency();
+    this._renderMarket();
   }
 
   // ── Serialize / Restore ─────────────────────────────────────
   serialize() {
-    return { items: this.items, uid: this._uid, gold: this.gold };
+    return { items: this.items, uid: this._uid, currency: this.currency };
   }
 
   restore(data) {
     if (!data) return;
-    this.items = data.items || [];
-    this._uid  = data.uid   || (this.items.length + 1);
-    this.gold  = data.gold  || 0;
+    this.items    = data.items || [];
+    this._uid     = data.uid   || (this.items.length + 1);
+    // Migrate old saves that stored gold in gp
+    this.currency = data.currency ?? ((data.gold || 0) * 100);
     this._updateBadge();
+    this._renderCurrency();
   }
 }
 

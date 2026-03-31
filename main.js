@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, globalShortcut, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -18,6 +18,9 @@ function semverGt(a, b) {
   }
   return false;
 }
+
+// App version
+ipcMain.handle('app:version', () => app.getVersion());
 
 // Handle Squirrel events on Windows
 if (require('electron-squirrel-startup')) {
@@ -66,9 +69,19 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(menu);
 
   createWindow();
+
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.webContents.toggleDevTools();
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', () => {

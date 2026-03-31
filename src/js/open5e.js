@@ -119,9 +119,68 @@ class Open5eService {
 
   // ── Weapon / Armor Info ──────────────────────────────────────
   async searchWeapon(name) {
-    const url = `${this.BASE_V2}/weapons/?document__slug=wotc-srd&name__icontains=${encodeURIComponent(name)}&limit=5`;
+    const url = `${this.BASE_V1}/weapons/?document__slug=wotc-srd&name__icontains=${encodeURIComponent(name)}&limit=5`;
     const data = await this._fetch(url);
     return (data.results || [])[0] || null;
+  }
+
+  async searchArmor(name) {
+    const url = `${this.BASE_V1}/armor/?document__slug=wotc-srd&name__icontains=${encodeURIComponent(name)}&limit=5`;
+    const data = await this._fetch(url);
+    return (data.results || [])[0] || null;
+  }
+
+  // ── Generic item enrichment — tries magic → weapon → armor ───
+  async enrichItem(name) {
+    // 1. Magic item (has rarity + full desc)
+    try {
+      const magic = await this.searchMagicItem(name);
+      if (magic) {
+        // v1 rarity is lowercase — capitalise for display
+        if (magic.rarity && typeof magic.rarity === 'string') {
+          magic.rarity = magic.rarity.charAt(0).toUpperCase() + magic.rarity.slice(1);
+        }
+        return { source: 'magic', data: magic };
+      }
+    } catch (_) {}
+
+    // 2. Weapon (mundane — build desc from stats)
+    try {
+      const wpn = await this.searchWeapon(name);
+      if (wpn) {
+        const dmgType = wpn.damage_type?.name ?? wpn.damage_type ?? '';
+        const props = (wpn.properties || [])
+          .map(p => {
+            const pname = p.property?.name ?? p.name ?? String(p);
+            return p.detail ? `${pname} (${p.detail})` : pname;
+          })
+          .filter(Boolean).join(', ');
+        const lines = [];
+        if (wpn.damage_dice)  lines.push(`Damage: ${wpn.damage_dice}${dmgType ? ' ' + dmgType : ''}`);
+        if (wpn.category)     lines.push(`Category: ${wpn.category}`);
+        if (props)            lines.push(`Properties: ${props}`);
+        if (wpn.cost?.quantity) lines.push(`Cost: ${wpn.cost.quantity} ${wpn.cost.unit ?? ''}`.trim());
+        if (wpn.weight)       lines.push(`Weight: ${wpn.weight} lb`);
+        return { source: 'weapon', data: { name: wpn.name, rarity: 'Common', desc: lines.join('\n'), requires_attunement: '' } };
+      }
+    } catch (_) {}
+
+    // 3. Armor (mundane — build desc from stats)
+    try {
+      const arm = await this.searchArmor(name);
+      if (arm) {
+        const lines = [];
+        if (arm.ac_string)              lines.push(`Armor Class: ${arm.ac_string}`);
+        if (arm.category)               lines.push(`Category: ${arm.category}`);
+        if (arm.strength_requirement)   lines.push(`Strength Requirement: ${arm.strength_requirement}`);
+        if (arm.stealth_disadvantage)   lines.push('Stealth Disadvantage');
+        if (arm.cost)                   lines.push(`Cost: ${arm.cost}`);
+        if (arm.weight)                 lines.push(`Weight: ${arm.weight}`);
+        return { source: 'armor', data: { name: arm.name, rarity: 'Common', desc: lines.join('\n'), requires_attunement: '' } };
+      }
+    } catch (_) {}
+
+    return null;
   }
 }
 
