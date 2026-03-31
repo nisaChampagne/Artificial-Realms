@@ -2,8 +2,8 @@
 
 > An AI-powered Dungeons & Dragons interactive experience built with Electron.
 
-![Build and Release](https://github.com/nisaChampagne/Artificial-Realms/actions/workflows/release.yaml/badge.svg)
-![Version](https://img.shields.io/badge/version-2.1.0-gold)
+[![Build and Release](https://github.com/nisaChampagne/Artificial-Realms/actions/workflows/release.yaml/badge.svg)](https://github.com/nisaChampagne/Artificial-Realms/actions/workflows/release.yaml)
+[![Version](https://img.shields.io/github/v/release/nisaChampagne/Artificial-Realms?color=gold&label=version)](https://github.com/nisaChampagne/Artificial-Realms/releases/latest)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Electron](https://img.shields.io/badge/electron-28-47848F)
 
