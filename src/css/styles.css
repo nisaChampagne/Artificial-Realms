@@ -409,19 +409,18 @@ input[type=range]::-webkit-slider-thumb {
   gap: 6px;
 }
 .menu-version {
-  color: var(--text-ghost);
+  color: rgba(201,162,39,0.55);
   font-size: 11px;
   letter-spacing: 1px;
 }
 .menu-corner-sep {
-  color: var(--text-ghost);
+  color: rgba(201,162,39,0.35);
   font-size: 11px;
-  opacity: 0.4;
 }
 .btn-changelog-link {
   background: none;
   border: none;
-  color: var(--text-dim);
+  color: rgba(201,162,39,0.75);
   font-family: var(--font-body);
   font-size: 11px;
   letter-spacing: 1px;
@@ -431,7 +430,7 @@ input[type=range]::-webkit-slider-thumb {
   transition: color 0.2s, background 0.2s;
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-color: rgba(201,162,39,0.3);
+  text-decoration-color: rgba(201,162,39,0.35);
 }
 .btn-changelog-link:hover {
   color: var(--gold);
