@@ -27,4 +27,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Auto-update
   checkForUpdates:  ()    => ipcRenderer.invoke('update:check'),
   openReleasePage:  (url) => ipcRenderer.invoke('update:open-release', url),
+  getReleases:      ()    => ipcRenderer.invoke('update:releases'),
 });

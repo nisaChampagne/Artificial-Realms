@@ -230,79 +230,100 @@ class App {
   }
 
   // ── Changelog ────────────────────────────────────────────────
-  static get CHANGELOG() {
-    return [
-      {
-        version: '2.1.0', date: 'March 2026', latest: true,
-        categories: [
-          { type: 'feat', items: [
-            'Dynamic map landmarks — AI emits [MAP:Name] to place a named beacon on the live map',
-            'Three new scene layouts: Manor, Ruins, and Crypt with matching colour palettes',
-            'Music now transitions correctly between scenes (forest → dungeon → manor, etc.)',
-            'Dynamic version label — reads from package.json automatically',
-            'Changelog modal (this screen)',
-          ]},
-          { type: 'fix', items: [
-            'Fixed music getting stuck at silence after multiple scene changes (gain automation queue overflow)',
-            'Gemini rate-limit errors now auto-retry with backoff instead of surfacing a manual button',
-            'Fixed "dragEvent is not defined" Chromium console error on titlebar drag',
-            'Request counter guard now correctly blocks concurrent AI requests',
-          ]},
-          { type: 'ui', items: [
-            'Inventory rarity colours aligned to the dark-fantasy palette',
-            'Equipped items show a gold left-edge accent and a styled badge',
-            'Inventory list groups items into ⚔ Equipped and 🎒 Pack sections',
-            'Send button and all action/hint buttons disabled while DM is responding',
-            'DevTools shortcut: Ctrl+Shift+I',
-          ]},
-        ],
-      },
-      {
-        version: '2.0.0', date: 'February 2026',
-        categories: [
-          { type: 'feat', items: [
-            'AI-powered DM using Google Gemini with streaming responses',
-            'Full D&D 5e character sheet with ability scores, skills, and saving throws',
-            'Procedural dungeon/forest/tavern/cave map generation with fog of war',
-            'Ambient music engine with per-scene generative audio',
-            'Dice roller with physics animation (d4 through d100)',
-            'Inventory system with gold tracking and item rarity',
-            'Journal system with auto-captured adventure log entries',
-            'Save/load with up to 5 manual slots and auto-save',
-            'Open5e integration for rules and spell reference',
-          ]},
-          { type: 'ui', items: [
-            'Dark fantasy theme with Cinzel / Crimson Text typography',
-            'Animated D20 logo on main menu',
-            'Custom frameless window with Electron titlebar',
-            'Short rest and long rest with hit dice rolling',
-            'Death saving throws modal',
-            'Level-up flow with HP roll or average option',
-          ]},
-        ],
-      },
-    ];
+  static _escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
-  _openChangelog() {
-    const body = document.getElementById('changelog-body');
-    body.innerHTML = App.CHANGELOG.map(release => {
-      const badge = release.latest ? '<span class="cl-latest-badge">Latest</span>' : '';
-      const cats = release.categories.map(cat => `
-        <div class="cl-category">
-          <span class="cl-cat-label ${cat.type}">${cat.type === 'feat' ? 'Feature' : cat.type === 'fix' ? 'Fix' : 'UI'}</span>
-          <ul class="cl-items">${cat.items.map(i => `<li>${i}</li>`).join('')}</ul>
-        </div>`).join('');
+  static _mapHeadingToType(heading) {
+    const h = heading.toLowerCase();
+    if (/feat|new|add|what/.test(h)) return 'feat';
+    if (/fix|bug|patch|hotfix|change/.test(h)) return 'fix';
+    if (/ui|interface|design|style|visual/.test(h)) return 'ui';
+    return 'other';
+  }
+
+  static _parseReleaseBody(body) {
+    if (!body) return [];
+    const categories = [];
+    let current = null;
+    for (const raw of body.split('\n')) {
+      const line = raw.trim();
+      if (/^#{1,3}\s/.test(line)) {
+        const heading = line.replace(/^#+\s*/, '').trim();
+        current = { type: App._mapHeadingToType(heading), label: App._escapeHtml(heading), items: [] };
+        categories.push(current);
+      } else if (/^[-*+]\s/.test(line)) {
+        const text = App._escapeHtml(line.replace(/^[-*+]\s+/, '').trim());
+        if (text) {
+          if (!current) {
+            current = { type: 'feat', label: 'Changes', items: [] };
+            categories.push(current);
+          }
+          current.items.push(text);
+        }
+      }
+    }
+    return categories.filter(c => c.items.length > 0);
+  }
+
+  async _openChangelog() {
+    const modal = document.getElementById('modal-changelog');
+    const body  = document.getElementById('changelog-body');
+    body.innerHTML = '<p class="cl-date" style="padding:1rem 0">Loading release notes…</p>';
+    modal.classList.remove('hidden');
+
+    if (!this._releaseCache) {
+      try {
+        this._releaseCache = await window.electronAPI.getReleases();
+      } catch {
+        this._releaseCache = [];
+      }
+    }
+
+    const releases = this._releaseCache;
+    if (!releases.length) {
+      body.innerHTML = '<p class="cl-date" style="padding:1rem 0">Could not load release notes. Check your connection.</p>';
+      return;
+    }
+
+    body.innerHTML = releases.map((release, i) => {
+      const version  = App._escapeHtml(release.tag_name || '');
+      const isLatest = i === 0;
+      const badge    = isLatest ? '<span class="cl-latest-badge">Latest</span>' : '';
+      const date     = release.published_at
+        ? new Date(release.published_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        : '';
+
+      const cats = App._parseReleaseBody(release.body);
+      let content;
+      if (cats.length) {
+        content = cats.map(cat => `
+          <div class="cl-category">
+            <span class="cl-cat-label ${cat.type}">${cat.label}</span>
+            <ul class="cl-items">${cat.items.map(item => `<li>${item}</li>`).join('')}</ul>
+          </div>`).join('');
+      } else {
+        const lines = (release.body || '').split('\n')
+          .map(l => App._escapeHtml(l.trim()))
+          .filter(l => l && !/^#+/.test(l));
+        content = lines.length
+          ? `<div class="cl-category"><ul class="cl-items">${lines.map(l => `<li>${l}</li>`).join('')}</ul></div>`
+          : '<div class="cl-category"><span class="cl-cat-label">No release notes provided.</span></div>';
+      }
+
       return `
         <div class="cl-release">
           <div class="cl-release-header">
-            <span class="cl-version">v${release.version}</span>${badge}
-            <span class="cl-date">${release.date}</span>
+            <span class="cl-version">${version}</span>${badge}
+            <span class="cl-date">${date}</span>
           </div>
-          ${cats}
+          ${content}
         </div>`;
     }).join('');
-    document.getElementById('modal-changelog').classList.remove('hidden');
   }
 
   _openHelp() {
