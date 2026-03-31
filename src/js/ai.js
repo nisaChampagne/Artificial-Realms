@@ -706,7 +706,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     if (!cond) return; // No description available
 
     document.getElementById('condition-title').textContent = cond.name;
-    const desc = (cond.desc || '').replace(/\n/g, '<br>').replace(/\* /g, '• ');
+    const desc = this._escapeHtml(cond.desc || '').replace(/\n/g, '<br>').replace(/\* /g, '• ');
     document.getElementById('condition-body').innerHTML = `
       <div class="condition-desc">${desc || 'No description available.'}</div>`;
     document.getElementById('modal-condition').classList.remove('hidden');
@@ -739,12 +739,12 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 
       // Re-render modal with enriched data (or fallback if nothing found)
       const itemData  = result?.data || {};
-      const rarity    = itemData.rarity ? `<span class="spell-card-tag">${itemData.rarity}</span>` : '';
-      const typeTag   = itemData.type   ? `<span class="spell-card-tag">${itemData.type}</span>`   : '';
+      const rarity    = itemData.rarity ? `<span class="spell-card-tag">${this._escapeHtml(itemData.rarity)}</span>` : '';
+      const typeTag   = itemData.type   ? `<span class="spell-card-tag">${this._escapeHtml(itemData.type)}</span>`   : '';
       const attune    = (itemData.requires_attunement || '').includes('requires')
         ? '<span class="spell-card-tag warn">Attunement</span>' : '';
       const desc      = itemData.desc
-        ? itemData.desc.replace(/\n/g, '<br>')
+        ? this._escapeHtml(itemData.desc).replace(/\n/g, '<br>')
         : '<em style="color:var(--text-dim)">No description found. The item is yours to interpret.</em>';
 
       document.getElementById('item-title').textContent = itemData.name || name;
@@ -788,8 +788,10 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     const log   = document.getElementById('story-log');
     const entry = document.createElement('div');
     entry.className = 'story-entry player';
-    entry.innerHTML = `<div class="entry-label">⚔ ${window.characterSystem.character?.name || 'You'}</div>
-      <div class="entry-text player-text">"${text}"</div>`;
+    const safeName = this._escapeHtml(window.characterSystem.character?.name || 'You');
+    const safeText = this._escapeHtml(text);
+    entry.innerHTML = `<div class="entry-label">⚔ ${safeName}</div>
+      <div class="entry-text player-text">"${safeText}"</div>`;
     log.appendChild(entry);
     log.scrollTop = log.scrollHeight;
   }
@@ -827,7 +829,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     const msg = String(err).replace(/Error:\s*/i, '').split('\n')[0];
     entry.innerHTML = `
       <div class="entry-text system-text error-text">
-        ⚠ The Oracle is silent: <em>${msg}</em>
+        ⚠ The Oracle is silent: <em>${this._escapeHtml(msg)}</em>
         <button class="btn-retry" title="Retry sending your last message">↺ Retry</button>
       </div>`;
     entry.querySelector('.btn-retry').addEventListener('click', () => {
@@ -909,8 +911,17 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     });
   }
 
+  _escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   _markupText(text) {
-    return text
+    return this._escapeHtml(text)
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/\n/g, '<br>');
