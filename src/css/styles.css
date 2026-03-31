@@ -135,6 +135,20 @@ button { cursor: pointer; border: none; background: none; }
   transition: all 0.15s;
 }
 .update-banner-dismiss:hover { background: rgba(255,255,255,0.08); color: var(--text-parchment); }
+.update-banner-progress {
+  width: 140px; height: 6px;
+  background: rgba(201,162,39,0.18);
+  border: 1px solid rgba(201,162,39,0.35);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.update-banner-progress.hidden { display: none; }
+.update-banner-bar {
+  height: 100%; width: 0%;
+  background: var(--gold);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
 .wc-close:hover { background: var(--red-lt) !important; color: #fff; }
 
 /* ── Screens ────────────────────────────────────────────────────────────────── */
