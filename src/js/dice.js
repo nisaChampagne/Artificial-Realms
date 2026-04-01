@@ -163,6 +163,10 @@ class DiceSystem {
     const color     = isCrit ? '#f0d050' : isFumble ? '#e05050' : 'var(--gold)';
     let label       = isCrit ? '🌟 CRITICAL HIT!' : isFumble ? '💀 CRITICAL MISS!' : '';
 
+    // Track nat 20s and nat 1s for achievements
+    if (isCrit) window.achievementSystem?.track('nat_20');
+    if (isFumble) window.achievementSystem?.track('nat_1');
+
     // Add success/fail label if DC was provided
     if (dc !== null && success !== null) {
       const outcomeColor = success ? '#50d050' : '#e05050';

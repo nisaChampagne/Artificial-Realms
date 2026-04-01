@@ -401,7 +401,7 @@ class MapSystem {
     this.enemies      = [];
     this.items        = [];
     this.landmarks    = [];   // [{ label, x, y }] named POI pins
-    this.currentScene = 'dungeon';
+    this.currentScene = null; // Wait for AI to set the scene
     this.fogEnabled   = true;
     this.time         = 0;
     this._raf         = null;
@@ -429,7 +429,15 @@ class MapSystem {
       });
     }
 
-    this.setScene('dungeon');
+    // Initialize with minimal map if no scene is set yet
+    if (!this.currentScene && this.map.length === 0) {
+      // Create a small empty map as placeholder until AI sets the scene
+      const emptyMap = Array(15).fill(null).map(() => Array(20).fill(0)); // 0 = floor
+      this.map = emptyMap;
+      this.fog = emptyMap.map(row => row.map(() => 1)); // All fog
+      document.getElementById('map-location').textContent = this._sceneLabel(null);
+      document.getElementById('music-now').textContent = this._musicLabel(null);
+    }
   }
 
   _resize() {
@@ -446,6 +454,15 @@ class MapSystem {
     if (!this.canvas) return;
     this.currentScene = name;
     this.landmarks    = [];
+    
+    // Track location visits for achievements (skip during initial setup)
+    if (!window.achievementSystem?._initialSetup) {
+      window.achievementSystem?.track('location_visited', name);
+      if (['dungeon', 'cave', 'castle', 'boss'].includes(name)) {
+        window.achievementSystem?.track('dungeon_entered');
+      }
+    }
+    
     document.getElementById('map-location').textContent = this._sceneLabel(name);
     document.getElementById('music-now').textContent    = this._musicLabel(name);
 
@@ -506,6 +523,7 @@ class MapSystem {
   }
 
   _sceneLabel(s) {
+    if (!s) return 'Awaiting Adventure...';
     return { dungeon:'The Dungeon', tavern:'The Tavern', forest:'Whispering Forest',
              cave:'Dark Caverns', castle:'The Castle', town:'Town Square',
              combat:'Battle Arena', boss:"Dragon's Lair", rest:'Safe Camp',
@@ -513,6 +531,7 @@ class MapSystem {
   }
 
   _musicLabel(s) {
+    if (!s) return '—';
     return { dungeon:'Dungeon Depths', tavern:'Tavern Lofi', forest:'Forest Ambience',
              cave:'Cave Echoes', castle:'Castle Hall', town:'Town Square',
              combat:'Battle Theme', boss:'Boss Encounter', rest:'Campfire Rest',
@@ -625,6 +644,8 @@ class MapSystem {
   _draw() {
     const { canvas, ctx, map, fog, time, currentScene } = this;
     if (!canvas || !ctx) return;
+    
+    // If no scene is set yet, use a neutral default for rendering
     const pal   = PALETTES[currentScene] || PALETTES.dungeon;
     const rows  = map.length;
     const cols  = map[0]?.length || 0;

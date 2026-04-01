@@ -12,8 +12,8 @@ class SaveSystem {
     return {
       character:        window.characterSystem?.character           || null,
       messages:         window.aiSystem?.messages                   || [],
-      currentScene:     window.mapSystem?.currentScene              || 'dungeon',
-      currentMusic:     window.audioSystem?.currentScene            || 'dungeon',
+      currentScene:     window.mapSystem?.currentScene              || null,
+      currentMusic:     window.audioSystem?.currentScene            || null,
       perceptionCache:  window.mapSystem?._perceptionCache          || {},
       campaignType:     window.app?.gameState?.campaignType         || 'standard',
       customDesc:       window.app?.gameState?.customDesc           || '',
@@ -85,12 +85,16 @@ class SaveSystem {
 
       // Init subsystems (in case this is the first time entering game screen)
       window.audioSystem.init();
-      window.audioSystem.setScene(data.currentMusic || 'dungeon');
+      if (data.currentMusic) {
+        window.audioSystem.setScene(data.currentMusic);
+      }
       window.audioSystem.setVolume((parseInt(window.app.settings.volume) || 70) / 100);
 
       window.mapSystem.init();
       window.mapSystem._perceptionCache = data.perceptionCache || {};
-      window.mapSystem.setScene(data.currentScene || 'dungeon');
+      if (data.currentScene) {
+        window.mapSystem.setScene(data.currentScene);
+      }
       window.mapSystem.updateSprite(window.characterSystem.character?.appearance || {});
 
       window.characterSystem.updateHUD();

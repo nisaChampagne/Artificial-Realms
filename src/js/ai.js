@@ -523,10 +523,10 @@ class AISystem {
       second_drink: `[SCENE:tavern][MUSIC:tavern]You make good use of the time. A farmer saw pale torchlight in the Ashwood two nights running — not goblin-fire orange but cold blue. A carter confirms the miller's tracks went in on the old logging road. The barmaid says Sister Vael bought double her usual reagents three weeks ago, as if preparing for something.\n\nAnd the man in the corner — pretending to sleep — has Consortium-guild calluses on his right hand and has been here since midday.\n\nWhatever is in the Ashwood has been building for weeks. Someone in this room may already know why.\n\n1. Confront the Consortium man before you leave\n2. Slip out quietly — let him think you noticed nothing\n3. Say Aldric Vane's name loudly and watch who reacts\n4. Head out now — the Ashwood is your answer`,
 
       // forest
-      forest_road: `[SCENE:forest][MUSIC:forest]The mill road turns to packed mud within a quarter mile of the last farmhouse. Ancient oaks press close overhead. Your lantern throws a twenty-foot circle that the forest swallows at its edges.\n\nThe ruined mill materialises out of the dark — waterwheel stopped, one wall caved in. Beyond it in the embankment: a cave mouth, gaping black. Two orange points of firelight dance inside. Voices, guttural, arguing in Goblin. At least three of them. They don't know you're here. [DICE:d20${f(mods.wis)}:Wisdom:DC12]\n\n1. Move closer and peer inside — identify what you're dealing with\n2. Find a large stone and throw it past the cave to draw them out\n3. Walk in boldly — fast and loud\n4. Circle the mill — there may be another way in`,
+      forest_road: `[SCENE:forest][MUSIC:forest]The mill road turns to packed mud within a quarter mile of the last farmhouse. Ancient oaks press close overhead. Your lantern throws a twenty-foot circle that the forest swallows at its edges.\n\nThe ruined mill materialises out of the dark — waterwheel stopped, one wall caved in. Beyond it in the embankment: a cave mouth, gaping black. Two orange points of firelight dance inside. Voices, guttural, arguing in Goblin. At least three of them. [DICE:d20${f(mods.wis)}:Wisdom:DC12][SUCCESS:Your senses sharpen — you catch not just the argument but the postures: two nervous scouts and one pot-helmed leader who keeps glancing deeper into the tunnels. They're waiting for something. They don't know you're here.][FAILURE:You try to gauge their mood, but shifting shadows and echoing voices make it hard to get a clear picture. You can see firelight and movement, but the details escape you. Time to decide how to approach this.]\n\n1. Move closer and peer inside — identify what you're dealing with\n2. Find a large stone and throw it past the cave to draw them out\n3. Walk in boldly — fast and loud\n4. Circle the mill — there may be another way in`,
 
       // cave approaches
-      cave_careful: `[SCENE:dungeon][MUSIC:dungeon]You press against the embankment and slide to the cave mouth. Inside: three goblins around a small fire. Stolen grain sacks against the wall. The bones of something large in the corner. And tied to a post at the back: a bundle of rags that resolves, as your eyes adjust, into a *person*. Unconscious. Breathing.\n\nThe three are deep in an argument about division of spoils. None of them are looking your way. [DICE:d20${f(mods.dex)}:Stealth:DC13]\n\n1. Hold still and listen — they may reveal something useful\n2. Strike now while surprise is fully yours\n3. Go for the prisoner first — get them behind you\n4. Target the leader to break their nerve`,
+      cave_careful: `[SCENE:dungeon][MUSIC:dungeon]You press against the embankment and slide to the cave mouth. Inside: three goblins around a small fire. Stolen grain sacks against the wall. The bones of something large in the corner. And tied to a post at the back: a bundle of rags that resolves, as your eyes adjust, into a *person*. Unconscious. Breathing.\n\nThe three are deep in an argument about division of spoils. [DICE:d20${f(mods.dex)}:Stealth:DC13][SUCCESS:You move like shadow itself. Not one goblin so much as glances your way. You're so close you can hear individual words in their guttural Goblin — and none of them have any idea they're being watched.][FAILURE:A loose stone shifts under your boot with the faintest scrape. One goblin's ear twitches. His hand moves toward his blade. The others tense. They haven't spotted you yet, but they know *something* is wrong. You have seconds.]\n\n1. Hold still and listen — they may reveal something useful\n2. Strike now while surprise is fully yours\n3. Go for the prisoner first — get them behind you\n4. Target the leader to break their nerve`,
 
       cave_distract: `[SCENE:dungeon][MUSIC:dungeon]The stone arcs cleanly into the dark beyond the cave mouth with a satisfying *clatter*. Inside, three heads snap toward the sound simultaneously. [DICE:d20${f(mods.dex)}:Dexterity:DC10]\n\nTwo smaller goblins scramble toward the noise. The leader — pot-helm, bigger — squints directly at the entrance. His hand moves toward his blade. One full heartbeat. Then he follows the others. You have four seconds.\n\n1. Rush all three from behind while they're bunched up\n2. Get inside and put your back to the wall\n3. Strike the leader first — one chance at his blind side\n4. Hold — wait for all three to fully turn`,
 
@@ -558,11 +558,11 @@ class AISystem {
       rest_scene: `[SCENE:rest][MUSIC:rest]You find a defensible corner of the mill cottage — stone walls, chimney that draws, door that bolts from inside. Three hours.\n\nThe fire catches. The storm continues outside, muffled by old stone. You bind what needs binding and let the adrenaline go. [HP:+6]\n\nYou wake to silence — the storm finally spent — and something else. A sound from below the floor. Rhythmic. Low. Like a heartbeat built from stone and malice.\n\n**Drumming.**\n\nSomething is conducting a ritual beneath this building.\n\n1. Find the trapdoor — go down immediately\n2. Wait — assess the rhythm before acting\n3. Get outside first and orient yourself\n4. Check the bark map — mark where you think this is`,
 
       // shaman chamber
-      deeper_dungeon: `[SCENE:cave][MUSIC:dungeon]The passage descends by degrees — earthen, then limestone, then something older. The drumming is everywhere, coming through the stone itself.\n\nThe passage opens into a vast natural chamber lit by iron-sconce torches. In the centre, surrounded by kneeling goblin soldiers, stands a **Hobgoblin Shaman** — tall, robed, skull-staff raised. Before him on a stone altar: a crystal of green-black mineral pulsing in time with the drums.\n\nAnd to the right, against the wall, in a faintly glowing chalk circle: **Sister Vael**. Cross-legged. Breathing. Eyes open on something invisible. [DICE:d20${f(mods.wis)}:Perception:DC14]\n\nThey haven't noticed you.\n\n1. Target the crystal — a ranged strike to shatter it\n2. Watch and listen — learn the ritual before acting\n3. Step into the torchlight and announce yourself\n4. Find the chamber supports — a controlled collapse traps them`,
+      deeper_dungeon: `[SCENE:cave][MUSIC:dungeon]The passage descends by degrees — earthen, then limestone, then something older. The drumming is everywhere, coming through the stone itself.\n\nThe passage opens into a vast natural chamber lit by iron-sconce torches. In the centre, surrounded by kneeling goblin soldiers, stands a **Hobgoblin Shaman** — tall, robed, skull-staff raised. Before him on a stone altar: a crystal of green-black mineral pulsing in time with the drums.\n\nAnd to the right, against the wall, in a faintly glowing chalk circle: **Sister Vael**. Cross-legged. Breathing. [DICE:d20${f(mods.wis)}:Perception:DC14][SUCCESS:Her eyes are open on something invisible — and they're tracking. Not vacant. *Fighting*. You notice the shaman's hand trembling slightly on the staff. The ritual isn't complete. It's being *resisted*. She's still in there, still holding something back. The goblins are nervous, shifting weight, watching the shaman more than the crystal. They haven't noticed you.][FAILURE:Her eyes are open but unseeing. The shaman looks confident, the ritual circle glowing steadily. The goblins kneel in perfect formation. You can't read the subtle signs — is this ritual succeeding or failing? Is Vael conscious or enthralled? The details escape you in the dim torchlight. They haven't noticed you.]\n\n1. Target the crystal — a ranged strike to shatter it\n2. Watch and listen — learn the ritual before acting\n3. Step into the torchlight and announce yourself\n4. Find the chamber supports — a controlled collapse traps them`,
 
       shaman_snipe: `[SCENE:combat][MUSIC:combat][ENEMY:Hobgoblin Shaman:45:45]The shot connects. The crystal *cracks* — green fire sprays outward, sending the kneeling goblins scrambling. The shaman staggers. [ENEMY:Hobgoblin Shaman:38:45][DICE:d20${f(mods.dex)}:Attack:DC16]\n\nThen he rights himself. The crystal — cracked, not destroyed — still pulses. Slower. Weaker. But the connection holds. He finds you with the calm of someone who sensed you before you moved.\n\n*"You have weakened it. You have not stopped it. And now I know exactly who you are, ${name}."* [HP:-3]\n\n1. Press your advantage before he recovers\n2. Target the cracked crystal again — finish it\n3. Fall back to the passage — better defensive ground\n4. Go for Sister Vael — free her while the chaos holds`,
 
-      shaman_observe: `[SCENE:cave][MUSIC:dungeon]You hold still and watch. The drumming has a pattern — a *binding* rhythm, the kind used to maintain a connection to an unwilling vessel. Sister Vael isn't captured. She's a **lock**. Whatever is trying to come through the crystal is stopped by her resistance. The shaman needs her alive and conscious. [DICE:d20${f(mods.int)}:Arcana:DC15]\n\nThis changes things. Kill the shaman carelessly — or shatter the crystal — and whatever she's containing walks free. You need to free her *cleanly*, not just fast.\n\n1. Step into the light — draw the shaman to you, away from Vael\n2. Target the crystal — break the shaman's leverage\n3. Go for Vael directly — the binding looks physical\n4. Throw something into the ritual circle — interrupt the rhythm`,
+      shaman_observe: `[SCENE:cave][MUSIC:dungeon]You hold still and watch. The drumming has a pattern — a *binding* rhythm, the kind used to maintain a connection to an unwilling vessel. Sister Vael isn't captured. She's a **lock**. [DICE:d20${f(mods.int)}:Arcana:DC15][SUCCESS:Your knowledge of ritual magic crystallizes the truth: whatever is trying to come through the crystal is stopped by her resistance. The shaman needs her alive and conscious. Kill the shaman carelessly — or shatter the crystal — and whatever she's containing walks free. The chalk circle around her has deliberate gaps — escape routes she could use if freed correctly. You need to free her *cleanly*, not just fast.][FAILURE:Your instincts tell you this is a binding ritual, but the precise mechanics elude you. Is she powering it? Resisting it? Both? You can see the shaman needs her alive, but not why. The crystal pulses ominously. You'll have to act without a full understanding of the risks.]\n\n1. Step into the light — draw the shaman to you, away from Vael\n2. Target the crystal — break the shaman's leverage\n3. Go for Vael directly — the binding looks physical\n4. Throw something into the ritual circle — interrupt the rhythm`,
 
       shaman_confront: `[SCENE:combat][MUSIC:combat][ENEMY:Hobgoblin Shaman:45:45]You step into the torchlight. The drumming skips one beat.\n\n*"The thread-puller arrives,"* the shaman says in accented Common, almost impressed. *"Aldric said one would come. He said to tell you: you are three moves behind."*\n\nThen he strikes. [ENEMY:Hobgoblin Shaman:40:45][HP:-5][DICE:d20${f(mods.con)}:Constitution:DC14]\n\nThe goblins scatter, clearing the floor. This is between you and the shaman now. Sister Vael's eyes — still unfocused — track toward your voice as if she can hear you through whatever holds her.\n\n1. Keep moving — deny him a static target\n2. Drive him toward the altar — his crystal link is a liability\n3. Call Vael's name loudly and repeatedly\n4. Hit hard and fast — overwhelming force before he settles`,
 
@@ -730,6 +730,11 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
   - Example with advantage: "You have the perfect cover. [DICE:d20+2:Stealth:DC14:advantage]"
   - Example with disadvantage: "You're injured and exhausted. [DICE:d20-1:Athletics:DC12:disadvantage]"
   - Do NOT describe the outcome yet - the player will roll and their next message will tell you the result
+  - CRITICAL: When you receive the roll result (e.g., "I rolled a 17 for Stealth Check — ✓ Success (DC 14)"), you MUST acknowledge and narrate the outcome:
+    * If the message says "✓ Success" — the character SUCCEEDED. Narrate positive consequences, progress, or advantage gained.
+    * If the message says "✗ Failed" — the character FAILED. Narrate setbacks, complications, danger, or negative consequences.
+    * The roll total and DC are definitive — respect them completely. A success means things go well for the player, a failure means things go poorly.
+    * Do not hedge or equivocate - make the success clearly successful and the failure clearly problematic.
 • When the player makes an ATTACK, use the attack tag: [ATTACK:d20+X:WeaponName:DamageDice+Mod:DamageType]
   - X is the character's attack modifier (STR/DEX mod + proficiency bonus)
   - WeaponName is the weapon being used
@@ -737,7 +742,11 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
   - DamageType is slashing/piercing/bludgeoning/etc
   - Example: "You swing your longsword at the goblin. [ATTACK:d20+5:Longsword:1d8+3:slashing]"
   - The system will check vs enemy AC, prompt for damage on hit, double dice on crit
-  - After the attack roll result, narrate based on hit/miss and damage dealt
+  - CRITICAL: After the player reports their attack roll result (e.g., "I rolled 18 to hit with Longsword — HIT. I rolled 7 slashing damage."), you MUST narrate accordingly:
+    * If the result says "HIT" or "CRITICAL HIT" — the attack CONNECTED. Narrate the weapon striking true, describe the impact, enemy's reaction to being wounded.
+    * If the result says "MISS" — the attack FAILED completely. Narrate the enemy dodging, deflecting, or the attack going wide. No damage is dealt.
+    * On a CRITICAL HIT, make it feel epic - describe devastating impact, enemy staggering, armor cracking, etc.
+    * On damage dealt, reflect it narratively - high damage should feel brutal, low damage should feel glancing.
 • When the player casts a spell that uses a spell slot, include: [CAST:SpellName:Level:C]
   - Example: "You invoke mystic words. [CAST:Magic Missile:1]"
   - For concentration spells, add :C at the end: [CAST:Bless:1:C]
@@ -757,6 +766,10 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
   - Abilities: Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma
   - Effect: FullDamage (default) or HalfOnSuccess
   - Player rolls their save modifier vs DC
+  - CRITICAL: When you receive the saving throw result (e.g., "I rolled 14 for Dexterity Save — ✓ Success (DC 15)"), narrate accordingly:
+    * If "✓ Success" — the character avoided or resisted the effect. They dodge out of the way, shake off the spell, resist the poison, etc.
+    * If "✗ Failed" — the character takes the full effect. The spell hits them, they're caught in the blast, the poison takes hold, etc.
+    * For "HalfOnSuccess" effects, success means reduced damage/duration, failure means full effect.
 • At the start of combat, include: [COMBAT:START] to roll initiative
 • When combat ends, include: [COMBAT:END]
 • EVERY response MUST begin with [SCENE:X] matching the current location and environment. X must be one of:
@@ -997,8 +1010,17 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
           // Show the roll result
           this._addPlayerEntry(checkText);
           this.messages.push({ role: 'user', content: checkText });
-          // Then show the pre-written continuation
-          await this._processResponsePart(afterDice, false);
+          
+          // Check if afterDice has success/failure branches
+          const successMatch = afterDice.match(/\[SUCCESS:([\s\S]*?)\]\[FAILURE:([\s\S]*?)\]/);
+          if (successMatch) {
+            // Demo has branching - use success or failure based on roll result
+            const continuation = result.success ? successMatch[1].trim() : successMatch[2].trim();
+            await this._processResponsePart(continuation, false);
+          } else {
+            // No branching - show the continuation as-is
+            await this._processResponsePart(afterDice, false);
+          }
         } else {
           // Real AI mode - send the roll result to get AI's response
           this.sendMessage(checkText);
@@ -1240,16 +1262,8 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
       }
     });
 
-    // ── Fallback: if the AI omitted SCENE/MUSIC tags, infer from the response text ──
-    if (!sceneSet) {
-      const inferred = this._inferScene(raw);
-      if (inferred) {
-        try { window.mapSystem?.setScene(inferred); } catch (e) { console.warn('Scene infer error:', e); }
-        if (!musicSet) {
-          try { window.audioSystem?.setScene(inferred); } catch (e) { console.warn('Music infer error:', e); }
-        }
-      }
-    }
+    // No longer auto-infer scenes - only change when AI explicitly provides [SCENE:...] tag
+    // This keeps the player on the current scene while it remains relevant
 
     // Parse numbered choices out of response text
     const { prose, choices } = this._parseText(text);

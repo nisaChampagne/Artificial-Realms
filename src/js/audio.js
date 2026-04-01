@@ -220,6 +220,13 @@ class AudioSystem {
 
     this.stopAll();
     this.currentScene = name;
+    
+    // Don't play music if no scene is set yet
+    if (!name) {
+      document.getElementById('music-now').textContent = '—';
+      return;
+    }
+    
     const config = SCENES[name] || SCENES.dungeon;
     document.getElementById('music-now').textContent = config.label;
 

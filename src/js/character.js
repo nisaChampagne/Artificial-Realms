@@ -1318,6 +1318,9 @@ class CharacterSystem {
       spellSaveDC:    this._calculateSpellSaveDC(cls?.id, stats, 2) // 8 + prof + spellcasting mod
     };
 
+    // Track initial max HP for achievements
+    window.achievementSystem?.track('max_hp', Math.max(1, maxHp));
+
     // Push appearance to map sprite
     window.mapSystem?.updateSprite(this.character.appearance);
     
@@ -1744,6 +1747,10 @@ class CharacterSystem {
         if (!isNaN(val) && val > 0) {
           c.maxHp = val;
           if (c.currentHp > c.maxHp) c.currentHp = c.maxHp;
+          
+          // Track max HP for achievement
+          window.achievementSystem?.track('max_hp', c.maxHp);
+          
           document.getElementById('s-hp').textContent = c.currentHp;
           const pct2  = Math.max(0, c.currentHp / c.maxHp);
           const hpBar = document.getElementById('s-hp-bar');
@@ -2230,6 +2237,12 @@ class CharacterSystem {
     }
     
     c.currentHp = Math.max(0, Math.min(c.maxHp, c.currentHp + delta));
+    
+    // Track low HP for achievements
+    if (c.currentHp > 0 && c.currentHp <= 3) {
+      window.achievementSystem?.track('low_hp', c.currentHp);
+    }
+    
     this.updateHUD();
     if (c.currentHp === 0) {
       this._openDeathSaves();
@@ -2637,6 +2650,10 @@ class CharacterSystem {
     confirmBtn.onclick = () => {
       c.maxHp     += hpGain;
       c.currentHp += hpGain;
+      
+      // Track max HP for achievements
+      window.achievementSystem?.track('max_hp', c.maxHp);
+      
       document.getElementById('modal-levelup').classList.add('hidden');
       this.updateHUD();
       window.app.showToast(`🎉 Level ${newLevel}! +${hpGain} HP`, 'success');

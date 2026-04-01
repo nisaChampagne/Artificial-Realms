@@ -95,6 +95,12 @@ class InventorySystem {
       if (this.items.some(i => i.name.toLowerCase() === name.toLowerCase())) return;
     }
 
+    const rarity = open5eData?.rarity || '';
+    // Track magic item acquisition
+    if (rarity && !['common', ''].includes(rarity.toLowerCase())) {
+      window.achievementSystem?.track('magic_item_obtained');
+    }
+
     const item = {
       id:        this._uid++,
       name:      name.trim(),
@@ -144,6 +150,9 @@ class InventorySystem {
       window.aiSystem?._addSystemEntry(`🧪 ${charName} uses <strong>${item.name}</strong>.`);
     }
 
+    // Track consumable usage for achievements
+    window.achievementSystem?.track('consumable_used');
+
     // Decrement qty; remove if spent
     item.qty = (item.qty || 1) - 1;
     if (item.qty <= 0) {
@@ -170,9 +179,24 @@ class InventorySystem {
   }
 
   // ── Currency ─────────────────────────────────────────────────
-  addGold(amount)   { this.currency = Math.max(0, this.currency + Math.round(amount * 100));  this._renderCurrency(); }
-  addSilver(amount) { this.currency = Math.max(0, this.currency + Math.round(amount * 10));   this._renderCurrency(); }
-  addCopper(amount)  { this.currency = Math.max(0, this.currency + Math.round(amount));        this._renderCurrency(); }
+  addGold(amount)   { 
+    this.currency = Math.max(0, this.currency + Math.round(amount * 100));  
+    if (amount > 0) window.achievementSystem?.track('gold_earned', amount);
+    window.achievementSystem?.track('gold_total', this.currency);
+    this._renderCurrency(); 
+  }
+  addSilver(amount) { 
+    this.currency = Math.max(0, this.currency + Math.round(amount * 10));   
+    if (amount > 0) window.achievementSystem?.track('gold_earned', amount / 10);
+    window.achievementSystem?.track('gold_total', this.currency);
+    this._renderCurrency(); 
+  }
+  addCopper(amount)  { 
+    this.currency = Math.max(0, this.currency + Math.round(amount));        
+    if (amount > 0) window.achievementSystem?.track('gold_earned', amount / 100);
+    window.achievementSystem?.track('gold_total', this.currency);
+    this._renderCurrency(); 
+  }
 
   _renderCurrency() {
     const total = Math.max(0, Math.round(this.currency));
@@ -214,6 +238,10 @@ class InventorySystem {
     }
     this._applyEquipEffects();
     this._render();
+    
+    // Track equipped slots for achievements
+    const equippedSlots = new Set(this.items.filter(i => i.equipped).map(i => i.slot));
+    window.achievementSystem?.track('equipped_slots', equippedSlots.size);
   }
 
   // Recalculate AC from equipped armor / shield
@@ -670,6 +698,11 @@ class InventorySystem {
     // Deduct currency, reduce stock, and add item
     this.currency = Math.max(0, this.currency - shopItem.price);
     shopItem.stock = Math.max(0, shopItem.stock - 1);
+    
+    // Track spending for achievements
+    window.achievementSystem?.track('gold_spent', shopItem.price);
+    window.achievementSystem?.track('gold_total', this.currency);
+    
     this.addItem(shopItem.name, { desc: shopItem.desc });
 
     const charName = window.characterSystem?.character?.name || 'You';
@@ -691,6 +724,11 @@ class InventorySystem {
     const total = price * qty;
     this.currency = Math.max(0, this.currency + total);
     this.items.splice(this.items.indexOf(item), 1);
+    
+    // Track item sales for achievements
+    window.achievementSystem?.track('item_sold');
+    window.achievementSystem?.track('gold_total', this.currency);
+    
     const charName = window.characterSystem?.character?.name || 'You';
     window.aiSystem?._addSystemEntry(
       `🏪 ${charName} sold <strong>${item.name}${qty>1?` ×${qty}`:''}</strong> for <strong>${this._formatCurrency(total)}</strong>.`

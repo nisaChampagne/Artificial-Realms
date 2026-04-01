@@ -915,14 +915,12 @@ class App {
 
     this.showScreen('game');
 
-    // Init audio
+    // Init audio (don't set scene yet - wait for AI to provide it)
     window.audioSystem.init();
-    window.audioSystem.setScene('dungeon');
     window.audioSystem.setVolume((parseInt(this.settings.volume) || 70) / 100);
 
-    // Init map
+    // Init map (don't set scene yet - wait for AI to provide it)
     window.mapSystem.init();
-    window.mapSystem.setScene('dungeon');
 
     // Update header HUD
     window.characterSystem.updateHUD();
