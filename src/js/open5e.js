@@ -130,6 +130,23 @@ class Open5eService {
     return (data.results || [])[0] || null;
   }
 
+  // ── Monsters ──────────────────────────────────────────────────
+  async searchMonster(name) {
+    if (!name) return null;
+    // Try slug lookup first (fast, exact)
+    const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    try {
+      const data = await this._fetch(`${this.BASE_V1}/monsters/${slug}/`);
+      if (data?.name) return data;
+    } catch (_) {}
+    // Fall back to name search
+    try {
+      const url = `${this.BASE_V1}/monsters/?name__icontains=${encodeURIComponent(name)}&limit=3`;
+      const data = await this._fetch(url);
+      return (data.results || [])[0] || null;
+    } catch (_) { return null; }
+  }
+
   // ── Generic item enrichment — tries magic → weapon → armor ───
   async enrichItem(name) {
     // 1. Magic item (has rarity + full desc)

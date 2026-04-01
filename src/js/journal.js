@@ -37,6 +37,7 @@ class JournalSystem {
     const t = text.trim();
     if (this.lore.some(l => l.text === t)) return;
     this.lore.push({ text: t, turn: this._turn });
+    window.achievementSystem?.track('lore_discovered');
   }
 
   addDecision(text) {
@@ -58,6 +59,7 @@ class JournalSystem {
     if (q) {
       q.status = 'completed';
       window.app?.showToast(`✅ Quest complete: ${q.title}`, 'success');
+      window.achievementSystem?.track('quest_completed');
     }
   }
 

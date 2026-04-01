@@ -24,7 +24,7 @@ class InventorySystem {
   constructor() {
     this.items    = [];   // [{ id, name, type, slot, rarity, desc, reqAtune, equipped, qty }]
     this._uid     = 1;
-    this.currency = 0;   // total in brass pieces (1 gp = 100 bp, 1 sp = 10 bp)
+    this.currency = 0;   // total in copper pieces (1 gp = 100 cp, 1 sp = 10 cp)
     this._shopStock = null; // Track shop inventory
     this._marketSortBy = 'default'; // 'default', 'price-asc', 'price-desc'
   }
@@ -172,34 +172,34 @@ class InventorySystem {
   // ── Currency ─────────────────────────────────────────────────
   addGold(amount)   { this.currency = Math.max(0, this.currency + Math.round(amount * 100));  this._renderCurrency(); }
   addSilver(amount) { this.currency = Math.max(0, this.currency + Math.round(amount * 10));   this._renderCurrency(); }
-  addBrass(amount)  { this.currency = Math.max(0, this.currency + Math.round(amount));        this._renderCurrency(); }
+  addCopper(amount)  { this.currency = Math.max(0, this.currency + Math.round(amount));        this._renderCurrency(); }
 
   _renderCurrency() {
     const total = Math.max(0, Math.round(this.currency));
     const gp    = Math.floor(total / 100);
     const sp    = Math.floor((total % 100) / 10);
-    const bp    = total % 10;
+    const cp    = total % 10;
     const gEl = document.getElementById('inv-gold-amount');
     const sEl = document.getElementById('inv-silver-amount');
-    const bEl = document.getElementById('inv-brass-amount');
+    const bEl = document.getElementById('inv-copper-amount');
     if (gEl) gEl.textContent = gp.toLocaleString();
     if (sEl) sEl.textContent = sp;
-    if (bEl) bEl.textContent = bp;
+    if (bEl) bEl.textContent = cp;
     // Show/hide market button based on current scene
     const scene     = window.mapSystem?.currentScene || '';
     const marketBtn = document.getElementById('btn-open-market');
     if (marketBtn) marketBtn.classList.toggle('hidden', !['town', 'tavern'].includes(scene));
   }
 
-  _formatCurrency(brass) {
-    const gp = Math.floor(brass / 100);
-    const sp = Math.floor((brass % 100) / 10);
-    const bp = brass % 10;
+  _formatCurrency(copper) {
+    const gp = Math.floor(copper / 100);
+    const sp = Math.floor((copper % 100) / 10);
+    const cp = copper % 10;
     const parts = [];
     if (gp) parts.push(`${gp} gp`);
     if (sp) parts.push(`${sp} sp`);
-    if (bp) parts.push(`${bp} bp`);
-    return parts.length ? parts.join(' ') : '0 bp';
+    if (cp) parts.push(`${cp} cp`);
+    return parts.length ? parts.join(' ') : '0 cp';
   }
 
   // ── Equip / Unequip ─────────────────────────────────────────
@@ -410,9 +410,9 @@ class InventorySystem {
 
   // ── Market ──────────────────────────────────────────────────
   _itemValue(item) {
-    // Base sell price in brass (50% of typical market value)
+    // Base sell price in copper (50% of typical market value)
     const base = {
-      'common':    100,    // 1 gp base  → sell 50 bp
+      'common':    100,    // 1 gp base  → sell 50 cp
       'uncommon':  1000,   // 10 gp base → sell 5 gp
       'rare':      5000,   // 50 gp base → sell 25 gp
       'very rare': 20000,  // 200 gp     → sell 100 gp
@@ -422,7 +422,7 @@ class InventorySystem {
     return Math.floor(base / 2);
   }
 
-  // Shop catalog with items for purchase (prices in brass pieces)
+  // Shop catalog with items for purchase (prices in copper pieces)
   _shopCatalog() {
     return [
       // Consumables
@@ -481,12 +481,12 @@ class InventorySystem {
       const total = Math.max(0, Math.round(this.currency));
       const gp = Math.floor(total / 100);
       const sp = Math.floor((total % 100) / 10);
-      const bp = total % 10;
+      const cp = total % 10;
       wallet.innerHTML =
         `<span class="market-purse-label">Your Purse</span>` +
         `<span class="market-purse-coins"><span class="market-coin market-coin-gp">🪙 ${gp.toLocaleString()} gp</span>` +
         `<span class="market-coin market-coin-sp">🥈 ${sp} sp</span>` +
-        `<span class="market-coin market-coin-bp">🟤 ${bp} bp</span></span>`;
+        `<span class="market-coin market-coin-cp">🟤 ${cp} cp</span></span>`;
     }
 
     // Render tabs and sort controls

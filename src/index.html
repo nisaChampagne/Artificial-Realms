@@ -488,6 +488,8 @@
         </div>
         <span class="xp-text" id="hud-xp-text">0 XP</span>
       </div>
+      <span class="hud-divider">|</span>
+      <span class="world-state-hud" id="world-state-hud" title="Time &amp; weather">☀️</span>
       <span class="hud-divider" id="enemy-hud-sep" style="display:none">|</span>
       <div class="enemy-hp-pill" id="enemy-hp-pill" style="display:none">
         <span class="enemy-icon">💀</span>
@@ -517,6 +519,16 @@
     </div>
     <button class="btn btn-sm btn-outline combat-next-btn" id="btn-combat-next-turn">Next Turn →</button>
     <button class="btn-ghost combat-end-btn" id="btn-combat-end">✕ End Combat</button>
+  </div>
+
+  <!-- Monster Stat Block (appears when enemy is encountered) -->
+  <div class="monster-stat-panel hidden" id="monster-stat-panel">
+    <div class="msb-header">
+      <span class="msb-title" id="msb-title">Enemy</span>
+      <span class="msb-cr" id="msb-cr">CR ?</span>
+      <button class="msb-close" id="btn-msb-close">✕</button>
+    </div>
+    <div class="msb-content" id="msb-content"></div>
   </div>
 
   <!-- Game Body -->
@@ -778,6 +790,10 @@
           <div class="equip-block">
             <h4>Equipment</h4>
             <div id="equip-list" class="equip-scroll"></div>
+            <div class="gold-display" style="margin-top: 10px; padding: 8px; background: var(--bg-dark); border-radius: 4px; display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.2em;">💰</span>
+              <span style="font-weight: 600;"><span id="s-gold">0</span> gp</span>
+            </div>
           </div>
           <div class="notes-block">
             <h4>Notes</h4>
@@ -1030,8 +1046,8 @@
         <div class="inv-currency-divider">·</div>
         <div class="inv-currency-group">
           <span class="inv-currency-icon">🟤</span>
-          <span class="inv-currency-amount" id="inv-brass-amount">0</span>
-          <span class="inv-currency-unit">bp</span>
+          <span class="inv-currency-amount" id="inv-copper-amount">0</span>
+          <span class="inv-currency-unit">cp</span>
         </div>
         <button class="inv-market-btn hidden" id="btn-open-market">🏪 Visit Market</button>
       </div>
@@ -1071,6 +1087,7 @@
         <button class="tab-btn" id="journal-tab-lore">📜 Lore</button>
         <button class="tab-btn" id="journal-tab-decisions">⚔ Decisions</button>
         <button class="tab-btn" id="journal-tab-quests">📋 Quests</button>
+        <button class="tab-btn" id="journal-tab-achievements">🏅 Feats</button>
       </div>
       <div class="journal-panel" id="journal-panel-npcs">
         <div id="journal-npcs" class="journal-entries"></div>
@@ -1084,6 +1101,9 @@
       <div class="journal-panel hidden" id="journal-panel-quests">
         <div id="journal-quests" class="journal-entries"></div>
       </div>
+      <div class="journal-panel hidden" id="journal-panel-achievements">
+        <div id="journal-achievements" class="journal-entries"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -1093,6 +1113,8 @@
 
 <!-- Scripts -->
 <script src="js/open5e.js"></script>
+<script src="js/worldstate.js"></script>
+<script src="js/achievements.js"></script>
 <script src="js/journal.js"></script>
 <script src="js/inventory.js"></script>
 <script src="js/save.js"></script>
@@ -1239,7 +1261,7 @@
           <div class="help-section-title">Currency</div>
           <div class="help-row"><span class="help-icon">🪙</span><div><strong>Gold (gp)</strong> — the primary currency. Used for expensive equipment and services.</div></div>
           <div class="help-row"><span class="help-icon">🥈</span><div><strong>Silver (sp)</strong> — mid-tier coin. 10 sp = 1 gp.</div></div>
-          <div class="help-row"><span class="help-icon">🟤</span><div><strong>Brass (bp)</strong> — small change. 10 bp = 1 sp · 100 bp = 1 gp.</div></div>
+          <div class="help-row"><span class="help-icon">🟤</span><div><strong>Copper (cp)</strong> — small change. 10 cp = 1 sp · 100 cp = 1 gp.</div></div>
           <div class="help-row"><span class="help-icon">🎁</span><div>The DM awards currency during story events — as quest rewards, loot, tips, or found coins.</div></div>
         </div>
         <div class="help-section">
@@ -1251,7 +1273,7 @@
         </div>
         <div class="help-section">
           <div class="help-section-title">Item Rarity & Value</div>
-          <div class="help-row"><span class="help-icon" style="color:#aaa">◆</span><div><strong>Common</strong> — 50 bp sell value.</div></div>
+          <div class="help-row"><span class="help-icon" style="color:#aaa">◆</span><div><strong>Common</strong> — 50 cp sell value.</div></div>
           <div class="help-row"><span class="help-icon" style="color:#6a9e6a">◆</span><div><strong>Uncommon</strong> — 5 sp sell value.</div></div>
           <div class="help-row"><span class="help-icon" style="color:#5a82a0">◆</span><div><strong>Rare</strong> — 2 gp 5 sp sell value.</div></div>
           <div class="help-row"><span class="help-icon" style="color:#7a5a9e">◆</span><div><strong>Very Rare</strong> — 25 gp sell value.</div></div>

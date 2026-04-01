@@ -235,6 +235,22 @@ const CLASS_EQUIPMENT = {
   barbarian: ['Greataxe','2× Handaxes','Explorer\'s Pack','4× Javelins'],
 };
 
+// Starting currency by class (in copper pieces: 1gp = 100cp, 1sp = 10cp, 1cp = 1cp)
+const CLASS_STARTING_WEALTH = {
+  barbarian: 725,   // 5gp + 20sp + 25cp = modest tribal wealth
+  bard:      1540,  // 12gp + 30sp + 40cp = performer's earnings
+  cleric:    1825,  // 15gp + 30sp + 25cp = temple stipend
+  druid:     530,   // 3gp + 20sp + 30cp = minimal possessions
+  fighter:   1840,  // 15gp + 35sp + 40cp = mercenary pay
+  monk:      235,   // 2gp + 15sp + 10cp = vow of poverty
+  paladin:   2035,  // 18gp + 20sp + 35cp = order's equipment fund
+  ranger:    1225,  // 10gp + 20sp + 25cp = wilderness tracker
+  rogue:     1265,  // 10gp + 25sp + 40cp = stolen goods
+  sorcerer:  835,   // 6gp + 25sp + 10cp = discovered powers
+  warlock:   1030,  // 8gp + 25sp + 30cp = pact reward
+  wizard:    1250,  // 10gp + 20sp + 50cp = apprentice stipend
+};
+
 const CLASS_SKILLS = {
   fighter:   { count:2, skills:['Acrobatics','Animal Handling','Athletics','History','Insight','Intimidation','Perception','Survival'] },
   wizard:    { count:2, skills:['Arcana','History','Insight','Investigation','Medicine','Religion'] },
@@ -1287,6 +1303,7 @@ class CharacterSystem {
       bgSkills:       [...(r.background?.skills || []), ...(r.skills || [])],
       notes:          '',
       languages:      r.languages || r.race?.lang || 'Common',
+      startingWealth: r.startingWealth || CLASS_STARTING_WEALTH[cls?.id] || 500, // Use premade wealth or class default (in cp)
       initBonus:      r.initOverride != null ? r.initOverride : this._mod(stats.dex),
       extraSkillProf: [],
       skillBonuses:   r.skillBonuses || {},
@@ -1303,6 +1320,10 @@ class CharacterSystem {
 
     // Push appearance to map sprite
     window.mapSystem?.updateSprite(this.character.appearance);
+    
+    // Starting wealth will be added to inventory after aiSystem.start() resets it
+    // (see app.js startCampaign function)
+    
     // Campaign type and difficulty were chosen before character creation
     // (inventory seeding happens in app.js after aiSystem.start() resets inventory)
     window.app.startCampaign(
@@ -1324,6 +1345,7 @@ class CharacterSystem {
     const bar = document.getElementById('hud-hp-bar');
     bar.style.width      = `${pct * 100}%`;
     bar.style.background = pct > 0.6 ? 'var(--hp-high)' : pct > 0.3 ? 'var(--hp-mid)' : 'var(--hp-low)';
+    if (c.currentHp > 0 && c.currentHp <= 3) window.achievementSystem?.track('low_hp');
     // Toolbar mini HP bar
     const tbFill = document.getElementById('toolbar-hp-mini-fill');
     const tbCur  = document.getElementById('toolbar-hp-cur');
@@ -1685,6 +1707,13 @@ class CharacterSystem {
     el.innerHTML = (c.equipment || []).map(e =>
       `<div class="equip-item"><span class="equip-icon">⚔</span>${e}</div>`
     ).join('');
+    
+    // Gold - pull from inventory system (source of truth)
+    const goldEl = document.getElementById('s-gold');
+    if (goldEl) {
+      const inventoryGold = Math.floor((window.inventorySystem?.currency || 0) / 100);
+      goldEl.textContent = inventoryGold;
+    }
 
     document.getElementById('char-notes').value = c.notes || '';
     // Wire contenteditable fields: select-all on focus, Enter = blur
@@ -1908,6 +1937,7 @@ class CharacterSystem {
     
     c.inspiration = false;
     window.app?.showToast('⭐ Inspiration spent for advantage!', 'info');
+    window.achievementSystem?.track('inspiration_used');
     this.openSheet(); // Refresh UI
     return true;
   }
@@ -2329,6 +2359,10 @@ class CharacterSystem {
     this.updateHUD();
     window.app.showToast(`Long rest: fully restored!`, 'success');
     window.aiSystem?.addSystemMessage(`🌟 ${c.name} takes a long rest and wakes fully restored.`);
+    window.achievementSystem?.track('long_rest');
+    window.audioSystem?.setScene('rest');
+    window.worldState?.setTime('morning');
+    window.worldState?.advanceDay();
   }
 
   // ── Death Saves ──────────────────────────────────────────────
@@ -2380,6 +2414,7 @@ class CharacterSystem {
       this._deathSuccesses++;
       el.textContent = `Rolled ${roll} — Success!`;
       el.style.color = 'var(--green-lt)';
+      window.achievementSystem?.track('death_save_success');
     } else {
       this._deathFailures++;
       el.textContent = `Rolled ${roll} — Failure`;
@@ -2504,6 +2539,7 @@ class CharacterSystem {
         this.character.features = [...(this.character.features || []), ...newFeatures];
       }
 
+      window.achievementSystem?.track('level_up', newLevel);
       this._openLevelUpModal(newLevel, newFeatures);
     } else {
       const nextThr = thr[Math.min(this.character.level + 1, 20)];
@@ -2611,6 +2647,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Longsword (1d8 slashing)','Handaxe (1d6 slashing)','Heavy Crossbow (1d10 piercing)'],
     extraItems: ['Shield','Chain Mail','Dungeoneer\'s Pack'],
     languages: 'Common, Dwarvish',
+    wealth: 1840, // 15gp + 35sp + 40cp in copper
     appearance: { bodyType:'muscular', skinTone:'#9a9a9c', hairStyle:'short', hairColor:'#3d2008', eyeColor:'#7a5828', mark:'Battle scar across left cheek' },
   },
   {
@@ -2627,6 +2664,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Mace (1d6 bludgeoning)','Sacred Flame — cantrip (1d8 radiant)','Toll the Dead — cantrip (1d8/1d12 necrotic)'],
     extraItems: ['Holy Water ×2','Prayer Beads','Healing Kit'],
     languages: 'Common, Celestial',
+    wealth: 1825, // 15gp + 30sp + 25cp in copper
     appearance: { bodyType:'slight', skinTone:'#f0dfc4', hairStyle:'long', hairColor:'#ece8e0', eyeColor:'#a0b0c0', mark:'Faint golden glow at brow' },
   },
   {
@@ -2643,6 +2681,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Eldritch Blast — cantrip (1d10 force)','Hex (extra 1d6 necrotic)','Dagger (1d4 piercing)'],
     extraItems: ['Arcane Focus (orb)','Dark Robes','Eldritch Tome'],
     languages: 'Common, Infernal',
+    wealth: 1030, // 8gp + 25sp + 30cp in copper
     appearance: { bodyType:'slight', skinTone:'#6b3f20', hairStyle:'wild', hairColor:'#1a1848', eyeColor:'#6848a0', mark:'Curved horns, arrow-tipped tail' },
   },
   {
@@ -2659,6 +2698,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Shortsword (1d6 piercing)','Sneak Attack (extra 1d6 piercing)','Hand Crossbow (1d6 piercing)'],
     extraItems: ['Thieves\' Tools','Dark Cloak','Caltrops'],
     languages: 'Common, Elvish',
+    wealth: 1265, // 10gp + 25sp + 40cp in copper
     appearance: { bodyType:'slight', skinTone:'#e3c49a', hairStyle:'long', hairColor:'#1a1848', eyeColor:'#4878b0', mark:'Delicate silver ear-cuff with a tiny blade charm' },
   },
   {
@@ -2675,6 +2715,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Greataxe (1d12 slashing)','Reckless Attack','Handaxe (1d6 slashing)'],
     extraItems: ['Bear Pelt Cloak','Healing Potion','Trophy Necklace'],
     languages: 'Common, Orc',
+    wealth: 725, // 5gp + 20sp + 25cp in copper
     appearance: { bodyType:'muscular', skinTone:'#4a2010', hairStyle:'wild', hairColor:'#1a1008', eyeColor:'#3d2008', mark:'Clan brands on both arms' },
   },
   {
@@ -2691,6 +2732,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Rapier (1d8 piercing)','Vicious Mockery — cantrip (1d4 psychic)','Dagger (1d4 piercing)'],
     extraItems: ['Lute','Fine Wine ×2','Disguise Kit'],
     languages: 'Common, Halfling',
+    wealth: 1540, // 12gp + 30sp + 40cp in copper
     appearance: { bodyType:'slight', skinTone:'#c8906a', hairStyle:'curly', hairColor:'#7a4420', eyeColor:'#c89030', mark:'Permanent ink stains on fingers' },
   },
   {
@@ -2707,6 +2749,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Fire Bolt — cantrip (1d10 fire)','Ray of Frost — cantrip (1d8 cold)','Magic Missile (3× 1d4+1 force)'],
     extraItems: ['Crystal Ball','Arcane Tome','Wand of Magic Missiles'],
     languages: 'Common, Elvish, Dwarvish',
+    wealth: 1250, // 10gp + 20sp + 50cp in copper
     appearance: { bodyType:'slight', skinTone:'#e3c49a', hairStyle:'medium', hairColor:'#b0b8c0', eyeColor:'#788090', mark:'Arcane sigil tattooed on right palm' },
   },
   {
@@ -2723,6 +2766,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Longbow (1d8 piercing)','Shortsword (1d6 piercing)','Hunter\'s Mark (extra 1d6)'],
     extraItems: ['Hunting Trap','Camouflage Cloak','Compass'],
     languages: 'Common, Elvish, Sylvan',
+    wealth: 1225, // 10gp + 20sp + 25cp in copper
     appearance: { bodyType:'athletic', skinTone:'#c8906a', hairStyle:'braided', hairColor:'#d4a640', eyeColor:'#3a7840', mark:'Green ivy tattoo winding up left forearm' },
   },
 ];
@@ -2748,6 +2792,7 @@ CharacterSystem.prototype.loadPremade = function(premadeId) {
     skills:     [...premade.skills],
     skillBonuses: {},
     languages:  premade.languages || (race?.lang ?? 'Common'),
+    startingWealth: premade.wealth || CLASS_STARTING_WEALTH[premade.classId] || 500,
     acOverride:   null,
     initOverride: null,
     attacks:    [...premade.attacks],

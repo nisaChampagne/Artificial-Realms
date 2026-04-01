@@ -679,7 +679,8 @@ class AISystem {
     );
     const modStr = (v) => (v >= 0 ? `+${v}` : `${v}`);
 
-    const memoryBlock = window.journalSystem?.buildMemoryBlock();
+    const memoryBlock  = window.journalSystem?.buildMemoryBlock();
+    const worldContext = window.worldState?.buildContextString();
     
     // Build spell list string
     let spellInfo = '';
@@ -714,7 +715,7 @@ AC:         ${c.ac}    Speed: ${c.speed}ft    Proficiency: +${c.profBonus}
 STR ${c.stats.str}(${modStr(mods.str)})  DEX ${c.stats.dex}(${modStr(mods.dex)})  CON ${c.stats.con}(${modStr(mods.con)})
 INT ${c.stats.int}(${modStr(mods.int)})  WIS ${c.stats.wis}(${modStr(mods.wis)})  CHA ${c.stats.cha}(${modStr(mods.cha)})
 Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}${spellInfo}
-${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
+${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 ═══ DM INSTRUCTIONS ═══
 • Narrate in vivid, atmospheric prose (2–4 paragraphs per turn).
 • Present 3–4 **numbered choices** at the end of most turns for the player to pick from. Honor free-text input too.
@@ -787,7 +788,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
   Award XP at the natural end of an encounter or scene, not mid-action. Scale rewards to the character's current level.
 • If the character gains a status condition (Poisoned, Blinded, Frightened, etc.), include [CONDITION:name].
 • If the character finds, is given, or picks up ANY notable object — magic items, maps, documents, keys, gemstones, strange stones, relics, tokens, letters, fetishes, or other curiosities — include [ITEM:exact name]. Use the object's specific name, not a generic label.
-• When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]). For smaller rewards use [SILVER:+N] (silver pieces) or [BRASS:+N] (brass pieces). 10 sp = 1 gp, 10 bp = 1 sp. Use silver for tavern tips, small jobs, minor loot. Use brass for trivial finds (beggar's coin, table scraps). Use gold for meaningful treasure.
+• When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]). For smaller rewards use [SILVER:+N] (silver pieces) or [COPPER:+N] (copper pieces). 10 sp = 1 gp, 10 cp = 1 sp. Use silver for tavern tips, small jobs, minor loot. Use copper for trivial finds (beggar's coin, table scraps). Use gold for meaningful treasure.
 • If the character dies, include [DEAD].
 • When the adventure concludes successfully, include [WIN].
 • Keep implied D&D 5e rules: proficiency, saving throws, spell slots, etc.
@@ -802,7 +803,13 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     e.g. [QUEST:Rescue the Miller:Find the missing miller taken by bandits to the eastern ruins]
   - When a quest is successfully completed, include [QUEST_DONE:Exact Title]
   - When a quest fails or is no longer achievable, include [QUEST_FAIL:Exact Title]
-  - Only add a quest when there is a clear, actionable goal. Don't add quests for trivial actions.`;
+  - Only add a quest when there is a clear, actionable goal. Don't add quests for trivial actions.
+• WORLD STATE TAGS (update when time passes or conditions change):
+  - [TIME:period] — one of: dawn, morning, afternoon, dusk, evening, night
+  - [WEATHER:condition] — one of: clear, cloudy, rain, storm, fog, snow
+  - Update TIME when significant time passes (travel, long rests, scene transitions)
+  - Update WEATHER when weather shifts or a new outdoor scene begins
+  - Rain/storm: disadvantage on ranged Perception · Fog: heavily obscured beyond 60ft · Snow: difficult terrain outdoors`;
   }
 
   // ── Send Player Message ──────────────────────────────────────
@@ -839,6 +846,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     }
 
     window.journalSystem?.incTurn();
+    window.achievementSystem?.track('turn');
 
     // Disable input and action buttons
     document.getElementById('player-input').disabled = true;
@@ -1051,32 +1059,38 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
           }
           break;
         }
-        case 'BRASS': {
+        case 'COPPER': {
           const bDelta = parseInt(val);
           if (!isNaN(bDelta)) {
-            window.inventorySystem?.addBrass(bDelta);
+            window.inventorySystem?.addCopper(bDelta);
             const charName = window.characterSystem?.character?.name || 'You';
             const sign = bDelta >= 0 ? '+' : '';
-            this._addSystemEntry(`🟤 ${charName} ${bDelta >= 0 ? 'finds' : 'loses'} <strong>${sign}${bDelta} bp</strong>.`);
+            this._addSystemEntry(`🟤 ${charName} ${bDelta >= 0 ? 'finds' : 'loses'} <strong>${sign}${bDelta} cp</strong>.`);
           }
           break;
         }
         case 'ENEMY': {
           if (val.toLowerCase() === 'clear') {
+            if (this.currentEnemy) {
+              window.achievementSystem?.track('enemy_defeated');
+              if (window.mapSystem?.currentScene === 'boss') {
+                window.achievementSystem?.track('boss_defeated');
+              }
+            }
             document.getElementById('enemy-hp-pill').style.display = 'none';
             document.getElementById('enemy-hud-sep').style.display = 'none';
+            document.getElementById('monster-stat-panel')?.classList.add('hidden');
             this.currentEnemy = null;
           } else {
             const ep = val.split(':');
             const eName = ep[0]?.trim() || 'Enemy';
             const eCur  = Math.max(0, parseInt(ep[1]) || 0);
             const eMax  = Math.max(1, parseInt(ep[2]) || eCur || 1);
-            const eAC   = parseInt(ep[3]) || 12; // Default AC 12 if not provided
+            const eAC   = parseInt(ep[3]) || 12;
             const ePct  = Math.min(100, Math.round((eCur / eMax) * 100));
-            
-            // Store current enemy state
+
             this.currentEnemy = { name: eName, currentHp: eCur, maxHp: eMax, ac: eAC };
-            
+
             document.getElementById('enemy-hud-name').textContent = `${eName} (AC ${eAC})`;
             document.getElementById('enemy-hud-hp').textContent = eCur;
             document.getElementById('enemy-hud-hp-max').textContent = eMax;
@@ -1085,9 +1099,18 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
             bar.style.background = ePct > 50 ? 'var(--red-lt)' : ePct > 25 ? 'var(--gold)' : 'var(--red)';
             document.getElementById('enemy-hp-pill').style.display = 'flex';
             document.getElementById('enemy-hud-sep').style.display = '';
+
+            // Fetch monster stat block from Open5e (first appearance only)
+            if (eCur === eMax) {
+              window.open5e?.searchMonster(eName).then(m => {
+                if (m) this._showMonsterStatBlock(m);
+              }).catch(() => {});
+            }
           }
           break;
         }
+        case 'TIME':    window.worldState?.setTime(val.trim().toLowerCase()); break;
+        case 'WEATHER': window.worldState?.setWeather(val.trim().toLowerCase()); break;
         case 'DEAD':     this._handleDeath(); break;
         case 'WIN':      this._handleVictory(); break;
         case 'CONDITION': {
@@ -1517,6 +1540,63 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 
   _hideThinking() {
     document.getElementById('dm-thinking-entry')?.remove();
+  }
+
+  // ── Monster Stat Block ───────────────────────────────────────
+  _showMonsterStatBlock(m) {
+    const panel = document.getElementById('monster-stat-panel');
+    if (!panel) return;
+
+    const mod = v => { const n = Math.floor((v - 10) / 2); return (n >= 0 ? '+' : '') + n; };
+    const spd = typeof m.speed === 'object'
+      ? Object.entries(m.speed).filter(([,v]) => v).map(([k,v]) => k === 'walk' ? v : `${k} ${v}`).join(', ')
+      : (m.speed || '30 ft.');
+
+    const saves = ['str','dex','con','int','wis','cha']
+      .map(ab => { const v = m[`${ab === 'str' ? 'strength' : ab === 'dex' ? 'dexterity' : ab === 'con' ? 'constitution' : ab === 'int' ? 'intelligence' : ab === 'wis' ? 'wisdom' : 'charisma'}_save`]; return v != null ? `${ab.toUpperCase()} ${v >= 0 ? '+' : ''}${v}` : null; })
+      .filter(Boolean).join(', ');
+
+    const resistLine = [
+      m.damage_immunities   ? `<span class="msb-tag msb-immune">Immune: ${m.damage_immunities}</span>` : '',
+      m.damage_resistances  ? `<span class="msb-tag msb-resist">Resist: ${m.damage_resistances}</span>` : '',
+      m.condition_immunities? `<span class="msb-tag msb-cond-imm">Cond. Immune: ${m.condition_immunities}</span>` : '',
+    ].filter(Boolean).join('');
+
+    const actions = (m.actions || []).slice(0, 4).map(a => {
+      let line = `<div class="msb-action"><span class="msb-action-name">${a.name}.</span> `;
+      if (a.attack_bonus != null) line += `<span class="msb-atk">${a.attack_bonus >= 0 ? '+' : ''}${a.attack_bonus} to hit</span>`;
+      if (a.damage_dice)          line += `, <span class="msb-dmg">${a.damage_dice}${a.damage_bonus ? (a.damage_bonus >= 0 ? ' +' : ' ') + a.damage_bonus : ''}</span>`;
+      line += `</div>`;
+      return line;
+    }).join('');
+
+    const specials = (m.special_abilities || []).slice(0, 2).map(s =>
+      `<div class="msb-action"><span class="msb-action-name">${s.name}.</span> ${s.desc?.slice(0,120)}${s.desc?.length > 120 ? '…' : ''}</div>`
+    ).join('');
+
+    document.getElementById('msb-title').textContent = m.name;
+    document.getElementById('msb-cr').textContent    = `CR ${m.challenge_rating ?? '?'} · ${m.size || ''} ${m.type || ''}`;
+
+    document.getElementById('msb-content').innerHTML = `
+      <div class="msb-row">
+        <span><b>AC</b> ${m.armor_class}${m.armor_desc ? ` (${m.armor_desc})` : ''}</span>
+        <span><b>HP</b> ${m.hit_points}${m.hit_dice ? ` (${m.hit_dice})` : ''}</span>
+        <span><b>Speed</b> ${spd}</span>
+      </div>
+      <div class="msb-stats">
+        ${['STR','DEX','CON','INT','WIS','CHA'].map((ab,i) => {
+          const v = [m.strength,m.dexterity,m.constitution,m.intelligence,m.wisdom,m.charisma][i];
+          return `<div class="msb-stat"><div class="msb-stat-name">${ab}</div><div class="msb-stat-val">${v ?? '—'}</div><div class="msb-stat-mod">(${mod(v ?? 10)})</div></div>`;
+        }).join('')}
+      </div>
+      ${saves    ? `<div class="msb-line"><b>Saves</b> ${saves}</div>` : ''}
+      ${m.senses ? `<div class="msb-line"><b>Senses</b> ${m.senses}</div>` : ''}
+      ${resistLine ? `<div class="msb-tags">${resistLine}</div>` : ''}
+      ${specials ? `<div class="msb-section-title">Traits</div>${specials}` : ''}
+      ${actions  ? `<div class="msb-section-title">Actions</div>${actions}` : ''}
+    `;
+
+    panel.classList.remove('hidden');
   }
 
   async _typewriterEntry(prose, choices) {

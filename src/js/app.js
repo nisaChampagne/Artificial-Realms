@@ -22,6 +22,7 @@ class App {
     window.diceSystem.init();
     window.characterSystem.init();
     window.inventorySystem.init();
+    window.worldState._updateHUD();  // Render initial time/weather icons
 
     this._bindKeyboard();
 
@@ -74,6 +75,10 @@ class App {
     } catch { /* first run */ }
     // Sanitize: blank/null provider falls back to openai
     if (!this.settings.provider) this.settings.provider = 'openai';
+    // Load cross-save achievements from settings
+    if (this.settings.achievements) {
+      window.achievementSystem?.load(this.settings.achievements);
+    }
     this._applySettingsToUI();
   }
 
@@ -567,6 +572,9 @@ class App {
 
     document.getElementById('btn-open-dice').onclick = () => window.diceSystem.openModal();
     document.getElementById('btn-open-char').onclick = () => window.characterSystem.openSheet();
+    document.getElementById('btn-msb-close')?.addEventListener('click', () => {
+      document.getElementById('monster-stat-panel')?.classList.add('hidden');
+    });
     document.getElementById('btn-rules').onclick     = () => this._openRulesPanel();
     document.getElementById('btn-perception-log').onclick = () => this._openPerceptionLog();
 
@@ -591,7 +599,7 @@ class App {
     });
 
     // Journal tabs
-    ['npcs','lore','decisions','quests'].forEach(tab => {
+    ['npcs','lore','decisions','quests','achievements'].forEach(tab => {
       const btn = document.getElementById(`journal-tab-${tab}`);
       if (!btn) return;
       btn.addEventListener('click', () => {
@@ -599,6 +607,7 @@ class App {
         document.querySelectorAll('[id^="journal-panel-"]').forEach(p => p.classList.add('hidden'));
         btn.classList.add('active');
         document.getElementById(`journal-panel-${tab}`)?.classList.remove('hidden');
+        if (tab === 'achievements') window.achievementSystem?.open();
       });
     });
 
@@ -934,6 +943,11 @@ class App {
     if (c) {
       (c.equipment || []).forEach(name => window.inventorySystem?.addItem(name));
       (c._extraItems || []).forEach(name => window.inventorySystem?.addItem(name));
+      // Restore starting wealth (currency is in copper pieces)
+      if (c.startingWealth && window.inventorySystem) {
+        window.inventorySystem.currency = c.startingWealth;
+        window.inventorySystem._renderCurrency();
+      }
     }
 
     // Auto-save

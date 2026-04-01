@@ -670,6 +670,150 @@ input[type=range]::-webkit-slider-thumb {
 }
 .sms-open-folder { flex-shrink: 0; }
 
+/* ── World State HUD ─────────────────────────────────────────── */
+.world-state-hud {
+  font-size: 15px;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  letter-spacing: 2px;
+}
+
+/* ── Monster Stat Block Panel ───────────────────────────────── */
+.monster-stat-panel {
+  background: var(--bg-panel);
+  border-bottom: 1px solid rgba(180, 50, 50, 0.4);
+  padding: 10px 16px 12px;
+  font-size: 11.5px;
+  color: var(--text-mid);
+  animation: slideDown 0.18s ease;
+  overflow-x: auto;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msb-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.msb-title {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  color: var(--red-lt);
+  font-weight: 700;
+}
+.msb-cr {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex: 1;
+}
+.msb-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  margin-left: auto;
+}
+.msb-close:hover { color: var(--text-parchment); }
+.msb-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+  color: var(--text-parchment);
+}
+.msb-stats {
+  display: flex;
+  gap: 10px;
+  margin: 6px 0;
+  flex-wrap: wrap;
+}
+.msb-stat {
+  text-align: center;
+  min-width: 36px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+.msb-stat-name { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+.msb-stat-val  { font-size: 13px; font-weight: 700; color: var(--text-parchment); }
+.msb-stat-mod  { font-size: 10px; color: var(--gold); }
+.msb-line { margin: 3px 0; }
+.msb-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 5px 0; }
+.msb-tag {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-family: var(--font-heading);
+  letter-spacing: 0.5px;
+}
+.msb-immune   { background: rgba(200,50,50,0.15); color: var(--red-lt); border: 1px solid rgba(200,50,50,0.3); }
+.msb-resist   { background: rgba(201,162,39,0.12); color: var(--gold); border: 1px solid rgba(201,162,39,0.25); }
+.msb-cond-imm { background: rgba(80,80,180,0.12); color: #9090e0; border: 1px solid rgba(80,80,180,0.25); }
+.msb-section-title {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin: 8px 0 4px;
+  border-bottom: 1px solid var(--border-dim);
+  padding-bottom: 3px;
+}
+.msb-action { margin-bottom: 4px; line-height: 1.4; }
+.msb-action-name { font-weight: 700; color: var(--text-parchment); }
+.msb-atk  { color: var(--red-lt); }
+.msb-dmg  { color: var(--gold); }
+.msb-content b { color: var(--text-parchment); }
+
+/* ── Achievements ────────────────────────────────────────────── */
+.ach-summary {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 4px 0 10px;
+  font-family: var(--font-heading);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.ach-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  transition: border-color 0.2s;
+}
+.ach-unlocked { border-color: var(--border-gold); }
+.ach-locked   { opacity: 0.35; filter: grayscale(0.6); }
+.ach-icon {
+  font-size: 20px;
+  min-width: 26px;
+  text-align: center;
+}
+.ach-info { flex: 1; }
+.ach-name {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  color: var(--text-parchment);
+}
+.ach-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.ach-progress {
+  color: var(--gold);
+  font-size: 11px;
+  margin-left: 6px;
+}
+.ach-check {
+  color: var(--gold);
+  font-size: 16px;
+  font-weight: 700;
+}
+
 /* ── Per-provider API Key Rows ─────────────────────────────── */
 .provider-key-row {
   display: grid;
@@ -3530,7 +3674,7 @@ input[type=range]::-webkit-slider-thumb {
 }
 .market-coin-gp { color: var(--gold); }
 .market-coin-sp { color: #a8c8d8; }
-.market-coin-bp { color: #b87333; }
+.market-coin-cp { color: #b87333; }
 .market-subtitle {
   padding: 8px 20px;
   font-size: 12px;
