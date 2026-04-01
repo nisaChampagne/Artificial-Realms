@@ -198,6 +198,135 @@ const RACE_ATTACKS = {
   aasimar:    ['Healing Hands (1d4 per level)','Radiant Soul (extra radiant damage)'],
 };
 
+// Spell slots by class and level (D&D 5e standard progression)
+// Returns { 1:max, 2:max, ... } or null for non-casters
+function getSpellSlots(classId, level) {
+  const slots = {
+    wizard:   { 1: [2,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4], 2: [0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3], 3: [0,0,0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3] },
+    sorcerer: { 1: [2,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4], 2: [0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3], 3: [0,0,0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3] },
+    bard:     { 1: [2,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4], 2: [0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3], 3: [0,0,0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3] },
+    cleric:   { 1: [2,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4], 2: [0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3], 3: [0,0,0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3] },
+    druid:    { 1: [2,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4], 2: [0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3], 3: [0,0,0,0,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3] },
+    paladin:  { 1: [0,0,2,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4], 2: [0,0,0,0,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3], 3: [0,0,0,0,0,0,0,0,2,2,3,3,3,3,3,3,3,3,3,3] },
+    ranger:   { 1: [0,0,2,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4], 2: [0,0,0,0,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3], 3: [0,0,0,0,0,0,0,0,2,2,3,3,3,3,3,3,3,3,3,3] },
+    warlock:  { 1: [1,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,4,4,4,4] }, // Pact Magic
+  };
+  
+  const progression = slots[classId];
+  if (!progression) return null;
+  
+  const result = {};
+  for (const [slotLevel, maxByLevel] of Object.entries(progression)) {
+    const max = maxByLevel[level - 1] || 0;
+    if (max > 0) {
+      result[slotLevel] = { current: max, max };
+    }
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+// Spell lists for each caster class (Level 1 spells)
+const CLASS_SPELLS = {
+  wizard: {
+    cantrips: ['Fire Bolt', 'Mage Hand', 'Light', 'Prestidigitation'],
+    1: ['Magic Missile', 'Shield', 'Mage Armor', 'Detect Magic', 'Identify', 'Sleep']
+  },
+  cleric: {
+    cantrips: ['Sacred Flame', 'Guidance', 'Light', 'Thaumaturgy'],
+    1: ['Cure Wounds', 'Bless', 'Healing Word', 'Shield of Faith', 'Guiding Bolt', 'Sanctuary']
+  },
+  druid: {
+    cantrips: ['Shillelagh', 'Guidance', 'Produce Flame', 'Druidcraft'],
+    1: ['Cure Wounds', 'Entangle', 'Faerie Fire', 'Goodberry', 'Healing Word', 'Thunderwave']
+  },
+  bard: {
+    cantrips: ['Vicious Mockery', 'Mage Hand', 'Minor Illusion', 'Prestidigitation'],
+    1: ['Cure Wounds', 'Healing Word', 'Thunderwave', 'Dissonant Whispers', 'Faerie Fire', 'Sleep']
+  },
+  warlock: {
+    cantrips: ['Eldritch Blast', 'Mage Hand', 'Minor Illusion', 'Prestidigitation'],
+    1: ['Hex', 'Armor of Agathys', 'Arms of Hadar', 'Charm Person', 'Hellish Rebuke', 'Witch Bolt']
+  },
+  sorcerer: {
+    cantrips: ['Fire Bolt', 'Mage Hand', 'Light', 'Prestidigitation'],
+    1: ['Magic Missile', 'Shield', 'Mage Armor', 'Burning Hands', 'Chromatic Orb', 'Sleep']
+  },
+  paladin: {
+    cantrips: [],
+    1: [] // Paladins get spells at level 2
+  },
+  ranger: {
+    cantrips: [],
+    1: [] // Rangers get spells at level 2
+  }
+};
+
+function getKnownSpells(classId, level) {
+  const spellData = CLASS_SPELLS[classId];
+  if (!spellData) return null;
+  
+  const result = { cantrips: [...spellData.cantrips] };
+  
+  // Add spell levels available at this character level
+  if (level >= 1) result[1] = [...spellData[1]];
+  // Higher levels would add more spell levels here
+  
+  return result;
+}
+
+// Class resource progression (Second Wind, Rage, Ki Points, etc.)
+const CLASS_RESOURCES = {
+  fighter: {
+    secondWind: { name: 'Second Wind', maxByLevel: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], restoreOn: 'short', actionType: 'bonusAction' }
+  },
+  barbarian: {
+    rage: { name: 'Rage', maxByLevel: [2,2,3,3,3,3,3,3,4,4,4,4,4,4,4,4,5,5,6,999], restoreOn: 'long', actionType: 'bonusAction' }
+  },
+  monk: {
+    kiPoints: { name: 'Ki Points', maxByLevel: [0,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20], restoreOn: 'short', actionType: null }
+  },
+  cleric: {
+    channelDivinity: { name: 'Channel Divinity', maxByLevel: [1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3], restoreOn: 'short', actionType: 'action' }
+  },
+  paladin: {
+    layOnHands: { name: 'Lay on Hands', maxByLevel: [5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100], restoreOn: 'long', pool: true, actionType: 'action' }
+  },
+  bard: {
+    bardicInspiration: { name: 'Bardic Inspiration', maxByLevel: null, usesCharisma: true, restoreOn: 'short', actionType: 'bonusAction' }
+  }
+};
+
+function getClassResources(classId, level, stats = {}) {
+  if (!CLASS_RESOURCES[classId]) return null;
+  
+  const result = {};
+  const resourceDefs = CLASS_RESOURCES[classId];
+  
+  for (const [key, def] of Object.entries(resourceDefs)) {
+    let max = 0;
+    
+    if (def.usesCharisma) {
+      // Bard Bardic Inspiration uses Charisma modifier
+      const chaMod = stats.cha ? Math.floor((stats.cha - 10) / 2) : 0;
+      max = Math.max(1, chaMod);
+    } else if (def.maxByLevel) {
+      max = def.maxByLevel[level - 1] || 0;
+    }
+    
+    if (max > 0) {
+      result[key] = {
+        name: def.name,
+        current: max,
+        max,
+        restoreOn: def.restoreOn,
+        pool: def.pool || false
+      };
+    }
+  }
+  
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 // Starting item pools beyond class equipment — level 1 appropriate only
 const CLASS_ITEM_POOL = {
   fighter:   ['Shield','Chain Mail','Longsword','2× Handaxes','Light Crossbow + 20 bolts','Dungeoneer\'s Pack','Flail','Greataxe','Longbow + 20 arrows','Scale Mail','Spear'],
@@ -692,6 +821,26 @@ class CharacterSystem {
 
   _mod(score) { return Math.floor((score - 10) / 2); }
 
+  _calculateSpellSaveDC(classId, stats, profBonus) {
+    // Spell Save DC = 8 + proficiency + spellcasting modifier
+    const spellcasters = {
+      wizard: 'int',
+      sorcerer: 'cha',
+      bard: 'cha',
+      cleric: 'wis',
+      druid: 'wis',
+      paladin: 'cha',
+      ranger: 'wis',
+      warlock: 'cha'
+    };
+    
+    const ability = spellcasters[classId];
+    if (!ability) return null; // Non-spellcaster
+    
+    const abilityMod = this._mod(stats[ability]);
+    return 8 + profBonus + abilityMod;
+  }
+
   // ── Stat Method Toggle ───────────────────────────────────────
   _setStatMethod(method) {
     this._statMethod = method;
@@ -1042,6 +1191,9 @@ class CharacterSystem {
       maxHp:      Math.max(1, maxHp),
       currentHp:  Math.max(1, maxHp),
       hitDice:    { die: cls?.hpDie || 8, total: 1, spent: 0 },
+      spellSlots: getSpellSlots(cls?.id, 1),
+      knownSpells: getKnownSpells(cls?.id, 1),
+      classResources: getClassResources(cls?.id, 1, stats),
       ac:         r.acOverride   != null ? r.acOverride   : (10 + this._mod(stats.dex)),
       speed:      r.race?.speed || 30,
       profBonus:  2,
@@ -1056,6 +1208,13 @@ class CharacterSystem {
       skillBonuses:   r.skillBonuses || {},
       attacks:        r.attacks || [],
       _extraItems:    r.extraItems  || [],
+      actionEconomy:  { action: true, bonusAction: true, reaction: true }, // Track per-turn actions
+      concentration:  null, // { spell: 'Bless', dc: null }
+      conditions:     [], // [{ name: 'Poisoned', duration: 3, description: '...' }]
+      inspiration:    false,
+      initiative:     { active: false, order: [], currentIndex: 0, playerRoll: 0 },
+      tempHp:         0, // Temporary HP - takes damage first, doesn't stack
+      spellSaveDC:    this._calculateSpellSaveDC(cls?.id, stats, 2) // 8 + prof + spellcasting mod
     };
 
     // Push appearance to map sprite
@@ -1145,6 +1304,17 @@ class CharacterSystem {
     document.getElementById('s-init').textContent  = (initVal >= 0 ? '+' : '') + initVal;
     document.getElementById('s-speed').textContent = `${c.speed} ft`;
     document.getElementById('s-prof').textContent  = `+${c.profBonus}`;
+    
+    // Spell Save DC display
+    const spellSaveDCEl = document.getElementById('s-spell-save-dc');
+    if (spellSaveDCEl) {
+      if (c.spellSaveDC) {
+        spellSaveDCEl.textContent = c.spellSaveDC;
+        spellSaveDCEl.parentElement.style.display = '';
+      } else {
+        spellSaveDCEl.parentElement.style.display = 'none';
+      }
+    }
     // XP on sheet
     const thr2   = CharacterSystem.XP_THRESHOLDS;
     const xpNext2 = thr2[(c.level || 1) + 1];
@@ -1158,6 +1328,17 @@ class CharacterSystem {
     }
     document.getElementById('s-hp').textContent    = c.currentHp;
     document.getElementById('s-hp-max').textContent= c.maxHp;
+    
+    // Temp HP display
+    const tempHpDisplay = document.getElementById('temp-hp-display');
+    const tempHpValue = document.getElementById('s-temp-hp');
+    if (c.tempHp > 0) {
+      tempHpDisplay.style.display = '';
+      tempHpValue.textContent = c.tempHp;
+    } else {
+      tempHpDisplay.style.display = 'none';
+    }
+    
     const pct = Math.max(0, c.currentHp / c.maxHp);
     const bar = document.getElementById('s-hp-bar');
     bar.style.width      = `${pct * 100}%`;
@@ -1173,6 +1354,183 @@ class CharacterSystem {
         <div class="ab-mod">${mod >= 0 ? '+' : ''}${mod}</div>
       </div>`;
     }).join('');
+
+    // Spell Slots
+    const spellSlotsBlock = document.getElementById('spell-slots-block');
+    const spellSlotsGrid = document.getElementById('spell-slots-grid');
+    if (c.spellSlots && Object.keys(c.spellSlots).length > 0) {
+      spellSlotsBlock.style.display = '';
+      spellSlotsGrid.innerHTML = Object.entries(c.spellSlots)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([level, slot]) => {
+          const circles = Array.from({ length: slot.max }, (_, i) => {
+            const filled = i < slot.current;
+            return `<div class="spell-slot-circle ${filled ? 'filled' : 'empty'}" data-level="${level}" data-idx="${i}"></div>`;
+          }).join('');
+          return `<div class="spell-slot-row">
+            <div class="spell-slot-label">Level ${level}</div>
+            <div class="spell-slot-circles">${circles}</div>
+          </div>`;
+        }).join('');
+      
+      // Click handlers for spell slot circles
+      spellSlotsGrid.querySelectorAll('.spell-slot-circle').forEach(circle => {
+        circle.addEventListener('click', () => {
+          const level = circle.dataset.level;
+          const idx = parseInt(circle.dataset.idx);
+          const slot = c.spellSlots[level];
+          if (!slot) return;
+          
+          // Toggle: if clicking a filled slot, empty it and all after it
+          // If clicking empty slot, fill it and all before it
+          if (circle.classList.contains('filled')) {
+            slot.current = idx;
+          } else {
+            slot.current = idx + 1;
+          }
+          this.openSheet(); // Refresh
+        });
+      });
+    } else {
+      spellSlotsBlock.style.display = 'none';
+    }
+
+    // Class Resources (Second Wind, Rage, Ki Points, etc.)
+    const classResourcesBlock = document.getElementById('class-resources-block');
+    const classResourcesGrid = document.getElementById('class-resources-grid');
+    if (c.classResources && Object.keys(c.classResources).length > 0) {
+      classResourcesBlock.style.display = '';
+      classResourcesGrid.innerHTML = Object.entries(c.classResources)
+        .map(([key, resource]) => {
+          if (resource.pool) {
+            // Pool resources (Lay on Hands) - show current/max numbers
+            return `<div class="class-resource-row pool">
+              <div class="resource-label">${resource.name}</div>
+              <div class="resource-pool">
+                <span class="resource-current">${resource.current}</span> / <span class="resource-max">${resource.max}</span>
+              </div>
+              <div class="resource-pool-buttons">
+                <button class="resource-btn" data-key="${key}" data-action="decrement">-1</button>
+                <button class="resource-btn" data-key="${key}" data-action="increment">+1</button>
+                <button class="resource-btn" data-key="${key}" data-action="reset">Reset</button>
+              </div>
+            </div>`;
+          } else {
+            // Use-based resources - show circles like spell slots
+            const circles = Array.from({ length: resource.max }, (_, i) => {
+              const filled = i < resource.current;
+              return `<div class="class-resource-circle ${filled ? 'filled' : 'empty'}" data-key="${key}" data-idx="${i}"></div>`;
+            }).join('');
+            return `<div class="class-resource-row">
+              <div class="resource-label">${resource.name}</div>
+              <div class="resource-circles">${circles}</div>
+            </div>`;
+          }
+        }).join('');
+      
+      // Click handlers for resource circles
+      classResourcesGrid.querySelectorAll('.class-resource-circle').forEach(circle => {
+        circle.addEventListener('click', () => {
+          const key = circle.dataset.key;
+          const idx = parseInt(circle.dataset.idx);
+          const resource = c.classResources[key];
+          if (!resource) return;
+          
+          // Same toggle logic as spell slots
+          if (circle.classList.contains('filled')) {
+            resource.current = idx;
+          } else {
+            resource.current = idx + 1;
+          }
+          this.openSheet(); // Refresh
+        });
+      });
+
+      // Click handlers for pool buttons
+      classResourcesGrid.querySelectorAll('.resource-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const key = btn.dataset.key;
+          const action = btn.dataset.action;
+          const resource = c.classResources[key];
+          if (!resource) return;
+
+          if (action === 'decrement') {
+            resource.current = Math.max(0, resource.current - 1);
+          } else if (action === 'increment') {
+            resource.current = Math.min(resource.max, resource.current + 1);
+          } else if (action === 'reset') {
+            resource.current = resource.max;
+          }
+          this.openSheet(); // Refresh
+        });
+      });
+    } else {
+      classResourcesBlock.style.display = 'none';
+    }
+
+    // Action Economy
+    this._updateActionEconomy();
+
+    // Concentration
+    const concentrationBlock = document.getElementById('concentration-block');
+    if (c.concentration) {
+      concentrationBlock.style.display = '';
+      document.getElementById('concentration-spell').textContent = c.concentration.spell;
+      document.getElementById('btn-drop-concentration').onclick = () => {
+        c.concentration = null;
+        this.openSheet();
+        window.app?.showToast('Dropped concentration', 'info');
+      };
+    } else {
+      concentrationBlock.style.display = 'none';
+    }
+
+    // Conditions
+    const conditionsBlock = document.getElementById('conditions-block');
+    const conditionsGrid = document.getElementById('conditions-grid');
+    if (c.conditions && c.conditions.length > 0) {
+      conditionsBlock.style.display = '';
+      conditionsGrid.innerHTML = c.conditions.map(cond => {
+        return `<div class="condition-tag" data-name="${cond.name}">
+          <span class="condition-name">${cond.name}</span>
+          <span class="condition-duration">${cond.duration}r</span>
+          <button class="condition-remove" title="Remove condition">×</button>
+        </div>`;
+      }).join('');
+      
+      conditionsGrid.querySelectorAll('.condition-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const condName = e.target.closest('.condition-tag').dataset.name;
+          this.removeCondition(condName);
+        });
+      });
+    } else {
+      conditionsBlock.style.display = 'none';
+    }
+
+    // Inspiration
+    const inspirationBlock = document.getElementById('inspiration-block');
+    inspirationBlock.style.display = c.inspiration ? '' : 'none';
+
+    // Initiative
+    const initiativeBlock = document.getElementById('initiative-block');
+    const initiativeGrid = document.getElementById('initiative-grid');
+    if (c.initiative.active) {
+      initiativeBlock.style.display = '';
+      initiativeGrid.innerHTML = c.initiative.order.map((entry, idx) => {
+        const isCurrent = idx === c.initiative.currentIndex;
+        const classes = `initiative-entry ${isCurrent ? 'current' : ''} ${entry.isPlayer ? 'player' : ''}`;
+        return `<div class="${classes}">
+          <span class="init-roll">${entry.roll}</span>
+          <span class="init-name">${entry.name}</span>
+          ${isCurrent ? '<span class="init-arrow">◄</span>' : ''}
+        </div>`;
+      }).join('');
+      
+      document.getElementById('btn-next-turn').onclick = () => this.nextTurn();
+    } else {
+      initiativeBlock.style.display = 'none';
+    }
 
     // Saving throws
     const sv = document.getElementById('saving-throws');
@@ -1297,6 +1655,231 @@ class CharacterSystem {
       if (langs) c.languages = langs;
     }
     document.getElementById('modal-char').classList.add('hidden');
+  }
+
+  _updateActionEconomy() {
+    const c = this.character;
+    if (!c || !c.actionEconomy) return;
+    
+    const actionPill = document.getElementById('action-pill-action');
+    const bonusPill = document.getElementById('action-pill-bonus');
+    const reactionPill = document.getElementById('action-pill-reaction');
+    
+    if (actionPill) {
+      actionPill.classList.toggle('used', !c.actionEconomy.action);
+      actionPill.title = c.actionEconomy.action ? 'Available' : 'Used this turn';
+    }
+    if (bonusPill) {
+      bonusPill.classList.toggle('used', !c.actionEconomy.bonusAction);
+      bonusPill.title = c.actionEconomy.bonusAction ? 'Available' : 'Used this turn';
+    }
+    if (reactionPill) {
+      reactionPill.classList.toggle('used', !c.actionEconomy.reaction);
+      reactionPill.title = c.actionEconomy.reaction ? 'Available' : 'Used this turn';
+    }
+  }
+
+  resetActions() {
+    const c = this.character;
+    if (!c) return;
+    c.actionEconomy = { action: true, bonusAction: true, reaction: true };
+    this._updateActionEconomy();
+  }
+
+  useAction(type) {
+    const c = this.character;
+    if (!c || !c.actionEconomy) return false;
+    if (!c.actionEconomy[type]) return false; // Already used
+    c.actionEconomy[type] = false;
+    this._updateActionEconomy();
+    return true;
+  }
+
+  // Use class resource and consume associated action
+  useClassResource(resourceKey, amount = 1) {
+    const c = this.character;
+    if (!c || !c.classResources || !c.classResources[resourceKey]) return false;
+    
+    const resource = c.classResources[resourceKey];
+    if (resource.current < amount) {
+      window.app?.showToast(`Not enough ${resource.name} remaining!`, 'error');
+      return false;
+    }
+    
+    // Check if required action is available
+    if (resource.actionType && !c.actionEconomy[resource.actionType]) {
+      const actionName = resource.actionType === 'bonusAction' ? 'Bonus Action' : 
+                        resource.actionType === 'action' ? 'Action' : 'Reaction';
+      window.app?.showToast(`No ${actionName} available!`, 'error');
+      return false;
+    }
+    
+    // Consume resource
+    resource.current -= amount;
+    
+    // Consume action if required
+    if (resource.actionType) {
+      this.useAction(resource.actionType);
+    }
+    
+    this.openSheet(); // Refresh UI
+    window.app?.showToast(`Used ${resource.name}!`, 'success');
+    return true;
+  }
+
+  // Cast spell and consume slot
+  castSpell(spellLevel, spellName, requiresConcentration) {
+    const c = this.character;
+    if (!c || !c.spellSlots || !c.spellSlots[spellLevel]) return false;
+    
+    const slot = c.spellSlots[spellLevel];
+    if (slot.current <= 0) {
+      window.app?.showToast(`No Level ${spellLevel} spell slots remaining!`, 'error');
+      return false;
+    }
+    
+    // If casting a concentration spell, drop current concentration
+    if (requiresConcentration && c.concentration) {
+      window.app?.showToast(`Dropped concentration on ${c.concentration.spell}`, 'info');
+      c.concentration = null;
+    }
+    
+    // Consume spell slot
+    slot.current--;
+    
+    // Set new concentration if required
+    if (requiresConcentration) {
+      c.concentration = { spell: spellName, dc: null };
+    }
+    
+    this.openSheet(); // Refresh UI
+    return true;
+  }
+
+  // Add condition to character
+  addCondition(name, duration, description) {
+    const c = this.character;
+    if (!c) return;
+    
+    // Check if condition already exists
+    const existing = c.conditions.find(cond => cond.name === name);
+    if (existing) {
+      existing.duration = duration; // Reset duration
+      window.app?.showToast(`${name} duration reset to ${duration} rounds`, 'info');
+    } else {
+      c.conditions.push({ name, duration, description: description || '' });
+      window.app?.showToast(`Afflicted with ${name} for ${duration} rounds!`, 'error');
+    }
+    
+    this.openSheet(); // Refresh UI
+  }
+
+  removeCondition(name) {
+    const c = this.character;
+    if (!c) return;
+    
+    c.conditions = c.conditions.filter(cond => cond.name !== name);
+    window.app?.showToast(`${name} removed!`, 'success');
+    this.openSheet(); // Refresh UI
+  }
+
+  decrementConditions() {
+    const c = this.character;
+    if (!c) return;
+    
+    const expired = [];
+    c.conditions = c.conditions.filter(cond => {
+      cond.duration--;
+      if (cond.duration <= 0) {
+        expired.push(cond.name);
+        return false;
+      }
+      return true;
+    });
+    
+    if (expired.length > 0) {
+      window.app?.showToast(`Conditions expired: ${expired.join(', ')}`, 'info');
+      this.openSheet(); // Refresh UI
+    }
+  }
+
+  // Award inspiration
+  awardInspiration() {
+    const c = this.character;
+    if (!c) return;
+    
+    if (c.inspiration) {
+      window.app?.showToast('Already have inspiration!', 'info');
+    } else {
+      c.inspiration = true;
+      window.app?.showToast('⭐ Inspiration awarded!', 'success');
+      this.openSheet(); // Refresh UI
+    }
+  }
+
+  // Spend inspiration
+  spendInspiration() {
+    const c = this.character;
+    if (!c || !c.inspiration) return false;
+    
+    c.inspiration = false;
+    window.app?.showToast('⭐ Inspiration spent for advantage!', 'info');
+    this.openSheet(); // Refresh UI
+    return true;
+  }
+
+  // Start initiative
+  startInitiative(playerRoll, enemyInitiatives) {
+    const c = this.character;
+    if (!c) return;
+    
+    const order = [
+      { name: c.name, roll: playerRoll, isPlayer: true },
+      ...enemyInitiatives
+    ].sort((a, b) => b.roll - a.roll);
+    
+    c.initiative = {
+      active: true,
+      order,
+      currentIndex: 0,
+      playerRoll
+    };
+    
+    const currentName = order[0].name;
+    window.app?.showToast(`Initiative! ${currentName} goes first.`, 'success');
+    
+    // If player goes first, they already have actions
+    if (order[0].isPlayer) {
+      this.resetActions();
+    }
+    
+    this.openSheet(); // Refresh UI
+  }
+
+  nextTurn() {
+    const c = this.character;
+    if (!c || !c.initiative.active) return;
+    
+    c.initiative.currentIndex = (c.initiative.currentIndex + 1) % c.initiative.order.length;
+    const current = c.initiative.order[c.initiative.currentIndex];
+    
+    // If it's the player's turn, reset actions and decrement conditions
+    if (current.isPlayer) {
+      this.resetActions();
+      this.decrementConditions();
+    }
+    
+    window.app?.showToast(`${current.name}'s turn`, 'info');
+    this.openSheet(); // Refresh UI
+  }
+
+  endInitiative() {
+    const c = this.character;
+    if (!c) return;
+    
+    c.initiative = { active: false, order: [], currentIndex: 0, playerRoll: 0 };
+    window.app?.showToast('Combat ended', 'success');
+    this.openSheet(); // Refresh UI
   }
 
   // ── Sheet Tabs ───────────────────────────────────────────────
@@ -1445,11 +2028,72 @@ class CharacterSystem {
 
   applyHPChange(delta) {
     if (!this.character) return;
-    this.character.currentHp = Math.max(0, Math.min(this.character.maxHp, this.character.currentHp + delta));
+    const c = this.character;
+    
+    if (delta < 0) {
+      const damage = Math.abs(delta);
+      
+      // Check concentration if taking damage
+      if (c.concentration) {
+        this._checkConcentration(damage);
+      }
+      
+      // Temp HP absorbs damage first
+      if (c.tempHp > 0) {
+        if (c.tempHp >= damage) {
+          c.tempHp -= damage;
+          window.app?.showToast(`Temp HP absorbed ${damage} damage (${c.tempHp} temp HP remaining)`, 'info');
+          this.updateHUD();
+          this.openSheet();
+          return; // No damage to real HP
+        } else {
+          const remaining = damage - c.tempHp;
+          window.app?.showToast(`Temp HP absorbed ${c.tempHp} damage, ${remaining} damage to HP`, 'info');
+          c.tempHp = 0;
+          delta = -remaining; // Apply remaining damage to real HP
+        }
+      }
+    }
+    
+    c.currentHp = Math.max(0, Math.min(c.maxHp, c.currentHp + delta));
     this.updateHUD();
-    if (this.character.currentHp === 0) {
+    if (c.currentHp === 0) {
       this._openDeathSaves();
     }
+  }
+
+  addTempHP(amount) {
+    const c = this.character;
+    if (!c) return;
+    
+    // Temp HP doesn't stack - only keep highest
+    if (amount > c.tempHp) {
+      c.tempHp = amount;
+      window.app?.showToast(`🛡️ Gained ${amount} temporary HP!`, 'success');
+    } else {
+      window.app?.showToast(`Already have ${c.tempHp} temp HP (kept higher value)`, 'info');
+    }
+    this.updateHUD();
+    this.openSheet();
+  }
+
+  _checkConcentration(damage) {
+    const c = this.character;
+    if (!c.concentration) return;
+    
+    const dc = Math.max(10, Math.floor(damage / 2));
+    const conMod = this._mod(c.stats.con);
+    const conSave = `d20${conMod >= 0 ? '+' : ''}${conMod}`;
+    
+    window.diceSystem.requestRoll(conSave, `Concentration Save`, dc, (result) => {
+      if (result.success) {
+        window.app?.showToast(`Maintained concentration on ${c.concentration.spell}!`, 'success');
+      } else {
+        window.app?.showToast(`Lost concentration on ${c.concentration.spell}!`, 'error');
+        c.concentration = null;
+        this.openSheet(); // Refresh UI
+      }
+    });
   }
 
   // Returns the total Perception bonus (WIS mod + proficiency if proficient)
@@ -1507,6 +2151,26 @@ class CharacterSystem {
     gain  = Math.max(n, gain); // minimum 1 HP per die
     c.currentHp = Math.min(c.maxHp, c.currentHp + gain);
     hd.spent += n;
+    
+    // Warlock Pact Magic: restore all spell slots on short rest
+    if (c.classId === 'warlock' && c.spellSlots) {
+      Object.values(c.spellSlots).forEach(slot => {
+        slot.current = slot.max;
+      });
+    }
+    
+    // Restore class resources with restoreOn: 'short'
+    if (c.classResources) {
+      Object.values(c.classResources).forEach(resource => {
+        if (resource.restoreOn === 'short') {
+          resource.current = resource.max;
+        }
+      });
+    }
+    
+    // Reset action economy
+    c.actionEconomy = { action: true, bonusAction: true, reaction: true };
+    
     document.getElementById('rest-short-result').textContent = `+${gain} HP`;
     this.updateHUD();
     window.app.showToast(`Short rest: +${gain} HP (${n}d${hd.die} spent)`, 'success');
@@ -1519,6 +2183,24 @@ class CharacterSystem {
     const healed = c.maxHp - c.currentHp;
     c.currentHp = c.maxHp;
     c.hitDice.spent = 0; // all hit dice restored
+    
+    // Restore all spell slots
+    if (c.spellSlots) {
+      Object.values(c.spellSlots).forEach(slot => {
+        slot.current = slot.max;
+      });
+    }
+    
+    // Restore all class resources
+    if (c.classResources) {
+      Object.values(c.classResources).forEach(resource => {
+        resource.current = resource.max;
+      });
+    }
+    
+    // Reset action economy
+    c.actionEconomy = { action: true, bonusAction: true, reaction: true };
+    
     document.getElementById('modal-rest').classList.add('hidden');
     this.updateHUD();
     window.app.showToast(`Long rest: fully restored!`, 'success');
@@ -1682,6 +2364,16 @@ class CharacterSystem {
       this.character.level    = newLevel;
       this.character.profBonus = CharacterSystem.profBonusForLevel(newLevel);
       if (this.character.hitDice) this.character.hitDice.total = newLevel;
+      
+      // Update spell slots for new level
+      this.character.spellSlots = getSpellSlots(this.character.classId, newLevel);
+      
+      // Update known spells for new level
+      this.character.knownSpells = getKnownSpells(this.character.classId, newLevel);
+      
+      // Update class resources for new level
+      this.character.classResources = getClassResources(this.character.classId, newLevel, this.character.stats);
+      
       this._openLevelUpModal(newLevel);
     } else {
       const nextThr = thr[Math.min(this.character.level + 1, 20)];
