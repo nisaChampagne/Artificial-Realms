@@ -12,6 +12,8 @@ class DiceSystem {
     this._canvas      = null;
     this._ctx         = null;
     this._pendingCallback = null;
+    this._pendingDC   = null;
+    this._promptMode  = 'normal';
   }
 
   // ── Init ─────────────────────────────────────────────────────
@@ -56,13 +58,28 @@ class DiceSystem {
     // prompted roll button
     document.getElementById('btn-roll-prompted').addEventListener('click', () => {
       const spec = document.getElementById('dice-prompt-text').dataset.spec || 'd20';
-      this.rollSpec(spec, (result) => {
+      const dc = this._pendingDC;
+      const mode = this._promptMode;
+      this.rollSpecWithMode(spec, mode, dc, (result) => {
         const cb = this._pendingCallback;
         this._pendingCallback = null;
+        this._pendingDC = null;
+        this._promptMode = 'normal';
         document.getElementById('dice-prompt').classList.add('hidden');
-        window.aiSystem?.sendMessage(`[ROLL RESULT: ${result.total} (${result.breakdown})]`);
+        // Hide prompt advantage controls
+        document.getElementById('dice-prompt-adv').classList.add('hidden');
+        // Callback handles the result
         cb?.(result);
       });
+    });
+
+    // Prompt advantage buttons
+    document.getElementById('dice-prompt-adv').addEventListener('click', e => {
+      const btn = e.target.closest('.prompt-adv-btn');
+      if (!btn) return;
+      document.querySelectorAll('.prompt-adv-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      this._promptMode = btn.dataset.mode;
     });
 
     // Modal open/close
@@ -111,10 +128,14 @@ class DiceSystem {
   }
 
   rollSpec(spec, callback) {
+    return this.rollSpecWithMode(spec, 'normal', null, callback);
+  }
+
+  rollSpecWithMode(spec, mode, dc, callback) {
     // Parse spec like 'd20', 'd20+3', '2d6-1', 'd8+STR'
     const match = spec.match(/^(\d+)?d(\d+)([+-]\d+)?$/i);
     if (!match) {
-      const result = { total: this._rollDie(20), rolls: [], breakdown: 'd20' };
+      const result = { total: this._rollDie(20), rolls: [], breakdown: 'd20', dc, success: dc ? this._rollDie(20) >= dc : null };
       callback?.(result); return result;
     }
     const count   = parseInt(match[1] || '1');
@@ -122,33 +143,51 @@ class DiceSystem {
     const modStr  = match[3] || '+0';
     const mod     = parseInt(modStr) || 0;
 
-    const rolls   = Array.from({ length: count }, () => this._rollDie(sides));
+    let rolls;
+    let advMode = '';
+    if (sides === 20 && (mode === 'advantage' || mode === 'disadvantage')) {
+      const r1 = this._rollDie(20), r2 = this._rollDie(20);
+      const chosen = mode === 'advantage' ? Math.max(r1, r2) : Math.min(r1, r2);
+      rolls = [chosen];
+      advMode = mode === 'advantage' ? ` (ADV: ${r1}, ${r2})` : ` (DIS: ${r1}, ${r2})`;
+    } else {
+      rolls = Array.from({ length: count }, () => this._rollDie(sides));
+    }
+
     const sum     = rolls.reduce((s, v) => s + v, 0);
     const total   = sum + mod;
-    const breakdown = `${count}d${sides}[${rolls.join(',')}]${mod !== 0 ? (mod > 0 ? '+' : '') + mod : ''} = ${total}`;
+    const success = dc ? (total >= dc) : null;
+    const breakdown = `${count}d${sides}[${rolls.join(',')}]${advMode}${mod !== 0 ? (mod > 0 ? '+' : '') + mod : ''} = ${total}`;
 
     this.openModal();
     this._animateRoll(sides, total, () => {
-      this._showResult(rolls, total, breakdown, sides);
+      this._showResult(rolls, total, breakdown, sides, dc, success);
       this._addHistory(sides, rolls, mod, total);
-      callback?.({ total, rolls, breakdown });
+      callback?.({ total, rolls, breakdown, dc, success });
     });
 
-    return { total, rolls, breakdown };
+    return { total, rolls, breakdown, dc, success };
   }
 
   // ── UI ────────────────────────────────────────────────────────
-  _showResult(rolls, total, breakdown, sides) {
+  _showResult(rolls, total, breakdown, sides, dc, success) {
     const el = document.getElementById('roll-result');
     el.classList.remove('hidden');
 
     const isCrit    = sides === 20 && rolls.includes(20);
     const isFumble  = sides === 20 && rolls.includes(1);
     const color     = isCrit ? '#f0d050' : isFumble ? '#e05050' : 'var(--gold)';
-    const label     = isCrit ? '🌟 CRITICAL HIT!' : isFumble ? '💀 CRITICAL MISS!' : '';
+    let label       = isCrit ? '🌟 CRITICAL HIT!' : isFumble ? '💀 CRITICAL MISS!' : '';
+
+    // Add success/fail label if DC was provided
+    if (dc !== null && success !== null) {
+      const outcomeColor = success ? '#50d050' : '#e05050';
+      const outcomeText = success ? '✓ Success' : '✗ Failed';
+      label += (label ? '<br>' : '') + `<span style="color:${outcomeColor}">${outcomeText} (DC ${dc})</span>`;
+    }
 
     document.getElementById('roll-breakdown').innerHTML =
-      `<span style="color:var(--text-mid)">${breakdown}</span>${label ? `<br><span style="color:${color}">${label}</span>` : ''}`;
+      `<span style="color:var(--text-mid)">${breakdown}</span>${label ? `<br>${label}` : ''}`;
     const totalEl = document.getElementById('roll-total');
     totalEl.textContent    = total;
     totalEl.style.color    = color;
@@ -309,12 +348,118 @@ class DiceSystem {
   }
 
   // ── Request Roll from AI ─────────────────────────────────────
-  requestRoll(spec, label, callback) {
+  requestRoll(spec, label, dc, callback) {
     this._pendingCallback = callback;
+    this._pendingDC = dc;
+    this._promptMode = 'normal';
     const prompt = document.getElementById('dice-prompt');
     const text   = document.getElementById('dice-prompt-text');
-    text.textContent    = `Roll ${spec.toUpperCase()} — ${label}`;
+    const dcText = dc ? ` (DC ${dc})` : '';
+    text.textContent    = `Roll ${spec.toUpperCase()} — ${label}${dcText}`;
     text.dataset.spec   = spec.toLowerCase();
+    
+    // Show advantage controls if it's a d20 roll
+    const advControls = document.getElementById('dice-prompt-adv');
+    if (spec.toLowerCase().includes('d20')) {
+      advControls.classList.remove('hidden');
+      // Reset to normal
+      document.querySelectorAll('.prompt-adv-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.prompt-adv-btn[data-mode="normal"]')?.classList.add('active');
+      
+      // Add inspiration button if player has inspiration
+      const hasInspiration = window.characterSystem?.character?.inspiration;
+      const inspirationBtn = document.getElementById('btn-use-inspiration');
+      if (hasInspiration && inspirationBtn) {
+        inspirationBtn.style.display = 'inline-block';
+        inspirationBtn.onclick = () => {
+          if (window.characterSystem?.spendInspiration()) {
+            this._promptMode = 'advantage';
+            document.querySelectorAll('.prompt-adv-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.prompt-adv-btn[data-mode="advantage"]')?.classList.add('active');
+            inspirationBtn.style.display = 'none';
+          }
+        };
+      } else if (inspirationBtn) {
+        inspirationBtn.style.display = 'none';
+      }
+    } else {
+      advControls.classList.add('hidden');
+    }
+    
+    prompt.classList.remove('hidden');
+    prompt.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
+
+  // ── Request Attack Roll ──────────────────────────────────────
+  requestAttackRoll(attackSpec, weaponName, targetAC, enemyName, damageSpec, damageType, callback) {
+    const advControls = document.getElementById('dice-prompt-adv');
+    advControls.classList.remove('hidden');
+    document.querySelectorAll('.prompt-adv-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.prompt-adv-btn[data-mode="normal"]')?.classList.add('active');
+    
+    this._promptMode = 'normal';
+    this._pendingDC = targetAC;
+    
+    this._pendingCallback = (attackResult) => {
+      const hit = attackResult.total >= targetAC;
+      const natRoll = attackResult.rolls[0];
+      const isCrit = natRoll === 20;
+      const isMiss = natRoll === 1;
+      
+      let hitResult = '';
+      if (isCrit) {
+        hitResult = `CRITICAL HIT vs ${enemyName} (AC ${targetAC})`;
+      } else if (isMiss) {
+        hitResult = `Critical Miss`;
+      } else if (hit) {
+        hitResult = `HIT vs ${enemyName} (AC ${targetAC})`;
+      } else {
+        hitResult = `Miss (needed ${targetAC})`;
+      }
+      
+      // If hit or crit, roll damage
+      if (hit || isCrit) {
+        let finalDamageSpec = damageSpec;
+        
+        // On crit, double the dice (not the modifier)
+        if (isCrit) {
+          const match = damageSpec.match(/(\d+)d(\d+)([+-]\d+)?/);
+          if (match) {
+            const count = parseInt(match[1]) || 1;
+            const sides = match[2];
+            const mod = match[3] || '';
+            finalDamageSpec = `${count * 2}d${sides}${mod}`;
+          }
+        }
+        
+        // Roll damage
+        this.rollSpec(finalDamageSpec, (damageResult) => {
+          callback({
+            ...attackResult,
+            hit: true,
+            hitResult,
+            wasCrit: isCrit,
+            damageTotal: damageResult.total,
+            damageRolls: damageResult.rolls,
+            damageType
+          });
+        });
+      } else {
+        // Miss - no damage
+        callback({
+          ...attackResult,
+          hit: false,
+          hitResult,
+          wasCrit: false
+        });
+      }
+    };
+    
+    const prompt = document.getElementById('dice-prompt');
+    const text   = document.getElementById('dice-prompt-text');
+    text.textContent    = `Attack with ${weaponName} (vs AC ${targetAC})`;
+    text.dataset.spec   = attackSpec.toLowerCase();
+    
     prompt.classList.remove('hidden');
     prompt.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }

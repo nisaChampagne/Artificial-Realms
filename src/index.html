@@ -523,6 +523,12 @@
         <div class="dice-prompt hidden" id="dice-prompt">
           <span class="dice-prompt-icon">🎲</span>
           <span id="dice-prompt-text">Roll required!</span>
+          <div class="dice-prompt-adv hidden" id="dice-prompt-adv">
+            <button class="prompt-adv-btn active" data-mode="normal">Normal</button>
+            <button class="prompt-adv-btn" data-mode="advantage">Advantage</button>
+            <button class="prompt-adv-btn" data-mode="disadvantage">Disadvantage</button>
+          </div>
+          <button class="btn-inspiration" id="btn-use-inspiration" style="display:none">⭐ Use Inspiration</button>
           <button class="btn btn-primary btn-sm" id="btn-roll-prompted">Roll Now</button>
         </div>
         <div class="quick-actions" id="quick-actions">
@@ -662,6 +668,7 @@
           <div class="smg-item"><span class="smg-label">Initiative</span><span class="smg-val smg-editable" id="s-init" contenteditable="true" spellcheck="false" title="Click to edit">—</span></div>
           <div class="smg-item"><span class="smg-label">Speed</span><span class="smg-val smg-editable" id="s-speed" contenteditable="true" spellcheck="false" title="Click to edit">30 ft</span></div>
           <div class="smg-item"><span class="smg-label">Prof. Bonus</span><span class="smg-val" id="s-prof">+2</span></div>
+          <div class="smg-item" style="display:none"><span class="smg-label">Spell Save DC</span><span class="smg-val" id="s-spell-save-dc">13</span></div>
         </div>
         <div class="appear-block">
           <div class="smg-label">Appearance</div>
@@ -677,6 +684,10 @@
             <span class="hp-fraction"><span id="s-hp">0</span> / <span class="smg-editable" id="s-hp-max" contenteditable="true" spellcheck="false" title="Click to edit max HP">0</span></span>
           </div>
           <div class="hp-bar-bg"><div class="hp-bar-fill" id="s-hp-bar"></div></div>
+          <div class="temp-hp-display" id="temp-hp-display" style="display:none">
+            <span class="temp-hp-icon">🛡️</span>
+            <span class="temp-hp-text"><span id="s-temp-hp">0</span> Temp HP</span>
+          </div>
           <div class="hp-adj">
             <button class="adj-btn" id="sh-hp-minus">−</button>
             <input type="number" id="sh-hp-amt" value="1" min="1" max="999" />
@@ -686,6 +697,49 @@
         <div class="ability-block">
           <h4>Ability Scores</h4>
           <div class="ability-grid" id="ability-grid"></div>
+        </div>
+        <div class="spell-slots-block" id="spell-slots-block" style="display:none">
+          <h4>Spell Slots</h4>
+          <div id="spell-slots-grid"></div>
+        </div>
+        <div class="class-resources-block" id="class-resources-block" style="display:none">
+          <h4>Class Resources</h4>
+          <div id="class-resources-grid"></div>
+        </div>
+        <div class="action-economy-block" id="action-economy-block">
+          <h4>Actions This Turn</h4>
+          <div class="action-economy-grid">
+            <div class="action-pill" id="action-pill-action">
+              <span class="action-pill-icon">⚔️</span>
+              <span class="action-pill-label">Action</span>
+            </div>
+            <div class="action-pill" id="action-pill-bonus">
+              <span class="action-pill-icon">⚡</span>
+              <span class="action-pill-label">Bonus</span>
+            </div>
+            <div class="action-pill" id="action-pill-reaction">
+              <span class="action-pill-icon">🛡️</span>
+              <span class="action-pill-label">Reaction</span>
+            </div>
+          </div>
+        </div>
+        <div class="concentration-block" id="concentration-block" style="display:none">
+          <h4>🎯 Concentration</h4>
+          <div class="concentration-spell" id="concentration-spell">Bless</div>
+          <button class="btn-drop-concentration" id="btn-drop-concentration">Drop</button>
+        </div>
+        <div class="conditions-block" id="conditions-block" style="display:none">
+          <h4>⚠️ Conditions</h4>
+          <div id="conditions-grid"></div>
+        </div>
+        <div class="inspiration-block" id="inspiration-block" style="display:none">
+          <h4>⭐ Inspiration</h4>
+          <div class="inspiration-text">You have inspiration! Spend it for advantage on any roll.</div>
+        </div>
+        <div class="initiative-block" id="initiative-block" style="display:none">
+          <h4>⚔️ Initiative Order</h4>
+          <div id="initiative-grid"></div>
+          <button class="btn-next-turn" id="btn-next-turn">Next Turn</button>
         </div>
       </div>
 
@@ -983,7 +1037,7 @@
     </div>
     <div class="modal-body" style="flex-direction:column;gap:0;padding:0">
       <div class="market-wallet" id="market-wallet"></div>
-      <div class="market-subtitle">The merchant eyes your pack. Half-price for everything — take it or leave it.</div>
+      <div class="market-subtitle" id="market-subtitle"></div>
       <div id="market-items" class="market-list"></div>
       <div class="market-footer">
         <button class="btn btn-outline" id="market-sell-all">Sell Everything</button>
@@ -1078,20 +1132,45 @@
       <div class="help-panel hidden" id="help-panel-combat">
         <div class="help-section">
           <div class="help-section-title">Starting Combat</div>
-          <div class="help-row"><span class="help-icon">⚡</span><div><strong>Initiative</strong> — a roll modal appears when combat begins. Your Dexterity modifier is applied automatically. Higher is better.</div></div>
-          <div class="help-row"><span class="help-icon">⚔</span><div><strong>Your turn</strong> — describe your action, or use the quick buttons. The DM resolves the roll and narrates the result.</div></div>
+          <div class="help-row"><span class="help-icon">⚡</span><div><strong>Initiative</strong> — a roll modal appears when combat begins. Your Dexterity modifier is applied automatically. Turn order is tracked in the character sheet.</div></div>
+          <div class="help-row"><span class="help-icon">⚔</span><div><strong>Your turn</strong> — actions, bonus actions, and reactions reset automatically. Describe your action or use quick buttons.</div></div>
+          <div class="help-row"><span class="help-icon">🎯</span><div><strong>Attack rolls</strong> — roll d20 + modifiers vs target's AC. A natural 20 is a critical hit (roll damage dice twice).</div></div>
+          <div class="help-row"><span class="help-icon">⏱</span><div><strong>Action economy</strong> — you get one action, one bonus action, and one reaction per turn. Used actions show as gray pills in your sheet.</div></div>
         </div>
         <div class="help-section">
-          <div class="help-section-title">Hit Points & Death</div>
+          <div class="help-section-title">Hit Points & Damage</div>
           <div class="help-row"><span class="help-icon">♥</span><div><strong>HP to 0</strong> — triggers Death Saving Throws. Roll d20 each turn. Need <strong>10+</strong> to succeed.</div></div>
           <div class="help-row"><span class="help-icon">✔</span><div><strong>2 successes</strong> before 2 failures — you stabilize at 1 HP.</div></div>
           <div class="help-row"><span class="help-icon">✖</span><div><strong>2 failures</strong> before 2 successes — your character dies. A natural 1 counts as 2 failures.</div></div>
-          <div class="help-row"><span class="help-icon">🩹</span><div><strong>Healing</strong> — potions (use from Inventory), spells, or a Rest restore HP.</div></div>
+          <div class="help-row"><span class="help-icon">🛡</span><div><strong>Temporary HP</strong> — blue shield displayed above your HP bar. Absorbs damage first before real HP. Doesn't stack (keeps highest value).</div></div>
+          <div class="help-row"><span class="help-icon">🩹</span><div><strong>Healing</strong> — potions (use from Inventory), spells, or a Rest restore HP. Temp HP can't be healed.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Spellcasting</div>
+          <div class="help-row"><span class="help-icon">✨</span><div><strong>Spell slots</strong> — clickable circles show available slots per level. Casting a spell consumes one slot of that level.</div></div>
+          <div class="help-row"><span class="help-icon">🎯</span><div><strong>Spell Save DC</strong> — shown in your character sheet stats. Enemies roll vs this DC to resist your spells.</div></div>
+          <div class="help-row"><span class="help-icon">🧠</span><div><strong>Concentration</strong> — some spells require focus. If you take damage, you roll a CON save to maintain concentration (DC = 10 or half damage, whichever is higher).</div></div>
+          <div class="help-row"><span class="help-icon">🌙</span><div><strong>Spell recovery</strong> — Warlocks regain slots on short rest. All other casters regain slots on long rest.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Class Resources</div>
+          <div class="help-row"><span class="help-icon">⚔</span><div><strong>Fighter</strong> — Second Wind (self-heal), Action Surge (extra action). Recharge on short/long rest.</div></div>
+          <div class="help-row"><span class="help-icon">💥</span><div><strong>Barbarian</strong> — Rage (+damage, resistance). Recharge on long rest.</div></div>
+          <div class="help-row"><span class="help-icon">👊</span><div><strong>Monk</strong> — Ki Points for Flurry of Blows, Patient Defense, Step of the Wind. Recharge on short/long rest.</div></div>
+          <div class="help-row"><span class="help-icon">🙏</span><div><strong>Cleric</strong> — Channel Divinity. Recharge on short/long rest.</div></div>
+          <div class="help-row"><span class="help-icon">✋</span><div><strong>Paladin</strong> — Lay on Hands (heal pool). Recharge on long rest.</div></div>
+          <div class="help-row"><span class="help-icon">🎵</span><div><strong>Bard</strong> — Bardic Inspiration (give ally d6–d12 bonus). Recharge on short/long rest.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Conditions & Effects</div>
+          <div class="help-row"><span class="help-icon">😵</span><div><strong>Conditions</strong> — status effects like Poisoned, Stunned, Frightened, Paralyzed appear as colored pills in your sheet.</div></div>
+          <div class="help-row"><span class="help-icon">⏳</span><div><strong>Duration</strong> — conditions track remaining rounds. They expire automatically on your turn.</div></div>
+          <div class="help-row"><span class="help-icon">🌟</span><div><strong>Inspiration</strong> — awarded for excellent roleplay. Spend it to gain advantage on any d20 roll (shown as a button in dice prompts).</div></div>
         </div>
         <div class="help-section">
           <div class="help-section-title">Resting</div>
-          <div class="help-row"><span class="help-icon">⏱</span><div><strong>Short Rest (~1 hr)</strong> — spend Hit Dice to recover HP. Open <em>Rest</em> in the toolbar.</div></div>
-          <div class="help-row"><span class="help-icon">🌟</span><div><strong>Long Rest (~8 hrs)</strong> — fully restores HP and recovers all spent Hit Dice. Should only be taken in a safe location.</div></div>
+          <div class="help-row"><span class="help-icon">⏱</span><div><strong>Short Rest (~1 hr)</strong> — spend Hit Dice to recover HP. Restores Warlock spell slots and some class resources.</div></div>
+          <div class="help-row"><span class="help-icon">🌟</span><div><strong>Long Rest (~8 hrs)</strong> — fully restores HP, spell slots, and all class resources. Clears exhaustion levels. Should only be taken in a safe location.</div></div>
         </div>
       </div>
 
@@ -1150,7 +1229,8 @@
         <div class="help-section">
           <div class="help-section-title">The Market</div>
           <div class="help-row"><span class="help-icon">🏪</span><div><strong>Visit Market</strong> — appears in the Inventory when you're in a <em>town</em> or <em>tavern</em>. Travel to one by asking the DM.</div></div>
-          <div class="help-row"><span class="help-icon">💰</span><div><strong>Selling</strong> — merchants pay <em>50% of market value</em>. Sell individual items or everything at once.</div></div>
+          <div class="help-row"><span class="help-icon">�</span><div><strong>Buying</strong> — purchase potions, weapons, armor, tools, and supplies using your gold.</div></div>
+          <div class="help-row"><span class="help-icon">�💰</span><div><strong>Selling</strong> — merchants pay <em>50% of market value</em>. Sell individual items or everything at once.</div></div>
           <div class="help-row"><span class="help-icon">⚠</span><div>Equipped items cannot be sold — unequip them first from the Inventory.</div></div>
         </div>
         <div class="help-section">

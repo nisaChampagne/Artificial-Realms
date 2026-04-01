@@ -5,7 +5,7 @@
 // Tags the AI uses in its response (parsed client-side)
 // [SCENE:dungeon]   → change map/music scene
 // [MUSIC:combat]    → change music only
-// [DICE:d20+3]      → request a dice roll
+// [DICE:d20+3:Wisdom] → request a dice roll (spec:AbilityName)
 // [HP:±N]           → change player HP
 // [XP:+N]           → grant XP
 // [DEAD]            → player death
@@ -30,6 +30,7 @@ class AISystem {
     this.textSpeed     = 15;
     this._typeTimer  = null;
     this._demoState  = null;
+    this.currentEnemy = null; // { name, currentHp, maxHp, ac }
   }
 
   // ── Start Campaign ───────────────────────────────────────────
@@ -139,27 +140,27 @@ class AISystem {
       second_drink: `[SCENE:tavern][MUSIC:tavern]You make good use of the time. A farmer saw pale torchlight in the Ashwood two nights running — not goblin-fire orange but cold blue. A carter confirms the miller's tracks went in on the old logging road. The barmaid says Sister Vael bought double her usual reagents three weeks ago, as if preparing for something.\n\nAnd the man in the corner — pretending to sleep — has Consortium-guild calluses on his right hand and has been here since midday.\n\nWhatever is in the Ashwood has been building for weeks. Someone in this room may already know why.\n\n1. Confront the Consortium man before you leave\n2. Slip out quietly — let him think you noticed nothing\n3. Say Aldric Vane's name loudly and watch who reacts\n4. Head out now — the Ashwood is your answer`,
 
       // forest
-      forest_road: `[SCENE:forest][MUSIC:forest]The mill road turns to packed mud within a quarter mile of the last farmhouse. Ancient oaks press close overhead. Your lantern throws a twenty-foot circle that the forest swallows at its edges.\n\nThe ruined mill materialises out of the dark — waterwheel stopped, one wall caved in. Beyond it in the embankment: a cave mouth, gaping black. Two orange points of firelight dance inside. Voices, guttural, arguing in Goblin. At least three of them. They don't know you're here. [DICE:d20${f(wis)}]\n\n1. Move closer and peer inside — identify what you're dealing with\n2. Find a large stone and throw it past the cave to draw them out\n3. Walk in boldly — fast and loud\n4. Circle the mill — there may be another way in`,
+      forest_road: `[SCENE:forest][MUSIC:forest]The mill road turns to packed mud within a quarter mile of the last farmhouse. Ancient oaks press close overhead. Your lantern throws a twenty-foot circle that the forest swallows at its edges.\n\nThe ruined mill materialises out of the dark — waterwheel stopped, one wall caved in. Beyond it in the embankment: a cave mouth, gaping black. Two orange points of firelight dance inside. Voices, guttural, arguing in Goblin. At least three of them. They don't know you're here. [DICE:d20${f(wis)}:Wisdom:DC12]\n\n1. Move closer and peer inside — identify what you're dealing with\n2. Find a large stone and throw it past the cave to draw them out\n3. Walk in boldly — fast and loud\n4. Circle the mill — there may be another way in`,
 
       // cave approaches
-      cave_careful: `[SCENE:dungeon][MUSIC:dungeon]You press against the embankment and slide to the cave mouth. Inside: three goblins around a small fire. Stolen grain sacks against the wall. The bones of something large in the corner. And tied to a post at the back: a bundle of rags that resolves, as your eyes adjust, into a *person*. Unconscious. Breathing.\n\nThe three are deep in an argument about division of spoils. None of them are looking your way. [DICE:d20${f(dex)}]\n\n1. Hold still and listen — they may reveal something useful\n2. Strike now while surprise is fully yours\n3. Go for the prisoner first — get them behind you\n4. Target the leader to break their nerve`,
+      cave_careful: `[SCENE:dungeon][MUSIC:dungeon]You press against the embankment and slide to the cave mouth. Inside: three goblins around a small fire. Stolen grain sacks against the wall. The bones of something large in the corner. And tied to a post at the back: a bundle of rags that resolves, as your eyes adjust, into a *person*. Unconscious. Breathing.\n\nThe three are deep in an argument about division of spoils. None of them are looking your way. [DICE:d20${f(dex)}:Stealth:DC13]\n\n1. Hold still and listen — they may reveal something useful\n2. Strike now while surprise is fully yours\n3. Go for the prisoner first — get them behind you\n4. Target the leader to break their nerve`,
 
-      cave_distract: `[SCENE:dungeon][MUSIC:dungeon]The stone arcs cleanly into the dark beyond the cave mouth with a satisfying *clatter*. Inside, three heads snap toward the sound simultaneously. [DICE:d20${f(dex)}]\n\nTwo smaller goblins scramble toward the noise. The leader — pot-helm, bigger — squints directly at the entrance. His hand moves toward his blade. One full heartbeat. Then he follows the others. You have four seconds.\n\n1. Rush all three from behind while they're bunched up\n2. Get inside and put your back to the wall\n3. Strike the leader first — one chance at his blind side\n4. Hold — wait for all three to fully turn`,
+      cave_distract: `[SCENE:dungeon][MUSIC:dungeon]The stone arcs cleanly into the dark beyond the cave mouth with a satisfying *clatter*. Inside, three heads snap toward the sound simultaneously. [DICE:d20${f(dex)}:Dexterity:DC10]\n\nTwo smaller goblins scramble toward the noise. The leader — pot-helm, bigger — squints directly at the entrance. His hand moves toward his blade. One full heartbeat. Then he follows the others. You have four seconds.\n\n1. Rush all three from behind while they're bunched up\n2. Get inside and put your back to the wall\n3. Strike the leader first — one chance at his blind side\n4. Hold — wait for all three to fully turn`,
 
-      cave_charge: `[SCENE:combat][MUSIC:combat]You go in fast and loud. The goblins have time to react — the leader's blade is already drawn when you reach him, the other two fan left and right with rusted spears. You take a hit before you close the distance. [HP:-4][DICE:d20${f(str)}]\n\nThrough the chaos you can see a person tied to a post at the back. Get through these three and you can reach them.\n\n1. Lock onto the leader — break their nerve, the others scatter\n2. Drive all three toward the cave mouth — better footing\n3. Go for the torch — fight them in the dark\n4. Fall back to the entrance — force a chokepoint`,
+      cave_charge: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]You go in fast and loud. The goblins have time to react — the leader's blade is already drawn when you reach him, the other two fan left and right with rusted spears. You take a hit before you close the distance. [HP:-4][DICE:d20${f(str)}:Attack:DC14]\n\nThrough the chaos you can see a person tied to a post at the back. Get through these three and you can reach them.\n\n1. Lock onto the leader — break their nerve, the others scatter\n2. Drive all three toward the cave mouth — better footing\n3. Go for the torch — fight them in the dark\n4. Fall back to the entrance — force a chokepoint`,
 
-      cave_circle: `[SCENE:dungeon][MUSIC:dungeon]The back fissure is narrow enough that you turn sideways to squeeze through. It opens onto a natural ledge four feet above the main floor. Below: three goblins, a fire, stolen sacks — and a person tied to a post. Alive.\n\nYou have the high ground. The pot-helmed leader is directly below. [DICE:d20${f(str)}]\n\n1. Drop onto the leader — end the chain of command immediately\n2. Shout to disorient all three at once, then drop\n3. Reach the prisoner first — untie them before engaging\n4. Hold your position and assess`,
+      cave_circle: `[SCENE:dungeon][MUSIC:dungeon]The back fissure is narrow enough that you turn sideways to squeeze through. It opens onto a natural ledge four feet above the main floor. Below: three goblins, a fire, stolen sacks — and a person tied to a post. Alive.\n\nYou have the high ground. The pot-helmed leader is directly below. [DICE:d20${f(str)}:Athletics:DC11]\n\n1. Drop onto the leader — end the chain of command immediately\n2. Shout to disorient all three at once, then drop\n3. Reach the prisoner first — untie them before engaging\n4. Hold your position and assess`,
 
       // combat variations
       combat_listen: `[SCENE:dungeon][MUSIC:dungeon]You control your breath and listen. Their Goblin is rough but workable.\n\nThe two smaller ones resent being stationed here while the others take positions in *"the keep."* The leader keeps telling them to wait for the signal. *"Three nights. Signal comes in three nights and we move. Until then we hold the entrance and keep the Witch quiet."*\n\n*The Witch.* Sister Vael — she's here, somewhere in these tunnels, still alive. You've learned enough. Now you act.\n\n1. Strike the leader first — most dangerous, most informed\n2. Take the two smaller ones simultaneously\n3. Slip back and find another way deeper without fighting\n4. Throw a stone to scatter them, then pick your moment`,
 
-      combat_surp: `[SCENE:combat][MUSIC:combat]You have the advantage and use it cleanly. The first strike drops the leader — pot-helm clangs off the soil floor. [DICE:d20${f(dex)}]\n\nThe remaining two freeze. One bolts deeper into the tunnels. The other drops its spear and sits down hard, hands on its head, with the resigned posture of a creature that has been on the losing side before. [HP:-2]\n\nThe cave goes quiet. The prisoner at the post is alive — pulse steady, deep bruise along the jaw, unconscious but not in danger.\n\n1. Let the fleeing one go — search the cave thoroughly\n2. Question the surrendered goblin before it composes itself\n3. Chase the fleeing one — it's going somewhere important\n4. Tend to the prisoner first`,
+      combat_surp: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Scout:7:7]You have the advantage and use it cleanly. The first strike drops the leader — pot-helm clangs off the soil floor. [ENEMY:Goblin Scout:0:7][DICE:d20${f(dex)}:Initiative:DC12]\n\nThe remaining two freeze. One bolts deeper into the tunnels. The other drops its spear and sits down hard, hands on its head, with the resigned posture of a creature that has been on the losing side before. [HP:-2][ENEMY:clear]\n\nThe cave goes quiet. The prisoner at the post is alive — pulse steady, deep bruise along the jaw, unconscious but not in danger.\n\n1. Let the fleeing one go — search the cave thoroughly\n2. Question the surrendered goblin before it composes itself\n3. Chase the fleeing one — it's going somewhere important\n4. Tend to the prisoner first`,
 
-      combat_high: `[SCENE:combat][MUSIC:combat]The drop is clean. You land on the leader with enough force to end his participation immediately. [DICE:d20${f(str)}] The other two find you already between them and the exit.\n\nThe fight is short. The cave is too small for their numbers. The second goes down. The third throws its spear — misses — and runs deeper, shrieking. [HP:-1]\n\nSilence. The prisoner at the post is stirring. In a corner: a crude bark map and three stolen coin purses.\n\n1. Check on the prisoner immediately\n2. Study the bark map before anything else\n3. Pursue the fleeing goblin — it's going somewhere\n4. Secure the cave entrance in case reinforcements come`,
+      combat_high: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]The drop is clean. You land on the leader with enough force to end his participation immediately. [ENEMY:Goblin Leader:0:15][DICE:d20${f(str)}:Attack:DC11] The other two find you already between them and the exit.\n\nThe fight is short. The cave is too small for their numbers. The second goes down. The third throws its spear — misses — and runs deeper, shrieking. [HP:-1][ENEMY:clear]\n\nSilence. The prisoner at the post is stirring. In a corner: a crude bark map and three stolen coin purses.\n\n1. Check on the prisoner immediately\n2. Study the bark map before anything else\n3. Pursue the fleeing goblin — it's going somewhere\n4. Secure the cave entrance in case reinforcements come`,
 
-      combat_hot: `[SCENE:combat][MUSIC:combat]The fight is ugly. Three-on-one in a confined space against goblins who've had time to plant their feet. The pot-helmed one has done this before. You take more hits than you'd like. [HP:-7][DICE:d20${f(dex)}]\n\nIt comes down to stamina. The leader goes down. The second folds when his weapon arm fails. The third runs, shouting back into the tunnels — *"INTRUDER! SHAMAN-HELP!"*\n\nBad. That warning got out. But the prisoner is still alive.\n\n1. Pursue immediately — stop the alarm spreading\n2. Bind your wounds before pressing on [HP:+2]\n3. Search the cave fast — take only what's essential\n4. Free the prisoner — see if they can fight`,
+      combat_hot: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]The fight is ugly. Three-on-one in a confined space against goblins who've had time to plant their feet. The pot-helmed one has done this before. You take more hits than you'd like. [ENEMY:Goblin Leader:8:15][HP:-7][DICE:d20${f(dex)}:Attack:DC15]\n\nIt comes down to stamina. The leader goes down. The second folds when his weapon arm fails. The third runs, shouting back into the tunnels — *"INTRUDER! SHAMAN-HELP!"*\n\nBad. That warning got out. But the prisoner is still alive. [ENEMY:clear]\n\n1. Pursue immediately — stop the alarm spreading\n2. Bind your wounds before pressing on [HP:+2]\n3. Search the cave fast — take only what's essential\n4. Free the prisoner — see if they can fight`,
 
-      combat_dark: `[SCENE:combat][MUSIC:combat]The torch goes down. Darkness.\n\nFor three seconds: pure chaos. You can hear them but not see them — and they cannot see you. [DICE:d20${f(dex)}] You put the fire position behind you, silhouetting them against the fading embers.\n\nIt's over faster in the dark. Two goblins go down by sound and training. The third scrambles deeper into the tunnel, fear carrying it. When the fire re-lights, the cave is yours. [HP:-3]\n\nThe prisoner is alive and beginning to stir.\n\n1. Free the prisoner — find out who they are\n2. Follow the fleeing goblin now\n3. Search the cave for supplies and maps\n4. Bar the entrance and take stock`,
+      combat_dark: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Scout:7:7]The torch goes down. Darkness.\n\nFor three seconds: pure chaos. You can hear them but not see them — and they cannot see you. [ENEMY:Goblin Scout:3:7][DICE:d20${f(dex)}:Stealth:DC13] You put the fire position behind you, silhouetting them against the fading embers.\n\nIt's over faster in the dark. Two goblins go down by sound and training. The third scrambles deeper into the tunnel, fear carrying it. When the fire re-lights, the cave is yours. [HP:-3][ENEMY:clear]\n\nThe prisoner is alive and beginning to stir.\n\n1. Free the prisoner — find out who they are\n2. Follow the fleeing goblin now\n3. Search the cave for supplies and maps\n4. Bar the entrance and take stock`,
 
       interrogate: `[SCENE:dungeon][MUSIC:dungeon]The surrendered goblin watches you with calculating eyes pretending to look stupid.\n\nIt tells you: three passages deeper in. One leads to *"the old rock place with the humming"* — the ritual space. One leads to the surface near the mill's foundation. The third leads to *"the Shaman's quiet place"* where *"the witch-woman sleeps and does not wake."*\n\nSister Vael. Still alive. You let the goblin go. It bolts with impressive speed. [XP:+30]\n\n1. Head for the ritual space — find Sister Vael\n2. Check the bark map on the cave wall first\n3. The surface exit may be important — note it\n4. Press deeper immediately`,
 
@@ -174,23 +175,23 @@ class AISystem {
       rest_scene: `[SCENE:rest][MUSIC:rest]You find a defensible corner of the mill cottage — stone walls, chimney that draws, door that bolts from inside. Three hours.\n\nThe fire catches. The storm continues outside, muffled by old stone. You bind what needs binding and let the adrenaline go. [HP:+6]\n\nYou wake to silence — the storm finally spent — and something else. A sound from below the floor. Rhythmic. Low. Like a heartbeat built from stone and malice.\n\n**Drumming.**\n\nSomething is conducting a ritual beneath this building.\n\n1. Find the trapdoor — go down immediately\n2. Wait — assess the rhythm before acting\n3. Get outside first and orient yourself\n4. Check the bark map — mark where you think this is`,
 
       // shaman chamber
-      deeper_dungeon: `[SCENE:cave][MUSIC:dungeon]The passage descends by degrees — earthen, then limestone, then something older. The drumming is everywhere, coming through the stone itself.\n\nThe passage opens into a vast natural chamber lit by iron-sconce torches. In the centre, surrounded by kneeling goblin soldiers, stands a **Hobgoblin Shaman** — tall, robed, skull-staff raised. Before him on a stone altar: a crystal of green-black mineral pulsing in time with the drums.\n\nAnd to the right, against the wall, in a faintly glowing chalk circle: **Sister Vael**. Cross-legged. Breathing. Eyes open on something invisible. [DICE:d20${f(wis)}]\n\nThey haven't noticed you.\n\n1. Target the crystal — a ranged strike to shatter it\n2. Watch and listen — learn the ritual before acting\n3. Step into the torchlight and announce yourself\n4. Find the chamber supports — a controlled collapse traps them`,
+      deeper_dungeon: `[SCENE:cave][MUSIC:dungeon]The passage descends by degrees — earthen, then limestone, then something older. The drumming is everywhere, coming through the stone itself.\n\nThe passage opens into a vast natural chamber lit by iron-sconce torches. In the centre, surrounded by kneeling goblin soldiers, stands a **Hobgoblin Shaman** — tall, robed, skull-staff raised. Before him on a stone altar: a crystal of green-black mineral pulsing in time with the drums.\n\nAnd to the right, against the wall, in a faintly glowing chalk circle: **Sister Vael**. Cross-legged. Breathing. Eyes open on something invisible. [DICE:d20${f(wis)}:Perception:DC14]\n\nThey haven't noticed you.\n\n1. Target the crystal — a ranged strike to shatter it\n2. Watch and listen — learn the ritual before acting\n3. Step into the torchlight and announce yourself\n4. Find the chamber supports — a controlled collapse traps them`,
 
-      shaman_snipe: `[SCENE:combat][MUSIC:combat]The shot connects. The crystal *cracks* — green fire sprays outward, sending the kneeling goblins scrambling. The shaman staggers. [DICE:d20${f(dex)}]\n\nThen he rights himself. The crystal — cracked, not destroyed — still pulses. Slower. Weaker. But the connection holds. He finds you with the calm of someone who sensed you before you moved.\n\n*"You have weakened it. You have not stopped it. And now I know exactly who you are, ${name}."* [HP:-3]\n\n1. Press your advantage before he recovers\n2. Target the cracked crystal again — finish it\n3. Fall back to the passage — better defensive ground\n4. Go for Sister Vael — free her while the chaos holds`,
+      shaman_snipe: `[SCENE:combat][MUSIC:combat][ENEMY:Hobgoblin Shaman:45:45]The shot connects. The crystal *cracks* — green fire sprays outward, sending the kneeling goblins scrambling. The shaman staggers. [ENEMY:Hobgoblin Shaman:38:45][DICE:d20${f(dex)}:Attack:DC16]\n\nThen he rights himself. The crystal — cracked, not destroyed — still pulses. Slower. Weaker. But the connection holds. He finds you with the calm of someone who sensed you before you moved.\n\n*"You have weakened it. You have not stopped it. And now I know exactly who you are, ${name}."* [HP:-3]\n\n1. Press your advantage before he recovers\n2. Target the cracked crystal again — finish it\n3. Fall back to the passage — better defensive ground\n4. Go for Sister Vael — free her while the chaos holds`,
 
-      shaman_observe: `[SCENE:cave][MUSIC:dungeon]You hold still and watch. The drumming has a pattern — a *binding* rhythm, the kind used to maintain a connection to an unwilling vessel. Sister Vael isn't captured. She's a **lock**. Whatever is trying to come through the crystal is stopped by her resistance. The shaman needs her alive and conscious. [DICE:d20${f(int_)}]\n\nThis changes things. Kill the shaman carelessly — or shatter the crystal — and whatever she's containing walks free. You need to free her *cleanly*, not just fast.\n\n1. Step into the light — draw the shaman to you, away from Vael\n2. Target the crystal — break the shaman's leverage\n3. Go for Vael directly — the binding looks physical\n4. Throw something into the ritual circle — interrupt the rhythm`,
+      shaman_observe: `[SCENE:cave][MUSIC:dungeon]You hold still and watch. The drumming has a pattern — a *binding* rhythm, the kind used to maintain a connection to an unwilling vessel. Sister Vael isn't captured. She's a **lock**. Whatever is trying to come through the crystal is stopped by her resistance. The shaman needs her alive and conscious. [DICE:d20${f(int_)}:Arcana:DC15]\n\nThis changes things. Kill the shaman carelessly — or shatter the crystal — and whatever she's containing walks free. You need to free her *cleanly*, not just fast.\n\n1. Step into the light — draw the shaman to you, away from Vael\n2. Target the crystal — break the shaman's leverage\n3. Go for Vael directly — the binding looks physical\n4. Throw something into the ritual circle — interrupt the rhythm`,
 
-      shaman_confront: `[SCENE:combat][MUSIC:combat]You step into the torchlight. The drumming skips one beat.\n\n*"The thread-puller arrives,"* the shaman says in accented Common, almost impressed. *"Aldric said one would come. He said to tell you: you are three moves behind."*\n\nThen he strikes. [HP:-5][DICE:d20${f(con)}]\n\nThe goblins scatter, clearing the floor. This is between you and the shaman now. Sister Vael's eyes — still unfocused — track toward your voice as if she can hear you through whatever holds her.\n\n1. Keep moving — deny him a static target\n2. Drive him toward the altar — his crystal link is a liability\n3. Call Vael's name loudly and repeatedly\n4. Hit hard and fast — overwhelming force before he settles`,
+      shaman_confront: `[SCENE:combat][MUSIC:combat][ENEMY:Hobgoblin Shaman:45:45]You step into the torchlight. The drumming skips one beat.\n\n*"The thread-puller arrives,"* the shaman says in accented Common, almost impressed. *"Aldric said one would come. He said to tell you: you are three moves behind."*\n\nThen he strikes. [ENEMY:Hobgoblin Shaman:40:45][HP:-5][DICE:d20${f(con)}:Constitution:DC14]\n\nThe goblins scatter, clearing the floor. This is between you and the shaman now. Sister Vael's eyes — still unfocused — track toward your voice as if she can hear you through whatever holds her.\n\n1. Keep moving — deny him a static target\n2. Drive him toward the altar — his crystal link is a liability\n3. Call Vael's name loudly and repeatedly\n4. Hit hard and fast — overwhelming force before he settles`,
 
-      shaman_trap: `[SCENE:cave][MUSIC:dungeon]The supports are old — limestone and dried timber. Two strikes in the right places bring the entry tunnel down in a controlled collapse. [DICE:d20${f(int_)}]\n\nDust rolls through the chamber. When it clears, the goblins are gone — bolted through the far passages — leaving only the shaman, Sister Vael, and you.\n\n*"Clever,"* the shaman says quietly, turning from the altar. *"Aldric will be disappointed it ended here."* [HP:-2]\n\n1. End this now — attack while he's recalibrating\n2. Ask about Aldric — you're trapped here anyway\n3. Go for Sister Vael while his attention is on you\n4. Use the dust still in the air — reposition under cover`,
+      shaman_trap: `[SCENE:cave][MUSIC:dungeon]The supports are old — limestone and dried timber. Two strikes in the right places bring the entry tunnel down in a controlled collapse. [DICE:d20${f(int_)}:Investigation:DC13]\n\nDust rolls through the chamber. When it clears, the goblins are gone — bolted through the far passages — leaving only the shaman, Sister Vael, and you.\n\n*"Clever,"* the shaman says quietly, turning from the altar. *"Aldric will be disappointed it ended here."* [HP:-2]\n\n1. End this now — attack while he's recalibrating\n2. Ask about Aldric — you're trapped here anyway\n3. Go for Sister Vael while his attention is on you\n4. Use the dust still in the air — reposition under cover`,
 
       // boss
-      boss_fight: `[SCENE:boss][MUSIC:boss]The fight with the shaman is the hardest thing you have done in a long time.\n\nHe is not relying on the staff alone — there is genuine martial skill in his footwork. Twice he anticipates your angle before you commit. The crystal pulses irregular green bursts. Sister Vael, in her circle, begins to shake. [HP:-8][DICE:d20${f(dex)}]\n\nYou are getting through his guard. Slowly. Expensively. The ritual destabilises without his full focus. The crystal cracks down its centre. Vael gasps. [DICE:d20${f(str)}]\n\nOne clean opening. That's all you need.\n\n1. Everything you have — overwhelm the opening now\n2. Drive him into the cracking crystal — use it against him\n3. Call Vael's name — let whatever she's holding go\n4. Fall back and make him come to you`,
+      boss_fight: `[SCENE:boss][MUSIC:boss][ENEMY:Hobgoblin Shaman:45:45]The fight with the shaman is the hardest thing you have done in a long time.\n\nHe is not relying on the staff alone — there is genuine martial skill in his footwork. Twice he anticipates your angle before you commit. The crystal pulses irregular green bursts. Sister Vael, in her circle, begins to shake. [ENEMY:Hobgoblin Shaman:29:45][HP:-8][DICE:d20${f(dex)}:Attack:DC17]\n\nYou are getting through his guard. Slowly. Expensively. The ritual destabilises without his full focus. The crystal cracks down its centre. Vael gasps. [ENEMY:Hobgoblin Shaman:14:45][DICE:d20${f(str)}:Attack:DC16]\n\nOne clean opening. That's all you need.\n\n1. Everything you have — overwhelm the opening now\n2. Drive him into the cracking crystal — use it against him\n3. Call Vael's name — let whatever she's holding go\n4. Fall back and make him come to you`,
 
-      boss_hard: `[SCENE:boss][MUSIC:boss]You fall back and make him pursue — patient discipline or a miscalculation; the shaman closes faster than expected. [HP:-5][DICE:d20${f(con)}]\n\nBut his focus on you pulls it from the crystal entirely. Behind him the crystal fractures with a sound like splitting glass. Vael's eyes clear — fully, completely — and she rises from the circle with the deliberateness of someone who has been waiting for exactly this moment.\n\n*"${name},"* she says, and her voice fills the chamber without effort. *"Step back."*\n\nYou step back.\n\n1. Let Vael act — trust her completely\n2. Cover her — keep the shaman's attention on you\n3. Strike the shaman one final time\n4. Destroy the crystal shards — don't leave them intact`,
+      boss_hard: `[SCENE:boss][MUSIC:boss][ENEMY:Hobgoblin Shaman:14:45]You fall back and make him pursue — patient discipline or a miscalculation; the shaman closes faster than expected. [ENEMY:Hobgoblin Shaman:9:45][HP:-5][DICE:d20${f(con)}:Constitution:DC15]\n\nBut his focus on you pulls it from the crystal entirely. Behind him the crystal fractures with a sound like splitting glass. Vael's eyes clear — fully, completely — and she rises from the circle with the deliberateness of someone who has been waiting for exactly this moment.\n\n*"${name},"* she says, and her voice fills the chamber without effort. *"Step back."*\n\nYou step back.\n\n1. Let Vael act — trust her completely\n2. Cover her — keep the shaman's attention on you\n3. Strike the shaman one final time\n4. Destroy the crystal shards — don't leave them intact`,
 
       // victory + loop
-      victory: `[SCENE:rest][MUSIC:rest]The shaman collapses. The green light goes out.\n\nSister Vael lowers her hands and exhales a breath she seems to have been holding for three days. She looks at you with clear grey eyes: *"Thank you."*\n\nIn the shaman's robes: a sealed letter. The Merchant's Consortium's black sun seal. Inside: a name, a route, a payment record. **Aldric Vane** paid for all of this — the goblins, the ritual, Vael's capture — four months ago. This was planned, thoroughly, by someone who knew exactly what she was protecting.\n\nGreyvast Keep still has lights in its windows. [HP:+8][XP:+500][WIN]\n\n1. Rest here before anything else\n2. Ask Vael what she was protecting — what was behind the seal\n3. Head for Greyvast immediately — catch Aldric before news arrives\n4. Get back to Brom with the letter — this is evidence`,
+      victory: `[SCENE:rest][MUSIC:rest][ENEMY:clear]The shaman collapses. The green light goes out.\n\nSister Vael lowers her hands and exhales a breath she seems to have been holding for three days. She looks at you with clear grey eyes: *"Thank you."*\n\nIn the shaman's robes: a sealed letter. The Merchant's Consortium's black sun seal. Inside: a name, a route, a payment record. **Aldric Vane** paid for all of this — the goblins, the ritual, Vael's capture — four months ago. This was planned, thoroughly, by someone who knew exactly what she was protecting.\n\nGreyvast Keep still has lights in its windows. [HP:+8][XP:+500][WIN]\n\n1. Rest here before anything else\n2. Ask Vael what she was protecting — what was behind the seal\n3. Head for Greyvast immediately — catch Aldric before news arrives\n4. Get back to Brom with the letter — this is evidence`,
 
       epilogue: `[SCENE:town][MUSIC:tavern]Three days later. The **Tarnished Flagon** is warm and full again — the kind of noise that means people feel safe enough to be careless.\n\nSister Vael sits across from you, clean hands, bowl of Brom's stew, the watchful calm of someone who was underground too long. The letter is with a courier in the capital. Aldric Vane is gone — Greyvast empty when anyone reached it — but the payment record has names, and names have consequences.\n\n*"What was behind the seal?"* you asked her, that first night. She considered a long time. *"Something old. Something that shouldn't be accessible from this side of the world. Now that the ritual is broken, it will try another anchor. Within the year."*\n\nA log settles in the fire. Outside: ordinary stars, ordinary wind. [XP:+200]\n\n1. Ask where the next anchor point might be\n2. Begin preparing — this isn't over\n3. Enjoy the peace while it lasts\n4. Study the letter — look for more names in Vane's network`,
     };
@@ -273,6 +274,26 @@ class AISystem {
     const modStr = (v) => (v >= 0 ? `+${v}` : `${v}`);
 
     const memoryBlock = window.journalSystem?.buildMemoryBlock();
+    
+    // Build spell list string
+    let spellInfo = '';
+    if (c.knownSpells) {
+      if (c.knownSpells.cantrips?.length > 0) {
+        spellInfo += `\nCantrips: ${c.knownSpells.cantrips.join(', ')}`;
+      }
+      if (c.spellSlots) {
+        const slotInfo = Object.entries(c.spellSlots)
+          .filter(([_, slot]) => slot.current > 0)
+          .map(([lvl, slot]) => `L${lvl}(${slot.current}/${slot.max})`)
+          .join(', ');
+        if (slotInfo) {
+          spellInfo += `\nSpell Slots: ${slotInfo}`;
+          if (c.knownSpells[1]?.length > 0) {
+            spellInfo += `\nLevel 1 Spells: ${c.knownSpells[1].join(', ')}`;
+          }
+        }
+      }
+    }
 
     return `You are a master Dungeon Master running ${CAMPAIGN_DESC[campaignType] || CAMPAIGN_DESC.standard}
 ${campaignType === 'custom' && customDesc ? `The player has requested: "${customDesc}"` : ''}
@@ -286,13 +307,46 @@ HP:         ${c.currentHp}/${c.maxHp}
 AC:         ${c.ac}    Speed: ${c.speed}ft    Proficiency: +${c.profBonus}
 STR ${c.stats.str}(${modStr(mods.str)})  DEX ${c.stats.dex}(${modStr(mods.dex)})  CON ${c.stats.con}(${modStr(mods.con)})
 INT ${c.stats.int}(${modStr(mods.int)})  WIS ${c.stats.wis}(${modStr(mods.wis)})  CHA ${c.stats.cha}(${modStr(mods.cha)})
-Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}
+Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}${spellInfo}
 ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 ═══ DM INSTRUCTIONS ═══
 • Narrate in vivid, atmospheric prose (2–4 paragraphs per turn).
 • Present 3–4 **numbered choices** at the end of most turns for the player to pick from. Honor free-text input too.
-• When a skill/attack check is needed, include a roll tag: [DICE:d20+3] (replace 3 with the relevant modifier).
-  Use D&D 5e DCs: Easy=10, Medium=15, Hard=20, Very Hard=25.
+• When a skill check is needed, STOP THE NARRATIVE at the point where the player must roll. Include the roll tag: [DICE:d20+X:AbilityName:DCValue]
+  - X is the character's modifier for that ability
+  - AbilityName is the ability being tested (Wisdom, Dexterity, Strength, etc.)
+  - DCValue is the difficulty (DC10-25)
+  - Example: "You attempt to sneak past the guard. [DICE:d20+2:Stealth:DC14]"
+  - Do NOT describe the outcome yet - the player will roll and their next message will tell you the result
+• When the player makes an ATTACK, use the attack tag: [ATTACK:d20+X:WeaponName:DamageDice+Mod:DamageType]
+  - X is the character's attack modifier (STR/DEX mod + proficiency bonus)
+  - WeaponName is the weapon being used
+  - DamageDice is the weapon damage (e.g., 1d8+3 for longsword)
+  - DamageType is slashing/piercing/bludgeoning/etc
+  - Example: "You swing your longsword at the goblin. [ATTACK:d20+5:Longsword:1d8+3:slashing]"
+  - The system will check vs enemy AC, prompt for damage on hit, double dice on crit
+  - After the attack roll result, narrate based on hit/miss and damage dealt
+• When the player casts a spell that uses a spell slot, include: [CAST:SpellName:Level:C]
+  - Example: "You invoke mystic words. [CAST:Magic Missile:1]"
+  - For concentration spells, add :C at the end: [CAST:Bless:1:C]
+  - The system will consume the spell slot and track concentration automatically
+  - Cantrips don't require the CAST tag since they don't use slots
+• When a character gains a condition, include: [CONDITION:Name:Duration]
+  - Example: [CONDITION:Poisoned:3] for 3 rounds of poisoning
+  - Common conditions: Poisoned, Frightened, Paralyzed, Stunned, Blinded, Restrained
+  - Duration is in rounds (combat turns)
+• When the DM awards inspiration for excellent roleplay, include: [INSPIRATION]
+• When a character gains temporary HP, include: [TEMP_HP:Amount]
+  - Example: [TEMP_HP:10] for 10 temporary HP
+  - Temp HP doesn't stack - only highest value is kept
+  - Temp HP absorbs damage before real HP
+• When an enemy forces a saving throw, include: [SAVE:Ability:DC:Effect]
+  - Example: [SAVE:Dexterity:DC15:HalfOnSuccess] for a Fireball
+  - Abilities: Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma
+  - Effect: FullDamage (default) or HalfOnSuccess
+  - Player rolls their save modifier vs DC
+• At the start of combat, include: [COMBAT:START] to roll initiative
+• When combat ends, include: [COMBAT:END]
 • EVERY response MUST begin with [SCENE:X] matching the current location and environment. X must be one of:
   dungeon  — underground corridors, torchlit passages, ruins, crypts
   tavern   — inns, alehouses, common rooms, hearths
@@ -311,7 +365,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 • Whenever the narrative describes a specific named structure, landmark, or point of interest that the player is approaching or can see — such as a manor house, bridge, gate, well, altar, statue, encampment, mill, watchtower, or fallen monument — include [MAP:Short Name] immediately after [SCENE:X]. Use the structure's specific name (e.g. [MAP:Thornwick Manor] or [MAP:Collapsed Gate] or [MAP:Stone Bridge]). This places a visible glowing beacon with the name on the map so the player can see exactly what is ahead. Omit this tag only when the player is already deep inside a location with nothing new in sight.
 • When the character takes damage, include [HP:-N] (e.g. [HP:-5]).
 • When the character is healed, include [HP:+N].
-• During any combat, include [ENEMY:Name:currentHp:maxHp] to drive the enemy health bar (e.g. [ENEMY:Goblin Leader:18:18] when the fight starts, then updated after every exchange where the enemy takes damage, e.g. [ENEMY:Goblin Leader:10:18]). Use realistic D&D 5e HP values for the creature type and CR. When the enemy is defeated or all combat ends, include [ENEMY:clear].
+• During any combat, include [ENEMY:Name:currentHp:maxHp:AC] to drive the enemy health bar (e.g. [ENEMY:Goblin Scout:7:7:13] when the fight starts). The AC is the enemy's armor class needed to hit them. Update after every exchange where the enemy takes damage, e.g. [ENEMY:Goblin Scout:3:7:13]). Use realistic D&D 5e HP and AC values for the creature type and CR. When the enemy is defeated or all combat ends, include [ENEMY:clear].
 • When the character earns XP, include [XP:+N]. Award XP using realistic D&D 5e values:
   - Trivial task / minor info: 10–25 XP
   - Easy encounter / small obstacle: 50–100 XP
@@ -393,11 +447,19 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     this._lastSentSystem = isSystem;
 
     try {
-      const response = await this._callWithRetry(() =>
-        (this.demoMode || !this.apiKey)
-          ? this._mockResponse()
-          : window.electronAPI.sendToAI(trimmed, this.apiKey, this.model, this.provider)
-      );
+      // In demo mode, NEVER call AI API - always use mock responses
+      const response = await this._callWithRetry(() => {
+        if (this.demoMode) {
+          console.log('[AI] Demo mode active - using scripted responses (no API call)');
+          return this._mockResponse();
+        }
+        if (!this.apiKey) {
+          console.log('[AI] No API key provided - using fallback demo responses');
+          return this._mockResponse();
+        }
+        console.log(`[AI] Sending request to ${this.provider} API`);
+        return window.electronAPI.sendToAI(trimmed, this.apiKey, this.model, this.provider);
+      });
       this.messages.push({ role: 'assistant', content: response });
       await this._processResponse(response);
     } catch (err) {
@@ -413,6 +475,98 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 
   // ── Process AI Response ──────────────────────────────────────
   async _processResponse(raw) {
+    // Check if there's a DICE or ATTACK tag - if so, split the response
+    const diceTagMatch = raw.match(/\[DICE:[^\]]+\]/);
+    const attackTagMatch = raw.match(/\[ATTACK:[^\]]+\]/);
+    
+    if (attackTagMatch) {
+      // Handle attack roll
+      const attackTagIndex = raw.indexOf(attackTagMatch[0]);
+      const beforeAttack = raw.substring(0, attackTagIndex).trim();
+      const afterAttack = raw.substring(attackTagIndex + attackTagMatch[0].length).trim();
+      
+      // Process the part before the attack roll
+      await this._processResponsePart(beforeAttack, true);
+      
+      // Extract ATTACK tag info: [ATTACK:d20+5:Longsword:1d8+3:slashing]
+      const attackContent = attackTagMatch[0].replace('[ATTACK:', '').replace(']', '');
+      const parts = attackContent.split(':');
+      const attackRoll = parts[0]?.trim().toLowerCase() || 'd20';
+      const weaponName = parts[1]?.trim() || 'Attack';
+      const damageRoll = parts[2]?.trim().toLowerCase() || '1d6';
+      const damageType = parts[3]?.trim() || 'damage';
+      
+      // Get enemy AC
+      const enemyAC = this.currentEnemy?.ac || 10;
+      const enemyName = this.currentEnemy?.name || 'Enemy';
+      
+      // Trigger attack roll
+      window.diceSystem.requestAttackRoll(attackRoll, weaponName, enemyAC, enemyName, damageRoll, damageType, async (attackResult) => {
+        // Format the attack result message
+        const attackText = `I rolled ${attackResult.total} to hit with ${weaponName} — ${attackResult.hitResult}.`;
+        let damageText = '';
+        
+        if (attackResult.hit) {
+          damageText = ` I rolled ${attackResult.damageTotal} ${damageType} damage${attackResult.wasCrit ? ' (CRITICAL HIT!)' : ''}.`;
+        }
+        
+        const fullText = attackText + damageText;
+        
+        // If there's continuation text after the ATTACK tag, show it
+        if (afterAttack) {
+          this._addPlayerEntry(fullText);
+          this.messages.push({ role: 'user', content: fullText });
+          await this._processResponsePart(afterAttack, false);
+        } else {
+          // Real AI mode - send the result to get AI's response
+          this.sendMessage(fullText);
+        }
+      });
+    } else if (diceTagMatch) {
+      const diceTagIndex = raw.indexOf(diceTagMatch[0]);
+      const beforeDice = raw.substring(0, diceTagIndex).trim();
+      const afterDice = raw.substring(diceTagIndex + diceTagMatch[0].length).trim();
+      
+      // Process the part before the dice roll
+      await this._processResponsePart(beforeDice, true);
+      
+      // Extract DICE tag info
+      const diceTagContent = diceTagMatch[0].replace('[DICE:', '').replace(']', '');
+      const parts = diceTagContent.split(':');
+      const spec = parts[0]?.trim().toLowerCase() || 'd20';
+      const ability = parts[1]?.trim() || 'Ability';
+      const dcStr = parts[2]?.trim() || '';
+      const dc = dcStr ? parseInt(dcStr.replace(/\D/g, '')) : null;
+      
+      // Trigger dice roll and wait for result
+      window.diceSystem.requestRoll(spec, `${ability} Check`, dc, async (result) => {
+        // Format the roll result message
+        const modifier = spec.match(/[+-]\d+/)?.[0] || '+0';
+        let checkText = `I rolled a ${result.total} (${spec}: ${result.rolls.join('+')}${modifier}) for ${ability} Check`;
+        if (result.dc) {
+          checkText += ` — ${result.success ? '✓ Success' : '✗ Failed'} (DC ${result.dc})`;
+        }
+        checkText += '.';
+        
+        // If there's continuation text after the DICE tag (demo mode), show it
+        if (afterDice) {
+          // Show the roll result
+          this._addPlayerEntry(checkText);
+          this.messages.push({ role: 'user', content: checkText });
+          // Then show the pre-written continuation
+          await this._processResponsePart(afterDice, false);
+        } else {
+          // Real AI mode - send the roll result to get AI's response
+          this.sendMessage(checkText);
+        }
+      });
+    } else {
+      // No dice roll needed, process normally
+      await this._processResponsePart(raw, false);
+    }
+  }
+
+  async _processResponsePart(raw, isDiceWaiting) {
     // Extract and strip command tags
     const commands = [];
     const text = raw.replace(/\[(\w+):([^\]]+)\]/g, (full, cmd, val) => {
@@ -486,13 +640,19 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
           if (val.toLowerCase() === 'clear') {
             document.getElementById('enemy-hp-pill').style.display = 'none';
             document.getElementById('enemy-hud-sep').style.display = 'none';
+            this.currentEnemy = null;
           } else {
             const ep = val.split(':');
             const eName = ep[0]?.trim() || 'Enemy';
             const eCur  = Math.max(0, parseInt(ep[1]) || 0);
             const eMax  = Math.max(1, parseInt(ep[2]) || eCur || 1);
+            const eAC   = parseInt(ep[3]) || 12; // Default AC 12 if not provided
             const ePct  = Math.min(100, Math.round((eCur / eMax) * 100));
-            document.getElementById('enemy-hud-name').textContent = eName;
+            
+            // Store current enemy state
+            this.currentEnemy = { name: eName, currentHp: eCur, maxHp: eMax, ac: eAC };
+            
+            document.getElementById('enemy-hud-name').textContent = `${eName} (AC ${eAC})`;
             document.getElementById('enemy-hud-hp').textContent = eCur;
             document.getElementById('enemy-hud-hp-max').textContent = eMax;
             const bar = document.getElementById('enemy-hud-bar');
@@ -509,11 +669,6 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
         case 'ITEM':      this._fetchAndShowItem(val); break;
         // ── Memory tags ───────────────────────────────────────
         case 'NPC': {
-          const [name, role, attitude] = val.split(':');
-          window.journalSystem?.addNPC(name, role, attitude);
-          break;
-        }
-        case 'NPC': {
           const parts = val.split(':');
           const npcName = parts[0]?.trim();
           const npcRole = parts[1]?.trim() || '';
@@ -523,6 +678,81 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
         }
         case 'LORE':     window.journalSystem?.addLore(val); break;
         case 'DECISION': window.journalSystem?.addDecision(val); break;
+        case 'CAST': {
+          const parts = val.split(':');
+          const spellName = parts[0]?.trim() || 'Spell';
+          const spellLevel = parseInt(parts[1]) || 1;
+          const requiresConcentration = parts[2]?.trim().toLowerCase() === 'c';
+          if (window.characterSystem?.castSpell(spellLevel, spellName, requiresConcentration)) {
+            const charName = window.characterSystem?.character?.name || 'You';
+            const concText = requiresConcentration ? ' (Concentration)' : '';
+            this._addSystemEntry(`✨ ${charName} casts ${spellName}${concText}`);
+          }
+          break;
+        }
+        case 'CONDITION': {
+          const parts = val.split(':');
+          const condName = parts[0]?.trim() || 'Unknown';
+          const duration = parseInt(parts[1]) || 3;
+          const description = parts[2]?.trim() || '';
+          window.characterSystem?.addCondition(condName, duration, description);
+          break;
+        }
+        case 'INSPIRATION': {
+          window.characterSystem?.awardInspiration();
+          break;
+        }
+        case 'TEMP_HP': {
+          const amount = parseInt(val) || 0;
+          if (amount > 0) {
+            window.characterSystem?.addTempHP(amount);
+          }
+          break;
+        }
+        case 'SAVE': {
+          // Format: [SAVE:Dexterity:DC15:HalfOnSuccess]
+          const parts = val.split(':');
+          const ability = parts[0]?.trim() || 'Ability';
+          const dcStr = parts[1]?.trim() || 'DC10';
+          const effect = parts[2]?.trim() || 'FullDamage';
+          const dc = parseInt(dcStr.replace(/\D/g, '')) || 10;
+          
+          // Get player's save modifier
+          const c = window.characterSystem?.character;
+          if (c) {
+            const abilityKey = ability.toLowerCase().slice(0, 3); // 'dex', 'wis', etc.
+            const abilityScore = c.stats[abilityKey] || 10;
+            const abilityMod = Math.floor((abilityScore - 10) / 2);
+            const proficient = c.saves.includes(abilityKey);
+            const saveMod = abilityMod + (proficient ? c.profBonus : 0);
+            const saveRoll = `d20${saveMod >= 0 ? '+' : ''}${saveMod}`;
+            
+            window.diceSystem.requestRoll(saveRoll, `${ability} Save`, dc, (result) => {
+              const outcome = result.success ? 'Saved!' : 'Failed!';
+              const effectText = result.success && effect.includes('Half') ? ' (half damage)' : '';
+              this._addSystemEntry(`🎲 ${ability} Save: ${outcome}${effectText}`);
+            });
+          }
+          break;
+        }
+        case 'COMBAT': {
+          if (val.toLowerCase() === 'start') {
+            // Roll initiative for player
+            const c = window.characterSystem?.character;
+            if (c) {
+              const dexMod = Math.floor((c.stats.dex - 10) / 2);
+              const initRoll = `d20${dexMod >= 0 ? '+' : ''}${dexMod}`;
+              window.diceSystem.requestRoll(initRoll, 'Initiative', null, (result) => {
+                // For now, create mock enemy initiatives - AI should provide these
+                const enemyInits = [{ name: 'Enemy', roll: Math.floor(Math.random() * 20) + 1, isPlayer: false }];
+                window.characterSystem?.startInitiative(result.total, enemyInits);
+              });
+            }
+          } else if (val.toLowerCase() === 'end') {
+            window.characterSystem?.endInitiative();
+          }
+          break;
+        }
       }
     });
 
@@ -538,7 +768,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     }
 
     // Parse numbered choices out of response text
-    const { prose, choices, diceRequest } = this._parseText(text);
+    const { prose, choices } = this._parseText(text);
 
     // Typewriter effect for the DM entry
     await this._typewriterEntry(prose, choices);
@@ -546,17 +776,8 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     // TTS narration (after typewriter finishes)
     this._speakTTS(prose);
 
-    // Helper to trigger the regular skill-check dice prompt (if any)
-    const triggerDiceRequest = () => {
-      if (!diceRequest) return;
-      window.diceSystem.requestRoll(diceRequest.spec, diceRequest.label, (result) => {
-        const modifier  = diceRequest.spec.match(/[+-]\d+/)?.[0] || '+0';
-        const checkText = `I rolled a ${result.total} (${diceRequest.spec}: ${result.rolls.join('+')}${modifier}) for ${diceRequest.label}.`;
-        this.sendMessage(checkText);
-      });
-    };
-
-    if (pendingDamage < 0) {
+    // Handle pending damage with initiative roll if needed
+    if (pendingDamage < 0 && !isDiceWaiting) {
       const dex    = window.characterSystem?.character?.stats?.dex ?? 10;
       const dexMod = Math.floor((dex - 10) / 2);
       this._openInitiativeModal(dexMod, Math.abs(pendingDamage), (rollTotal) => {
@@ -566,10 +787,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
           const charName = window.characterSystem?.character?.name || 'You';
           this._addSystemEntry(`🛡 ${charName} reacts swiftly and dodges the attack!`);
         }
-        triggerDiceRequest();
       });
-    } else {
-      triggerDiceRequest();
     }
   }
 

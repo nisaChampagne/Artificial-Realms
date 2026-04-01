@@ -52,6 +52,7 @@ class SaveSystem {
       window.aiSystem.model     = window.app.settings.model;
       window.aiSystem.provider  = window.app.settings.provider || 'openai';
       window.aiSystem.textSpeed = window.app.settings.textSpeed ?? 15;
+      window.aiSystem.demoMode  = window.app.settings.demoMode || false;
 
       // Restore journal
       window.journalSystem?.restore(data.journal || null);

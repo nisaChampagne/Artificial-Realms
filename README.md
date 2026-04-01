@@ -2,8 +2,8 @@
 
 > An AI-powered Dungeons & Dragons interactive experience built with Electron.
 
-![Build and Release](https://github.com/nisaChampagne/Artificial-Realms/actions/workflows/release.yaml/badge.svg)
-![Version](https://img.shields.io/badge/version-2.1.0-gold)
+[![Build and Release](https://github.com/nisaChampagne/Artificial-Realms/actions/workflows/release.yaml/badge.svg)](https://github.com/nisaChampagne/Artificial-Realms/actions/workflows/release.yaml)
+[![Version](https://img.shields.io/github/v/release/nisaChampagne/Artificial-Realms?color=gold&label=version)](https://github.com/nisaChampagne/Artificial-Realms/releases/latest)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Electron](https://img.shields.io/badge/electron-28-47848F)
 
@@ -23,9 +23,17 @@ Artificial Realms is a desktop RPG powered by OpenAI's Chat Completions API (or 
 - **AI Dungeon Master** — live OpenAI / compatible provider streaming or fully scripted demo mode (no API key required)
 - **Multi-provider AI** — OpenAI, Azure OpenAI, Ollama, or any OpenAI-compatible endpoint; built-in connection test
 - **Text-to-speech** — optional TTS narration with configurable voice and speed
-- **Initiative system** — overlay dice roll required before player attacks and before incoming damage lands
-- **Combat mechanics** — death saving throws, quick actions (Attack / Dodge / Hide / Help / Assess / Persuade)
-- **Rest system** — short rest (spend hit dice) and long rest (full restore)
+- **Initiative system** — roll initiative at combat start, turn order tracking with automatic action reset
+- **Combat mechanics** — death saving throws, attack rolls vs AC, critical hits (2× dice damage), quick actions (Attack / Dodge / Hide / Help / Assess / Persuade)
+- **Action economy** — action, bonus action, and reaction tracking per turn with visual indicators
+- **Spell slots** — full D&D 5e progression for all 9 caster classes with automatic consumption and restoration
+- **Class resources** — Second Wind (Fighter), Rage (Barbarian), Ki Points (Monk), Channel Divinity (Cleric), Lay on Hands (Paladin), Bardic Inspiration (Bard)
+- **Concentration** — spell concentration tracking with automatic CON saving throws when taking damage
+- **Conditions** — status effects (Poisoned, Stunned, Frightened, etc.) with duration tracking and turn-based expiration
+- **Inspiration** — DM-awarded inspiration for excellent roleplay, spend for advantage on any d20 roll
+- **Temporary HP** — damage absorption shield following D&D 5e rules (doesn't stack, absorbs damage first)
+- **Spell Save DC** — auto-calculated for spellcasters (8 + proficiency + spellcasting modifier)
+- **Rest system** — short rest (spend hit dice, restore class resources) and long rest (full restore)
 - **Level-up HP modal** — roll or take average on level-up
 - **Inventory & gold** — item management with add / remove / equip and gold tracking
 - **Parchment character sheet** — styled full stat block with portrait, proficiencies, skills, equipment, and XP bar
