@@ -266,12 +266,6 @@ Actions reset at the start of your turn. Used actions are visually indicated in 
 - Check your internet connection
 - For Ollama, ensure model is fully loaded: `ollama ps`
 
-### Audio doesn't play
-
-- Check Windows audio settings
-- Try different audio files (ensure MP3/OGG format)
-- Check browser console for audio file errors
-
 ### Saves don't load
 
 - Navigate to Settings → Save Management

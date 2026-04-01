@@ -220,6 +220,7 @@ class App {
     document.getElementById('btn-settings').onclick = () => {
       this._applySettingsToUI();
       this.showScreen('settings');
+      window.saveSystem.renderManagementSlots();
     };
     document.getElementById('btn-death-load').onclick = () => {
       this._hideDeathScreen();

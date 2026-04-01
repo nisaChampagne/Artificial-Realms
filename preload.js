@@ -7,10 +7,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pingProvider:     (provider, apiKey, model)          => ipcRenderer.invoke('provider:ping', provider, apiKey, model),
 
   // Saves
-  saveGame:   (slot, data) => ipcRenderer.invoke('save:write', slot, data),
-  loadGame:   (slot)       => ipcRenderer.invoke('save:read', slot),
-  listSaves:  ()           => ipcRenderer.invoke('save:list'),
-  deleteSave: (slot)       => ipcRenderer.invoke('save:delete', slot),
+  saveGame:       (slot, data) => ipcRenderer.invoke('save:write', slot, data),
+  loadGame:       (slot)       => ipcRenderer.invoke('save:read', slot),
+  listSaves:      ()           => ipcRenderer.invoke('save:list'),
+  deleteSave:     (slot)       => ipcRenderer.invoke('save:delete', slot),
+  exportSave:     (slot)       => ipcRenderer.invoke('save:export', slot),
+  openSavesFolder: ()          => ipcRenderer.invoke('save:open-folder'),
+  getSavesDir:    ()           => ipcRenderer.invoke('save:dir'),
 
   // Settings
   getSettings:  ()         => ipcRenderer.invoke('settings:get'),

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, globalShortcut, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, globalShortcut, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -306,6 +306,31 @@ ipcMain.handle('save:delete', (_e, slot) => {
   if (fs.existsSync(fp)) fs.unlinkSync(fp);
   return { success: true };
 });
+
+ipcMain.handle('save:export', async (_e, slot) => {
+  if (!isValidSlot(slot)) throw new Error('Invalid save slot');
+  const src = path.join(savesDir(), `save_${slot}.json`);
+  if (!fs.existsSync(src)) throw new Error('Save not found');
+  const label = slot === 'auto' ? 'autosave' : `slot${slot}`;
+  const result = await dialog.showSaveDialog({
+    title: 'Export Save File',
+    defaultPath: `artificial-realms-${label}.json`,
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (!result.canceled && result.filePath) {
+    fs.copyFileSync(src, result.filePath);
+    return { success: true, filePath: result.filePath };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('save:open-folder', () => {
+  const dir = savesDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  shell.openPath(dir);
+});
+
+ipcMain.handle('save:dir', () => savesDir());
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');

@@ -203,6 +203,100 @@ class SaveSystem {
     });
   }
 
+  // ── Settings Panel ───────────────────────────────────────────
+  async renderManagementSlots() {
+    const container = document.getElementById('settings-save-slots');
+    if (!container) return;
+    container.innerHTML = '<div class="sms-loading">Loading saves…</div>';
+
+    const [saves, savesDir] = await Promise.all([
+      window.electronAPI.listSaves(),
+      window.electronAPI.getSavesDir(),
+    ]);
+    const slotMap = {};
+    saves.forEach(s => { slotMap[s.slot] = s; });
+
+    container.innerHTML = '';
+
+    // ── Path bar ──────────────────────────────────────────────
+    const pathBar = document.createElement('div');
+    pathBar.className = 'sms-path-bar';
+    pathBar.innerHTML = `
+      <span class="sms-path-label">Save location:</span>
+      <span class="sms-path-value" title="${savesDir}">${savesDir}</span>
+      <button class="btn btn-outline btn-sm sms-open-folder" id="btn-open-saves-folder">Open Folder ↗</button>`;
+    pathBar.querySelector('#btn-open-saves-folder').onclick = () => window.electronAPI.openSavesFolder();
+    container.appendChild(pathBar);
+
+    // ── Slot rows ─────────────────────────────────────────────
+    const slots = ['1', '2', '3', 'auto'];
+    slots.forEach(slot => {
+      const info = slotMap[slot];
+      const label = slot === 'auto' ? 'Auto-Save' : `Slot ${slot}`;
+      const el = document.createElement('div');
+      el.className = 'sms-row' + (info ? '' : ' sms-row-empty');
+
+      if (info) {
+        el.innerHTML = `
+          <div class="sms-slot-badge">${slot === 'auto' ? '⟳' : slot}</div>
+          <div class="sms-info">
+            <div class="sms-name">${info.character} <span class="sms-class">— ${info.race || ''} ${info.class || ''} Lv.${info.level}</span></div>
+            <div class="sms-meta">📍 ${info.scene} &nbsp;·&nbsp; 🕐 ${info.savedAt}</div>
+          </div>
+          <div class="sms-actions"></div>`;
+
+        const actions = el.querySelector('.sms-actions');
+
+        const loadBtn = document.createElement('button');
+        loadBtn.className = 'btn btn-primary btn-sm';
+        loadBtn.textContent = 'Load';
+        loadBtn.title = `Load ${label}`;
+        loadBtn.onclick = () => window.saveSystem.load(slot);
+        actions.appendChild(loadBtn);
+
+        const expBtn = document.createElement('button');
+        expBtn.className = 'btn btn-outline btn-sm';
+        expBtn.textContent = 'Export';
+        expBtn.title = `Export ${label} as JSON`;
+        expBtn.onclick = async () => {
+          expBtn.disabled = true;
+          expBtn.textContent = '…';
+          try {
+            const result = await window.electronAPI.exportSave(slot);
+            if (result.success) window.app?.showToast(`Exported ${label}`, 'success');
+          } catch (err) {
+            window.app?.showToast('Export failed: ' + err.message, 'error');
+          } finally {
+            expBtn.disabled = false;
+            expBtn.textContent = 'Export';
+          }
+        };
+        actions.appendChild(expBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-outline btn-sm sms-del';
+        delBtn.textContent = '✕';
+        delBtn.title = `Delete ${label}`;
+        delBtn.onclick = async () => {
+          if (confirm(`Delete ${label}? This cannot be undone.`)) {
+            await window.saveSystem.deleteSave(slot);
+            this.renderManagementSlots();
+          }
+        };
+        actions.appendChild(delBtn);
+      } else {
+        el.innerHTML = `
+          <div class="sms-slot-badge sms-slot-empty">${slot === 'auto' ? '⟳' : slot}</div>
+          <div class="sms-info">
+            <div class="sms-name sms-empty-label">${label}</div>
+            <div class="sms-meta">Empty</div>
+          </div>`;
+      }
+
+      container.appendChild(el);
+    });
+  }
+
   init() {
     document.getElementById('close-modal-save').onclick = () => this.close();
     document.getElementById('tab-save-btn').onclick = () => this.setMode('save');
