@@ -22,6 +22,13 @@ class AchievementSystem {
     this._stats    = {};
   }
 
+  // ── Reset ────────────────────────────────────────────────────
+  reset() {
+    this._unlocked = new Set();
+    this._stats    = {};
+    this._persist();
+  }
+
   // ── Load / Save ──────────────────────────────────────────────
   load(data) {
     if (!data) return;

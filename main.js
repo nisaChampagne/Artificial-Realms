@@ -332,6 +332,60 @@ ipcMain.handle('save:open-folder', () => {
 
 ipcMain.handle('save:dir', () => savesDir());
 
+ipcMain.handle('save:import', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Import Save File',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || !result.filePaths.length) return { success: false };
+  try {
+    const data = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8'));
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('character:export', async (_e, character) => {
+  if (!character || !character.name) throw new Error('Invalid character data');
+  const sanitized = character.name.replace(/[^a-zA-Z0-9-_]/g, '_');
+  const result = await dialog.showSaveDialog({
+    title: 'Export Character',
+    defaultPath: `${sanitized}.json`,
+    filters: [{ name: 'Character File', extensions: ['json'] }],
+  });
+  if (!result.canceled && result.filePath) {
+    const exportData = {
+      version: app.getVersion(),
+      exportedAt: new Date().toISOString(),
+      character: character,
+    };
+    fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2));
+    return { success: true, filePath: result.filePath };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('character:import', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Import Character',
+    filters: [{ name: 'Character File', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || !result.filePaths.length) return { success: false };
+  try {
+    const data = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8'));
+    // Validate it has character data
+    if (!data.character || !data.character.name) {
+      return { success: false, error: 'Invalid character file format' };
+    }
+    return { success: true, character: data.character };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 

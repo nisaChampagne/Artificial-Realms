@@ -27,6 +27,7 @@ class AISystem {
     this.demoMode    = false;
     this.isTyping      = false;
     this._requestCount = 0;
+    this._pendingQuestNotifications = []; // Defer quest notifications until after typing
     this.textSpeed     = 15;
     this._typeTimer  = null;
     this._demoState  = null;
@@ -67,6 +68,7 @@ class AISystem {
     
     window.journalSystem?.reset();
     window.inventorySystem?.reset();
+    window.achievementSystem?.reset();
 
     const sysPrompt = this._buildSystemPrompt(character, campaignType, customDesc);
     this.messages.push({ role: 'system', content: sysPrompt });
@@ -579,12 +581,12 @@ class AISystem {
 
     // ── Journal tags appended to key demo states ──────────────
     const TAGS = {
-      tavern:         '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:The Order of the Ashen Veil uses a jagged black sun as their seal][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
-      brom_info:      '[NPC:Brom Ashkettle:innkeeper:Friendly][NPC:Sister Vael:hedge-witch:Unknown][LORE:Greyvast Keep lies abandoned three miles north of the village][QUEST:Find Sister Vael:Locate the missing hedge-witch Sister Vael near the Ashwood]',
-      read_letter:    '[NPC:Aldric Vane:Consortium agent:Hostile][LORE:A phrase in Old Common warns the seal on the deep place must not be broken]',
-      head_out:       '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:A Consortium agent was asking about Sister Vael by name shortly before the goblin raids]',
-      second_drink:   '[NPC:Sister Vael:hedge-witch:Unknown][LORE:Cold blue goblin-fire was seen in the Ashwood two nights running]',
-      forest_road:    '[LORE:A cave beneath the ruined mill appears to be the goblin staging point]',
+      tavern:         '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:The Order of the Ashen Veil uses a jagged black sun as their seal]',
+      brom_info:      '[NPC:Brom Ashkettle:innkeeper:Friendly][NPC:Sister Vael:hedge-witch:Unknown][LORE:Greyvast Keep lies abandoned three miles north of the village][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
+      read_letter:    '[NPC:Aldric Vane:Consortium agent:Hostile][LORE:A phrase in Old Common warns the seal on the deep place must not be broken][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
+      head_out:       '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:A Consortium agent was asking about Sister Vael by name shortly before the goblin raids][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
+      second_drink:   '[NPC:Sister Vael:hedge-witch:Unknown][LORE:Cold blue goblin-fire was seen in the Ashwood two nights running][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
+      forest_road:    '[LORE:A cave beneath the ruined mill appears to be the goblin staging point][QUEST:Find Sister Vael:Locate the missing hedge-witch Sister Vael near the Ashwood]',
       cave_charge:    '[COMBAT:START]',
       combat_listen:  '[NPC:Sister Vael:hedge-witch:Captured][LORE:Goblins are waiting three nights for a signal from deeper in the tunnels]',
       combat_surp:    '[COMBAT:START]',
@@ -799,11 +801,18 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
   - When the story reveals a significant fact or piece of lore, include [LORE:one-sentence fact]
   - When the player makes a key story decision that shapes the narrative, include [DECISION:one-sentence summary]
 • QUEST TAGS:
-  - When a new quest or objective is discovered, include [QUEST:Short Title:One-sentence description]
+  - When a new quest or objective is discovered AND the player explicitly accepts it, include [QUEST:Short Title:One-sentence description]
     e.g. [QUEST:Rescue the Miller:Find the missing miller taken by bandits to the eastern ruins]
+  - IMPORTANT: Only add [QUEST:...] AFTER the player has committed to the quest through dialogue or action choices
+  - When an NPC offers a quest, present it in dialogue first. Include the [QUEST:...] tag only in the response AFTER the player chooses to accept
+  - If the player declines, do not add the quest tag. The NPC may react to the refusal naturally
   - When a quest is successfully completed, include [QUEST_DONE:Exact Title]
   - When a quest fails or is no longer achievable, include [QUEST_FAIL:Exact Title]
   - Only add a quest when there is a clear, actionable goal. Don't add quests for trivial actions.
+  - Example flow:
+    * Turn 1 (NPC offers): "Will you help me find my missing daughter?" [No quest tag yet]
+    * Turn 2 (player accepts): Choose "I'll help you find her"
+    * Turn 2 (DM confirms): "Thank you! She was last seen..." [QUEST:Find the Missing Daughter:Locate the innkeeper's daughter who vanished near the old mill]
 • WORLD STATE TAGS (update when time passes or conditions change):
   - [TIME:period] — one of: dawn, morning, afternoon, dusk, evening, night
   - [WEATHER:condition] — one of: clear, cloudy, rain, storm, fog, snow
@@ -891,6 +900,8 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
     } finally {
       this._hideThinking();
       this.isTyping = false;
+      // Clear any pending notifications on error
+      this._pendingQuestNotifications = [];
       document.getElementById('player-input').disabled = false;
       document.getElementById('btn-send').disabled     = false;
       document.querySelectorAll('.quick-btn, .hint-chip').forEach(b => { b.disabled = false; });
@@ -1138,15 +1149,25 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
           const parts = val.split(':');
           const qTitle = parts[0]?.trim();
           const qDesc  = parts[1]?.trim() || '';
-          if (qTitle) window.journalSystem?.addQuest(qTitle, qDesc);
+          if (qTitle) {
+            window.journalSystem?.addQuest(qTitle, qDesc);
+            // Defer visual notification until after typing completes
+            this._pendingQuestNotifications.push({ title: qTitle, description: qDesc });
+          }
           break;
         }
         case 'QUEST_DONE': {
-          if (val.trim()) window.journalSystem?.completeQuest(val.trim());
+          if (val.trim()) {
+            window.journalSystem?.completeQuest(val.trim());
+            this._addSystemEntry(`✅ Quest completed: <strong>${this._escapeHtml(val.trim())}</strong>`);
+          }
           break;
         }
         case 'QUEST_FAIL': {
-          if (val.trim()) window.journalSystem?.failQuest(val.trim());
+          if (val.trim()) {
+            window.journalSystem?.failQuest(val.trim());
+            this._addSystemEntry(`❌ Quest failed: <strong>${this._escapeHtml(val.trim())}</strong>`);
+          }
           break;
         }
         case 'CAST': {
@@ -1486,6 +1507,25 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
     log.scrollTop = log.scrollHeight;
   }
 
+  _addQuestNotification(title, description) {
+    const log   = document.getElementById('story-log');
+    const entry = document.createElement('div');
+    entry.className = 'story-entry quest-notification';
+    const safeTitle = this._escapeHtml(title);
+    const safeDesc = this._escapeHtml(description);
+    entry.innerHTML = `
+      <div class="quest-notif-card">
+        <div class="quest-notif-icon">📋</div>
+        <div class="quest-notif-content">
+          <div class="quest-notif-header">New Quest</div>
+          <div class="quest-notif-title">${safeTitle}</div>
+          ${safeDesc ? `<div class="quest-notif-desc">${safeDesc}</div>` : ''}
+        </div>
+      </div>`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
   async _callWithRetry(fn, maxRetries = 2, baseDelay = 3000) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -1615,6 +1655,14 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
 
     // Remove cursor and add choices
     textEl.classList.remove('typing-cursor');
+
+    // Show any pending quest notifications now that typing is complete
+    if (this._pendingQuestNotifications.length > 0) {
+      this._pendingQuestNotifications.forEach(quest => {
+        this._addQuestNotification(quest.title, quest.description);
+      });
+      this._pendingQuestNotifications = [];
+    }
 
     if (choices.length > 0) {
       const choiceBox = document.createElement('div');

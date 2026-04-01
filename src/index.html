@@ -790,9 +790,9 @@
           <div class="equip-block">
             <h4>Equipment</h4>
             <div id="equip-list" class="equip-scroll"></div>
-            <div class="gold-display" style="margin-top: 10px; padding: 8px; background: var(--bg-dark); border-radius: 4px; display: flex; align-items: center; gap: 8px;">
+            <div class="gold-display" style="margin-top: 10px; padding: 8px; background: var(--bg-dark); border-radius: 4px; font-weight: 600; font-size: 14px;">
               <span style="font-size: 1.2em;">💰</span>
-              <span style="font-weight: 600;"><span id="s-gold">0</span> gp</span>
+              <span id="s-gold">0</span> gp · <span id="s-silver">0</span> sp · <span id="s-copper">0</span> cp
             </div>
           </div>
           <div class="notes-block">
@@ -825,6 +825,11 @@
         <button class="tab-btn" id="tab-load-btn">Load</button>
       </div>
       <div class="save-slots" id="save-slots"></div>
+      <div class="character-import-export">
+        <button class="btn btn-outline btn-sm" id="btn-export-character" title="Export current character as a JSON file">📤 Export Character</button>
+        <button class="btn btn-outline btn-sm" id="btn-import-character" title="Import a character from a JSON file">📥 Import Character</button>
+        <button class="btn btn-outline btn-sm" id="btn-import-save" title="Import a full save file">📥 Import Save</button>
+      </div>
       <p class="autosave-info">Auto-save: <span id="autosave-label">every 5 minutes</span></p>
     </div>
   </div>

@@ -36,15 +36,19 @@ Artificial Realms is a desktop RPG powered by OpenAI's Chat Completions API (or 
 - **Rest system** — short rest (spend hit dice, restore class resources) and long rest (full restore)
 - **Level-up HP modal** — roll or take average on level-up
 - **Inventory & gold** — item management with add / remove / equip and gold tracking
+- **Campaign Journal** — automatic tracking of NPCs (with attitudes), lore discoveries, key decisions, and quest progression
+- **Quest System** — quests are logged when you accept them (not when offered), with active/completed/failed status tracking
+- **Achievements** — unlock milestones like First Blood, Boss Slayer, Lore Hunter; progress tracked per-character
+- **Character import/export** — export characters as JSON files to share or backup; import characters into new campaigns
 - **Parchment character sheet** — styled full stat block with portrait, proficiencies, skills, equipment, and XP bar
 - **Mini HP bar** — always-visible health bar and HP counter in the game toolbar
 - **Choice cards** — numbered action cards with stagger animation and keyboard shortcuts
-- **Keyboard shortcuts** — `1`–`4` pick choices, `R` to roll, `C` / `D` open sheet / dice, `Escape` closes modals
+- **Keyboard shortcuts** — `1`–`4` pick choices, `R` to roll, `C` / `D` open sheet / dice, `J` journal, `Escape` closes modals
 - **Dice roller** — animated d4–d100, advantage/disadvantage, modifiers
 - **Scene-aware audio** — ambient music that shifts with dungeon / combat / tavern / rest scenes
 - **Minimap** — top-down scene map that updates as the story progresses
 - **Auto-update** — in-app notifications when a new release is available
-- **Save / load** — multiple save slots with auto-save
+- **Save / load** — multiple save slots with auto-save, full save import/export
 
 ---
 
@@ -120,9 +124,11 @@ src/
     audio.js         Scene-aware ambient audio
     map.js           Minimap renderer
     inventory.js     Inventory & gold management
-    journal.js       Session journal / adventure log
+    journal.js       Campaign journal (NPCs, lore, decisions, quests)
+    achievements.js  Achievement milestone tracking system
     open5e.js        Open5e API integration (spells, monsters, items)
-    save.js          Save/load slots
+    save.js          Save/load slots + import/export
+    worldstate.js    Time, weather, and world condition tracking
 assets/
   icon.png           App icon (256×256)
   icon.ico           Multi-size ICO for installer
@@ -146,7 +152,7 @@ The workflow (`release.yaml`):
 3. Runs `npm run make` (Electron Forge — Squirrel installer + ZIP)
 4. Uploads `ArtificialRealms-{version}-Setup.exe` as a release asset
 
-**Latest release:** `v2.2.0`
+**Latest release:** `v2.2.4`
 
 To cut a new release:
 1. Bump `version` in `package.json`

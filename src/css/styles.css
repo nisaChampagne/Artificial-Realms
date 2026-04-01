@@ -1815,6 +1815,64 @@ input[type=range]::-webkit-slider-thumb {
   padding: 6px;
   opacity: 0.7;
 }
+.story-entry.quest-notification {
+  padding: 0;
+  margin: 16px 0;
+}
+.quest-notif-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(201, 162, 39, 0.15), rgba(201, 162, 39, 0.05));
+  border: 2px solid rgba(201, 162, 39, 0.4);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  animation: questSlideIn 0.4s ease-out;
+  box-shadow: 0 4px 12px rgba(201, 162, 39, 0.2);
+}
+@keyframes questSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.quest-notif-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(201, 162, 39, 0.3));
+}
+.quest-notif-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.quest-notif-header {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+  opacity: 0.8;
+}
+.quest-notif-title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  color: var(--text-parchment);
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+.quest-notif-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin-top: 2px;
+}
 .error-text { opacity: 1 !important; color: #c97a4a !important; }
 
 /* DM Thinking Indicator */
@@ -2942,6 +3000,14 @@ input[type=range]::-webkit-slider-thumb {
 .slot-name { font-family: var(--font-heading); font-size: 14px; color: var(--text-parchment); }
 .slot-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 .slot-actions { display: flex; gap: 6px; }
+.character-import-export {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 12px 0 8px;
+  border-top: 1px solid rgba(201, 162, 39, 0.15);
+  margin-top: 12px;
+}
 .autosave-info { font-size: 11px; color: var(--text-dim); text-align: center; }
 
 /* ── Level Up Modal ─────────────────────────────────────────────────────────── */

@@ -1708,12 +1708,18 @@ class CharacterSystem {
       `<div class="equip-item"><span class="equip-icon">⚔</span>${e}</div>`
     ).join('');
     
-    // Gold - pull from inventory system (source of truth)
+    // Currency breakdown - pull from inventory system (source of truth)
+    const totalCurrency = window.inventorySystem?.currency || 0;
+    const gp = Math.floor(totalCurrency / 100);
+    const sp = Math.floor((totalCurrency % 100) / 10);
+    const cp = totalCurrency % 10;
+    
     const goldEl = document.getElementById('s-gold');
-    if (goldEl) {
-      const inventoryGold = Math.floor((window.inventorySystem?.currency || 0) / 100);
-      goldEl.textContent = inventoryGold;
-    }
+    const silverEl = document.getElementById('s-silver');
+    const copperEl = document.getElementById('s-copper');
+    if (goldEl) goldEl.textContent = gp;
+    if (silverEl) silverEl.textContent = sp;
+    if (copperEl) copperEl.textContent = cp;
 
     document.getElementById('char-notes').value = c.notes || '';
     // Wire contenteditable fields: select-all on focus, Enter = blur

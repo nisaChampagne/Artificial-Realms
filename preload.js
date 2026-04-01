@@ -12,8 +12,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listSaves:      ()           => ipcRenderer.invoke('save:list'),
   deleteSave:     (slot)       => ipcRenderer.invoke('save:delete', slot),
   exportSave:     (slot)       => ipcRenderer.invoke('save:export', slot),
+  importSave:     ()           => ipcRenderer.invoke('save:import'),
   openSavesFolder: ()          => ipcRenderer.invoke('save:open-folder'),
   getSavesDir:    ()           => ipcRenderer.invoke('save:dir'),
+
+  // Characters
+  exportCharacter: (character) => ipcRenderer.invoke('character:export', character),
+  importCharacter: ()          => ipcRenderer.invoke('character:import'),
 
   // Settings
   getSettings:  ()         => ipcRenderer.invoke('settings:get'),

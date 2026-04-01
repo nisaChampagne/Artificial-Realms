@@ -20,6 +20,7 @@ class SaveSystem {
       journal:          window.journalSystem?.serialize()           || null,
       inventory:        window.inventorySystem?.serialize()         || null,
       worldState:       window.worldState?.serialize()              || null,
+      achievements:     window.achievementSystem?.serialize()       || null,
       savedAt:          new Date().toLocaleString(),
     };
   }
@@ -73,6 +74,9 @@ class SaveSystem {
 
       // Restore world state
       window.worldState?.restore(data.worldState || null);
+
+      // Restore achievements
+      window.achievementSystem?.load(data.achievements || null);
 
       // Restore scene — must show screen first so canvas has dimensions
       window.app.showScreen('game');
@@ -301,11 +305,105 @@ class SaveSystem {
     });
   }
 
+  // ── Character Import / Export ────────────────────────────────
+  async exportCharacter() {
+    const character = window.characterSystem?.character;
+    if (!character || !character.name) {
+      window.app?.showToast('No character to export', 'error');
+      return;
+    }
+    try {
+      const result = await window.electronAPI.exportCharacter(character);
+      if (result.success) {
+        window.app?.showToast('Character exported successfully', 'success');
+      }
+    } catch (err) {
+      window.app?.showToast('Export failed: ' + err.message, 'error');
+    }
+  }
+
+  async importCharacter() {
+    try {
+      const result = await window.electronAPI.importCharacter();
+      if (!result.success) {
+        if (result.error) window.app?.showToast('Import failed: ' + result.error, 'error');
+        return;
+      }
+      
+      // Validate and normalize character data
+      const char = result.character;
+      if (!char.name || !char.class || !char.race) {
+        window.app?.showToast('Invalid character file', 'error');
+        return;
+      }
+
+      // Normalize fields for compatibility
+      char.conditions    = char.conditions    ?? [];
+      char.inspiration   = char.inspiration   ?? false;
+      char.initiative    = char.initiative    ?? { active: false, order: [], currentIndex: 0, playerRoll: 0 };
+      char.concentration = char.concentration ?? null;
+      char.tempHp        = char.tempHp        ?? 0;
+
+      // Set the character
+      window.characterSystem.character = char;
+      
+      // Update UI if we're in the game screen
+      if (document.getElementById('screen-game').classList.contains('active')) {
+        window.characterSystem.updateHUD();
+        window.mapSystem?.updateSprite(char.appearance || {});
+        window.app?.showToast(`Loaded ${char.name}`, 'success');
+      } else {
+        window.app?.showToast(`Imported ${char.name}. Start a new campaign to play.`, 'success');
+      }
+      
+      this.close();
+    } catch (err) {
+      window.app?.showToast('Import failed: ' + err.message, 'error');
+    }
+  }
+
+  async importSave() {
+    try {
+      const result = await window.electronAPI.importSave();
+      if (!result.success) {
+        if (result.error) window.app?.showToast('Import failed: ' + result.error, 'error');
+        return;
+      }
+
+      // Use the existing load logic with imported data
+      const data = result.data;
+      if (!data || !data.character) {
+        window.app?.showToast('Invalid save file', 'error');
+        return;
+      }
+
+      // Ask user which slot to import to
+      const slot = prompt('Import to which slot? (1, 2, or 3)', '1');
+      if (!slot || !['1', '2', '3'].includes(slot)) {
+        window.app?.showToast('Import cancelled', 'error');
+        return;
+      }
+
+      // Save the imported data
+      await window.electronAPI.saveGame(slot, data);
+      window.app?.showToast(`Imported to Slot ${slot}`, 'success');
+      this.renderSlots();
+      if (window.app?.currentScreen === 'settings') {
+        this.renderManagementSlots();
+      }
+    } catch (err) {
+      window.app?.showToast('Import failed: ' + err.message, 'error');
+    }
+  }
+
   init() {
     document.getElementById('close-modal-save').onclick = () => this.close();
     document.getElementById('tab-save-btn').onclick = () => this.setMode('save');
     document.getElementById('tab-load-btn').onclick = () => this.setMode('load');
     document.getElementById('btn-game-save').onclick = () => this.open();
+    document.getElementById('btn-export-character').onclick = () => this.exportCharacter();
+    document.getElementById('btn-import-character').onclick = () => this.importCharacter();
+    document.getElementById('btn-import-save').onclick = () => this.importSave();
   }
 }
 
