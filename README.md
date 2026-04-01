@@ -152,7 +152,7 @@ The workflow (`release.yaml`):
 3. Runs `npm run make` (Electron Forge — Squirrel installer + ZIP)
 4. Uploads `ArtificialRealms-{version}-Setup.exe` as a release asset
 
-**Latest release:** `v2.2.4`
+**Latest release:** `v2.2.5`
 
 To cut a new release:
 1. Bump `version` in `package.json`
