@@ -1494,7 +1494,7 @@ class CharacterSystem {
           } else {
             slot.current = idx + 1;
           }
-          this.openSheet(); // Refresh
+          this.refreshSheet(); // Refresh
         });
       });
     } else {
@@ -1548,7 +1548,7 @@ class CharacterSystem {
           } else {
             resource.current = idx + 1;
           }
-          this.openSheet(); // Refresh
+          this.refreshSheet(); // Refresh
         });
       });
 
@@ -1567,7 +1567,7 @@ class CharacterSystem {
           } else if (action === 'reset') {
             resource.current = resource.max;
           }
-          this.openSheet(); // Refresh
+          this.refreshSheet(); // Refresh
         });
       });
     } else {
@@ -1584,7 +1584,7 @@ class CharacterSystem {
       document.getElementById('concentration-spell').textContent = c.concentration.spell;
       document.getElementById('btn-drop-concentration').onclick = () => {
         c.concentration = null;
-        this.openSheet();
+        this.refreshSheet();
         window.app?.showToast('Dropped concentration', 'info');
       };
     } else {
@@ -1755,7 +1755,21 @@ class CharacterSystem {
     }
     // Ensure Stats tab is shown when sheet opens
     this._switchSheetTab('stats');
-    document.getElementById('modal-char').classList.remove('hidden');
+    // Only show modal if it's not already visible
+    const modal = document.getElementById('modal-char');
+    if (modal.classList.contains('hidden')) {
+      modal.classList.remove('hidden');
+    }
+  }
+
+  refreshSheet() {
+    // Update sheet content without changing visibility
+    const modal = document.getElementById('modal-char');
+    const wasHidden = modal.classList.contains('hidden');
+    this.openSheet();
+    if (wasHidden) {
+      modal.classList.add('hidden');
+    }
   }
 
   closeSheet() {
@@ -1841,7 +1855,7 @@ class CharacterSystem {
       this.useAction(resource.actionType);
     }
     
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
     window.app?.showToast(`Used ${resource.name}!`, 'success');
     return true;
   }
@@ -1871,7 +1885,7 @@ class CharacterSystem {
       c.concentration = { spell: spellName, dc: null };
     }
     
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
     return true;
   }
 
@@ -1890,7 +1904,7 @@ class CharacterSystem {
       window.app?.showToast(`Afflicted with ${name} for ${duration} rounds!`, 'error');
     }
     
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
   }
 
   removeCondition(name) {
@@ -1899,7 +1913,7 @@ class CharacterSystem {
     
     c.conditions = c.conditions.filter(cond => cond.name !== name);
     window.app?.showToast(`${name} removed!`, 'success');
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
   }
 
   decrementConditions() {
@@ -1918,7 +1932,7 @@ class CharacterSystem {
     
     if (expired.length > 0) {
       window.app?.showToast(`Conditions expired: ${expired.join(', ')}`, 'info');
-      this.openSheet(); // Refresh UI
+      this.refreshSheet(); // Refresh UI
     }
   }
 
@@ -1932,7 +1946,7 @@ class CharacterSystem {
     } else {
       c.inspiration = true;
       window.app?.showToast('⭐ Inspiration awarded!', 'success');
-      this.openSheet(); // Refresh UI
+      this.refreshSheet(); // Refresh UI
     }
   }
 
@@ -1944,7 +1958,7 @@ class CharacterSystem {
     c.inspiration = false;
     window.app?.showToast('⭐ Inspiration spent for advantage!', 'info');
     window.achievementSystem?.track('inspiration_used');
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
     return true;
   }
 
@@ -1975,7 +1989,7 @@ class CharacterSystem {
     }
 
     this._updateCombatHUD();
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI without opening
   }
 
   nextTurn() {
@@ -2000,7 +2014,7 @@ class CharacterSystem {
 
     window.app?.showToast(`${current.name}'s turn`, 'info');
     this._updateCombatHUD();
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI without opening
   }
 
   endInitiative() {
@@ -2010,7 +2024,7 @@ class CharacterSystem {
     c.initiative = { active: false, order: [], currentIndex: 0, playerRoll: 0, round: 1 };
     window.app?.showToast('Combat ended', 'success');
     this._updateCombatHUD();
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI without opening
   }
 
   _updateCombatHUD() {
@@ -2179,7 +2193,7 @@ class CharacterSystem {
     const amt   = parseInt(document.getElementById('sh-hp-amt').value) || 1;
     const change = delta > 0 ? amt : -amt;
     this.character.currentHp = Math.max(0, Math.min(this.character.maxHp, this.character.currentHp + change));
-    this.openSheet();
+    this.refreshSheet();
     this.updateHUD();
     if (this.character.currentHp === 0) {
       window.app.showToast('⚠ You have fallen! You are at 0 HP.', 'error');
@@ -2204,7 +2218,7 @@ class CharacterSystem {
           c.tempHp -= damage;
           window.app?.showToast(`Temp HP absorbed ${damage} damage (${c.tempHp} temp HP remaining)`, 'info');
           this.updateHUD();
-          this.openSheet();
+          this.refreshSheet();
           return; // No damage to real HP
         } else {
           const remaining = damage - c.tempHp;
@@ -2234,7 +2248,7 @@ class CharacterSystem {
       window.app?.showToast(`Already have ${c.tempHp} temp HP (kept higher value)`, 'info');
     }
     this.updateHUD();
-    this.openSheet();
+    this.refreshSheet();
   }
 
   _checkConcentration(damage) {
@@ -2251,7 +2265,7 @@ class CharacterSystem {
       } else {
         window.app?.showToast(`Lost concentration on ${c.concentration.spell}!`, 'error');
         c.concentration = null;
-        this.openSheet(); // Refresh UI
+        this.refreshSheet(); // Refresh UI
       }
     });
   }

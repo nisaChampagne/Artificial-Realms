@@ -144,6 +144,10 @@ class DiceSystem {
       this._showResult(rolls, total, breakdown, sides, dc, success);
       this._addHistory(sides, rolls, mod, total);
       callback?.({ total, rolls, breakdown, dc, success });
+      // Auto-close modal after 2 seconds if this was a prompted roll
+      if (callback) {
+        setTimeout(() => this.closeModal(), 2000);
+      }
     });
 
     return { total, rolls, breakdown, dc, success };

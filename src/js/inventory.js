@@ -410,16 +410,79 @@ class InventorySystem {
 
   // ── Market ──────────────────────────────────────────────────
   _itemValue(item) {
-    // Base sell price in copper (50% of typical market value)
-    const base = {
-      'common':    100,    // 1 gp base  → sell 50 cp
-      'uncommon':  1000,   // 10 gp base → sell 5 gp
-      'rare':      5000,   // 50 gp base → sell 25 gp
-      'very rare': 20000,  // 200 gp     → sell 100 gp
-      'legendary': 100000, // 1000 gp    → sell 500 gp
+    // If item has rarity, use rarity-based pricing (sell price = 50% of market value)
+    const rarityPrice = {
+      'common':    100,    // sell 1 gp
+      'uncommon':  1000,   // sell 10 gp
+      'rare':      5000,   // sell 50 gp
+      'very rare': 20000,  // sell 200 gp
+      'legendary': 100000, // sell 1000 gp
       'artifact':  0,      // priceless — not sellable
-    }[(item.rarity || '').toLowerCase()] ?? 50; // default ~5 sp
-    return Math.floor(base / 2);
+    }[(item.rarity || '').toLowerCase()];
+    
+    if (rarityPrice !== undefined) return rarityPrice;
+    
+    // For items without rarity, price by type and name patterns
+    const name = item.name.toLowerCase();
+    
+    // Weapons - price based on weapon type
+    if (item.type === 'Weapon') {
+      if (/\b(club|dagger|sickle|quarterstaff)\b/.test(name)) return 10; // simple weapons (1 sp)
+      if (/\b(handaxe|javelin|spear|mace)\b/.test(name)) return 25; // simple/common (2.5 sp)
+      if (/\b(shortsword|scimitar|rapier)\b/.test(name)) return 50; // martial light (5 sp)
+      if (/\b(longsword|battleaxe|warhammer)\b/.test(name)) return 75; // martial one-handed (7.5 sp)
+      if (/\b(greatsword|greataxe|maul)\b/.test(name)) return 150; // martial two-handed (15 sp)
+      if (/\b(shortbow|light crossbow)\b/.test(name)) return 125; // simple ranged (12.5 sp)
+      if (/\b(longbow|heavy crossbow)\b/.test(name)) return 250; // martial ranged (25 sp)
+      return 50; // default weapon
+    }
+    
+    // Armor - price based on armor type
+    if (item.type === 'Armor') {
+      if (/\b(padded|leather)\b/.test(name)) return 50; // light armor (5 sp)
+      if (/\b(studded)\b/.test(name)) return 225; // studded leather (22.5 sp)
+      if (/\b(hide|chain shirt)\b/.test(name)) return 50; // medium armor (5-25 sp)
+      if (/\b(scale|breastplate)\b/.test(name)) return 200; // better medium (20-200 sp)
+      if (/\b(half.?plate)\b/.test(name)) return 3750; // half plate (375 sp)
+      if (/\b(ring|chain mail)\b/.test(name)) return 150; // heavy armor (15-375 sp)
+      if (/\b(splint)\b/.test(name)) return 1000; // splint (100 sp)
+      if (/\b(plate)\b/.test(name)) return 7500; // plate (750 sp)
+      return 100; // default armor
+    }
+    
+    if (item.type === 'Shield') return 50; // 5 sp
+    
+    // Clothing/Wearables
+    if (item.type === 'Cloak') return 25; // 2.5 sp
+    if (item.type === 'Head') return 25;
+    if (item.type === 'Feet') return 20;
+    if (item.type === 'Hands') return 20;
+    if (item.type === 'Ring') return 50;
+    if (item.type === 'Amulet') return 50;
+    
+    // Consumables - estimate by name
+    if (item.type === 'Consumable') {
+      if (/\bhealing\b/.test(name) && !/greater|superior|supreme/.test(name)) return 250; // basic healing potion (25 sp)
+      if (/\bgreater.*healing\b/.test(name)) return 1000; // greater healing (100 sp)
+      if (/\bsuperior.*healing\b/.test(name)) return 5000; // superior healing (500 sp)
+      if (/\bsupreme.*healing\b/.test(name)) return 25000; // supreme healing (2500 sp)
+      if (/\b(antitoxin|holy water)\b/.test(name)) return 150; // utility potions (15 sp)
+      return 100; // default potion (10 sp)
+    }
+    
+    if (item.type === 'Scroll') return 150; // 15 sp for common scrolls
+    
+    // Valuables
+    if (item.type === 'Gem') return 500; // 50 sp default gem
+    if (item.type === 'Map') return 50;
+    if (item.type === 'Key') return 10;
+    if (item.type === 'Document') return 25;
+    
+    // Wondrous items and misc
+    if (/\b(pack|kit)\b/.test(name)) return 25; // explorer's pack, etc. (2.5 sp)
+    if (/\b(rope|bedroll|torch|ration)\b/.test(name)) return 5; // basic gear (0.5 sp)
+    
+    return 50; // default fallback (5 sp)
   }
 
   // Shop catalog with items for purchase (prices in copper pieces)

@@ -1151,6 +1151,7 @@
         <button class="tab-btn" data-help-tab="toolbar">🧰 Toolbar</button>
         <button class="tab-btn" data-help-tab="economy">🪙 Economy</button>
         <button class="tab-btn" data-help-tab="xp">⭐ XP</button>
+        <button class="tab-btn" data-help-tab="achievements">🏆 Achievements</button>
         <button class="tab-btn" data-help-tab="tips">💡 Tips</button>
       </div>
 
@@ -1169,6 +1170,12 @@
           <div class="help-row"><span class="help-icon">🌍</span><div>Your choices shape the world. NPCs remember you, quests branch, and consequences are real.</div></div>
           <div class="help-row"><span class="help-icon">🎲</span><div>The DM will ask you to roll dice at key moments — a prompt appears above the input box.</div></div>
         </div>
+        <div class="help-section">
+          <div class="help-section-title">Quest Tracking</div>
+          <div class="help-row"><span class="help-icon">📋</span><div><strong>Accepting quests</strong> — quests are only logged in your Journal when you <em>accept</em> them, not just when they're offered. Say "I accept" or "Yes, I'll help" to track it.</div></div>
+          <div class="help-row"><span class="help-icon">✅</span><div><strong>Quest status</strong> — tracked as Active, Completed, or Failed. Quest completion triggers XP rewards and counts toward achievements.</div></div>
+          <div class="help-row"><span class="help-icon">📓</span><div><strong>View quests</strong> — open your Journal (toolbar or press <span class="help-kbd">J</span>) and check the Quests tab to see your current objectives.</div></div>
+        </div>
       </div>
 
       <!-- Combat -->
@@ -1183,8 +1190,8 @@
         <div class="help-section">
           <div class="help-section-title">Hit Points & Damage</div>
           <div class="help-row"><span class="help-icon">♥</span><div><strong>HP to 0</strong> — triggers Death Saving Throws. Roll d20 each turn. Need <strong>10+</strong> to succeed.</div></div>
-          <div class="help-row"><span class="help-icon">✔</span><div><strong>2 successes</strong> before 2 failures — you stabilize at 1 HP.</div></div>
-          <div class="help-row"><span class="help-icon">✖</span><div><strong>2 failures</strong> before 2 successes — your character dies. A natural 1 counts as 2 failures.</div></div>
+          <div class="help-row"><span class="help-icon">✔</span><div><strong>3 successes</strong> before 3 failures — you stabilize at 0 HP (unconscious but stable).</div></div>
+          <div class="help-row"><span class="help-icon">✖</span><div><strong>3 failures</strong> before 3 successes — your character dies. A natural 1 counts as 2 failures; a natural 20 instantly restores 1 HP.</div></div>
           <div class="help-row"><span class="help-icon">🛡</span><div><strong>Temporary HP</strong> — blue shield displayed above your HP bar. Absorbs damage first before real HP. Doesn't stack (keeps highest value).</div></div>
           <div class="help-row"><span class="help-icon">🩹</span><div><strong>Healing</strong> — potions (use from Inventory), spells, or a Rest restore HP. Temp HP can't be healed.</div></div>
         </div>
@@ -1244,19 +1251,33 @@
           <div class="help-row"><span class="help-icon">🌙</span><div><strong>Rest</strong> — take a Short or Long Rest to recover HP.</div></div>
           <div class="help-row"><span class="help-icon">📖</span><div><strong>Rules</strong> — search the official D&amp;D 5e SRD: spells, conditions, equipment, monsters, and more.</div></div>
           <div class="help-row"><span class="help-icon">👁</span><div><strong>Perception</strong> — log of all passive and active perception checks made during this session.</div></div>
-          <div class="help-row"><span class="help-icon">📓</span><div><strong>Journal</strong> — auto-captured NPCs, world lore, and key decisions. Tabs: NPCs · Lore · Decisions.</div></div>
+          <div class="help-row"><span class="help-icon">📓</span><div><strong>Journal</strong> — auto-captured NPCs, world lore, key decisions, and quests. Tabs: NPCs · Lore · Decisions · Quests.</div></div>
           <div class="help-row"><span class="help-icon">🎒</span><div><strong>Inventory</strong> — manage your equipped and carried items. Tap an item to inspect, equip, use, or drop it.</div></div>
           <div class="help-row"><span class="help-icon">🔇</span><div><strong>DM Voice</strong> — toggles text-to-speech narration of the Dungeon Master's responses.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Character Management</div>
+          <div class="help-row"><span class="help-icon">📤</span><div><strong>Export Character</strong> — save your current character as a JSON file. Found in the Character Creation screen. Useful for backups or sharing characters.</div></div>
+          <div class="help-row"><span class="help-icon">📥</span><div><strong>Import Character</strong> — load a character from a JSON file. Creates a new save slot with the imported character.</div></div>
+          <div class="help-row"><span class="help-icon">🎭</span><div><strong>Premade Heroes</strong> — 8 ready-to-play characters covering all major classes. Perfect for jumping straight into the adventure.</div></div>
         </div>
         <div class="help-section">
           <div class="help-section-title">Saving Your Game</div>
           <div class="help-row"><span class="help-icon">💾</span><div><strong>Save</strong> (header button) — up to 5 named manual save slots.</div></div>
           <div class="help-row"><span class="help-icon">⏲</span><div><strong>Autosave</strong> — your game is saved automatically every 5 minutes to slot 0.</div></div>
+          <div class="help-row"><span class="help-icon">⬆</span><div><strong>Auto-updates</strong> — when a new version is available, a banner appears at the top. Click to download and install.</div></div>
         </div>
         <div class="help-section">
           <div class="help-section-title">Keyboard Shortcuts</div>
-          <div class="help-row"><span class="help-kbd">Enter</span><div>Send your message.</div></div>
-          <div class="help-row"><span class="help-kbd">Ctrl+Shift+I</span><div>Open the developer console.</div></div>
+          <div class="help-row"><span class="help-kbd">1</span>–<span class="help-kbd">4</span><div>Pick a numbered choice from the latest story options.</div></div>
+          <div class="help-row"><span class="help-kbd">R</span><div>Roll the dice when a dice prompt appears (initiative or skill check).</div></div>
+          <div class="help-row"><span class="help-kbd">C</span><div>Open Character Sheet.</div></div>
+          <div class="help-row"><span class="help-kbd">D</span><div>Open Dice Roller.</div></div>
+          <div class="help-row"><span class="help-kbd">J</span><div>Open Journal.</div></div>
+          <div class="help-row"><span class="help-kbd">P</span><div>Open Perception Log.</div></div>
+          <div class="help-row"><span class="help-kbd">Esc</span><div>Close any open modal (except death saves, level up, or initiative).</div></div>
+          <div class="help-row"><span class="help-kbd">Enter</span><div>Send your message or confirm initiative result.</div></div>
+          <div class="help-row"><span class="help-kbd">Ctrl+Shift+I</span><div>Open the developer console (for troubleshooting).</div></div>
         </div>
       </div>
 
@@ -1321,6 +1342,44 @@
         </div>
       </div>
 
+      <!-- Achievements -->
+      <div class="help-panel hidden" id="help-panel-achievements">
+        <div class="help-section">
+          <div class="help-section-title">What Are Achievements?</div>
+          <div class="help-row"><span class="help-icon">🏆</span><div><strong>Milestone tracking</strong> — achievements are special milestones that unlock as you progress. Each character has their own achievement progress.</div></div>
+          <div class="help-row"><span class="help-icon">🎉</span><div><strong>Unlocking</strong> — when you earn an achievement, a toast notification appears with the achievement name and icon.</div></div>
+          <div class="help-row"><span class="help-icon">💾</span><div><strong>Per-character</strong> — achievements are saved with each character. Starting a new character resets achievement progress for that save.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Combat Achievements</div>
+          <div class="help-row"><span class="help-icon">⚔</span><div><strong>First Blood</strong> — defeat your first enemy in combat.</div></div>
+          <div class="help-row"><span class="help-icon">🐲</span><div><strong>Boss Slayer</strong> — defeat a boss-level enemy.</div></div>
+          <div class="help-row"><span class="help-icon">💀</span><div><strong>Survivor</strong> — succeed on a Death Saving Throw.</div></div>
+          <div class="help-row"><span class="help-icon">❤</span><div><strong>Iron Will</strong> — survive with 3 HP or less.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Progression Achievements</div>
+          <div class="help-row"><span class="help-icon">⭐</span><div><strong>Rising Star</strong> — reach Level 2.</div></div>
+          <div class="help-row"><span class="help-icon">🏆</span><div><strong>Champion</strong> — reach Level 5 (major power spike).</div></div>
+          <div class="help-row"><span class="help-icon">🌙</span><div><strong>Well Rested</strong> — take your first Long Rest.</div></div>
+          <div class="help-row"><span class="help-icon">✨</span><div><strong>Inspired</strong> — spend Inspiration on a roll.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Exploration Achievements</div>
+          <div class="help-row"><span class="help-icon">📜</span><div><strong>Lore Hunter</strong> — discover 5 pieces of world lore (check Journal → Lore tab).</div></div>
+          <div class="help-row"><span class="help-icon">📋</span><div><strong>Quest Master</strong> — complete 3 quests.</div></div>
+          <div class="help-row"><span class="help-icon">📖</span><div><strong>Storyteller</strong> — play through 50 narrative turns (back-and-forth exchanges with the DM).</div></div>
+          <div class="help-row"><span class="help-icon">🎒</span><div><strong>Pack Rat</strong> — carry 10 or more items at once in your inventory.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Tips for Achievement Hunters</div>
+          <div class="help-row"><span class="help-icon">🔍</span><div>Explore thoroughly — lore is hidden in books, inscriptions, and NPC conversations.</div></div>
+          <div class="help-row"><span class="help-icon">📓</span><div>Accept quests when offered — only accepted quests count toward Quest Master.</div></div>
+          <div class="help-row"><span class="help-icon">🎲</span><div>Take risks — surviving near-death encounters and boss fights earns unique achievements.</div></div>
+          <div class="help-row"><span class="help-icon">🌙</span><div>Don't rush — rest when needed to unlock Well Rested and maintain health for tough fights.</div></div>
+        </div>
+      </div>
+
       <!-- Tips -->
       <div class="help-panel hidden" id="help-panel-tips">
         <div class="help-section">
@@ -1328,11 +1387,33 @@
           <div class="help-row"><span class="help-icon">🗣</span><div><strong>Be specific.</strong> "I carefully examine the inscription on the door" gets a richer response than "I look at the door".</div></div>
           <div class="help-row"><span class="help-icon">🔍</span><div><strong>Search everything.</strong> Say "I search the room" or "I check for traps" — hidden items and secrets await.</div></div>
           <div class="help-row"><span class="help-icon">🤝</span><div><strong>Talk to NPCs.</strong> Most characters have knowledge, quests, or goods. Ask them questions by name.</div></div>
-          <div class="help-row"><span class="help-icon">📓</span><div><strong>Check your Journal.</strong> NPC names, lore clues, and decisions are auto-captured so you never lose track.</div></div>
+          <div class="help-row"><span class="help-icon">📓</span><div><strong>Check your Journal.</strong> NPC names, lore clues, decisions, and quests are auto-captured so you never lose track.</div></div>
           <div class="help-row"><span class="help-icon">🌍</span><div><strong>Change the scene.</strong> Say "I travel to the nearest town" or "I enter the dungeon" and the map will update to match.</div></div>
           <div class="help-row"><span class="help-icon">💡</span><div><strong>Use the Rules panel</strong> when unsure about a spell, condition, or rule — search right inside the game without alt-tabbing.</div></div>
           <div class="help-row"><span class="help-icon">💾</span><div><strong>Save often.</strong> Auto-save runs every 5 minutes, but manual saves protect against unexpected crashes.</div></div>
           <div class="help-row"><span class="help-icon">🔊</span><div><strong>Turn up the volume.</strong> The ambient music changes with each scene — dungeon, forest, tavern, manor, and more.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Combat Tips</div>
+          <div class="help-row"><span class="help-icon">🎯</span><div><strong>Know your modifiers.</strong> Check your character sheet for attack bonuses, spell save DC, and skill proficiencies before rolling.</div></div>
+          <div class="help-row"><span class="help-icon">🛡</span><div><strong>Armor Class matters.</strong> Higher AC enemies require better rolls to hit. Consider using spells with saving throws instead.</div></div>
+          <div class="help-row"><span class="help-icon">✨</span><div><strong>Manage spell slots.</strong> Don't waste high-level slots on weak enemies — save them for bosses and tough fights.</div></div>
+          <div class="help-row"><span class="help-icon">🧠</span><div><strong>Break concentration strategically.</strong> If an enemy is under your concentration spell, taking damage might break it. Position wisely.</div></div>
+          <div class="help-row"><span class="help-icon">⚡</span><div><strong>Use class features.</strong> Second Wind, Rage, Ki Points, and other resources recharge on rests — don't hoard them!</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Roleplaying Tips</div>
+          <div class="help-row"><span class="help-icon">🎭</span><div><strong>Get into character.</strong> Describe actions in first person ("I draw my sword and glare at him") for immersive responses.</div></div>
+          <div class="help-row"><span class="help-icon">❓</span><div><strong>Ask follow-up questions.</strong> "What does the altar look like?" or "Do I recognize this symbol?" deepens the narrative.</div></div>
+          <div class="help-row"><span class="help-icon">🎲</span><div><strong>Embrace failure.</strong> Failed rolls create memorable stories. A botched persuasion check can lead to unexpected plot twists.</div></div>
+          <div class="help-row"><span class="help-icon">📋</span><div><strong>Track your goals.</strong> Keep your active quests in mind and mention them to NPCs — they might have relevant information.</div></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Demo Mode & Settings</div>
+          <div class="help-row"><span class="help-icon">🎮</span><div><strong>Try Demo Mode first.</strong> No API key needed — experience a fully scripted adventure from tavern to boss fight.</div></div>
+          <div class="help-row"><span class="help-icon">🤖</span><div><strong>Choose your AI provider.</strong> OpenAI (ChatGPT), Anthropic (Claude), Google (Gemini), or Ollama (local/free) are all supported.</div></div>
+          <div class="help-row"><span class="help-icon">🔧</span><div><strong>Test your connection.</strong> Use the connection test button in Settings to verify your API key and model work before starting.</div></div>
+          <div class="help-row"><span class="help-icon">🔊</span><div><strong>Customize TTS.</strong> Adjust text-to-speech voice, speed, and pitch in Settings for the perfect narration experience.</div></div>
         </div>
       </div>
 
