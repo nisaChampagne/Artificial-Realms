@@ -1,6 +1,6 @@
 {
   "name": "artificial-realms",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "An AI-powered Dungeons & Dragons interactive experience",
   "main": "main.js",
   "scripts": {
