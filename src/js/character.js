@@ -140,6 +140,86 @@ const CLASS_FEATURES = {
   barbarian: [{ name:'Rage', desc:'Bonus action rage for advantage on STR checks, +2 damage, resistance to physical damage.' }, { name:'Unarmored Defense', desc:'AC = 10 + DEX mod + CON mod when wearing no armor.' }, { name:'Reckless Attack', desc:'Advantage on first ATK roll of your turn; enemies also have advantage until next turn.' }],
 };
 
+// Key class features unlocked at each level (2–5 per class)
+const CLASS_LEVEL_FEATURES = {
+  fighter: {
+    2: [{ name:'Action Surge', desc:'Once per short rest, take one additional action on your turn.' }],
+    3: [{ name:'Martial Archetype', desc:'Choose a subclass: Champion, Battle Master, or Eldritch Knight. Each grants unique techniques.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
+  },
+  wizard: {
+    2: [{ name:'Arcane Tradition', desc:'Choose a school of magic: Evocation, Illusion, Abjuration, Divination, Necromancy, or Transmutation.' }],
+    3: [{ name:'3rd-Level Spells', desc:'Access to powerful 3rd-level spells. Your Arcane Recovery grows stronger.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'3rd-Level Spell Slots', desc:'Gain two 3rd-level spell slots. Your wizard power reaches a new tier.' }],
+  },
+  rogue: {
+    2: [{ name:'Cunning Action', desc:'As a bonus action: Dash, Disengage, or Hide.' }],
+    3: [{ name:'Roguish Archetype', desc:'Choose a subclass: Thief, Assassin, or Arcane Trickster.' }, { name:'Sneak Attack +1d6', desc:'Sneak Attack now deals 2d6 extra damage on a qualifying hit.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Uncanny Dodge', desc:'When hit by an attack you can see, use your reaction to halve the damage.' }],
+  },
+  cleric: {
+    2: [{ name:'Channel Divinity (2/rest)', desc:'Use Channel Divinity twice per short rest. Options depend on your Divine Domain.' }],
+    3: [{ name:'3rd-Level Spells', desc:'Access to 3rd-level divine spells. Your holy power deepens.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Destroy Undead', desc:'When Turn Undead succeeds, undead of CR 1/2 or lower are instantly destroyed.' }],
+  },
+  ranger: {
+    2: [{ name:'Fighting Style', desc:'Choose a fighting style: Archery (+2 ranged), Defense (+1 AC), or Two-Weapon Fighting.' }, { name:'Spellcasting', desc:'Cast ranger spells using WIS as your spellcasting ability.' }],
+    3: [{ name:'Primeval Awareness', desc:'Expend a spell slot to sense creatures of certain types within 1 mile (6 in favored terrain).' }, { name:'Ranger Conclave', desc:'Choose a subclass: Hunter, Beast Master, or Gloom Stalker.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
+  },
+  paladin: {
+    2: [{ name:'Divine Smite', desc:'Expend a spell slot on a melee hit to add 2d8 radiant damage (+1d8 per slot level above 1st).' }, { name:'Fighting Style', desc:'Choose a style: Defense, Dueling, or Great Weapon Fighting.' }, { name:'Spellcasting', desc:'Cast paladin spells using CHA as your spellcasting ability.' }],
+    3: [{ name:'Divine Health', desc:'You are immune to disease.' }, { name:'Sacred Oath', desc:'Choose your oath: Devotion, the Ancients, or Vengeance. Gain oath spells and Channel Divinity options.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
+  },
+  druid: {
+    2: [{ name:'Wild Shape', desc:'Transform into a Beast of CR 1/4 or lower twice per short rest. Lasts 1 hour per druid level.' }, { name:'Druid Circle', desc:'Choose a subclass: Circle of the Land or Circle of the Moon.' }],
+    3: [{ name:'3rd-Level Spells', desc:'Access to 3rd-level nature spells.' }],
+    4: [{ name:'Wild Shape Improvement', desc:'Wild Shape now allows CR 1/2 beasts without flying speed.' }, { name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Wild Shape (CR 1)', desc:'Wild Shape allows CR 1 beasts with a swimming speed.' }],
+  },
+  bard: {
+    2: [{ name:'Jack of All Trades', desc:'Add half your proficiency bonus to any skill check you are not proficient in.' }, { name:'Song of Rest', desc:'Allies spending Hit Dice on a short rest regain 1d6 extra HP.' }],
+    3: [{ name:'Bard College', desc:'Choose a subclass: College of Lore (extra skills, cutting words) or College of Valor (combat magic).' }, { name:'Expertise', desc:'Double your proficiency bonus for two skills of your choice.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Bardic Inspiration d8', desc:'Your Bardic Inspiration die becomes a d8. Font of Inspiration: regain uses on short rest.' }],
+  },
+  warlock: {
+    2: [{ name:'Eldritch Invocations', desc:'Choose 2 Eldritch Invocations: Agonizing Blast, Devil\'s Sight, Mask of Many Faces, Misty Visions, etc.' }],
+    3: [{ name:'Pact Boon', desc:'Choose: Pact of the Chain (familiar), Pact of the Blade (summoned weapon), or Pact of the Tome (3 cantrips + ritual spells).' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'3rd-Level Pact Slots', desc:'Your pact magic slots are now 3rd level. Gain a 3rd Eldritch Invocation.' }],
+  },
+  sorcerer: {
+    2: [{ name:'Font of Magic', desc:'Gain Sorcery Points equal to your sorcerer level. Convert slots to points (1:1) or points to slots (2 pts → 1st level, etc.).' }],
+    3: [{ name:'Metamagic', desc:'Choose 2 Metamagic options: Careful, Distant, Empowered, Extended, Heightened, Quickened, Subtle, or Twinned Spell.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'3rd-Level Spells', desc:'Gain two 3rd-level spell slots. Sorcery Points increase to 5.' }],
+  },
+  monk: {
+    2: [{ name:'Ki', desc:'Gain 2 Ki Points. Use for Flurry of Blows (2 bonus unarmed strikes), Patient Defense (Dodge), or Step of the Wind (Dash/Disengage).' }, { name:'Unarmored Movement', desc:'Speed increases by 10 ft while not wearing armor.' }],
+    3: [{ name:'Monastic Tradition', desc:'Choose a tradition: Way of the Open Hand, Way of Shadow, or Way of the Four Elements.' }, { name:'Deflect Missiles', desc:'Reaction: reduce ranged damage by 1d10 + DEX + monk level. At 0, catch and throw it back.' }],
+    4: [{ name:'Slow Fall', desc:'Reaction: reduce falling damage by 5× monk level.' }, { name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice when you take the Attack action.' }, { name:'Stunning Strike', desc:'After hitting, spend 1 Ki: target must pass CON save (DC = 8 + WIS + prof) or be Stunned until your next turn.' }],
+  },
+  barbarian: {
+    2: [{ name:'Reckless Attack', desc:'Advantage on STR attack rolls this turn — but enemies also have advantage against you until next turn.' }, { name:'Danger Sense', desc:'Advantage on DEX saves against visible effects (traps, spells). Must not be blinded, deafened, or incapacitated.' }],
+    3: [{ name:'Primal Path', desc:'Choose a path: Path of the Berserker, Totem Warrior, or Ancestral Guardian. Each grants rage-powered powers.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice when you take the Attack action.' }, { name:'Fast Movement', desc:'Speed increases by 10 ft when not wearing heavy armor.' }],
+  },
+};
+
+function getLevelFeatures(classId, level) {
+  return CLASS_LEVEL_FEATURES[classId]?.[level] || [];
+}
+
 const CLASS_EQUIPMENT = {
   fighter:   ['Longsword','Shield','Chain Mail','5× Javelin',"Explorer's Pack"],
   wizard:    ['Quarterstaff','Spellbook','Arcane Focus','Scholar\'s Pack','Dagger'],
@@ -420,6 +500,10 @@ class CharacterSystem {
       document.getElementById('modal-condition').classList.add('hidden');
     document.getElementById('close-modal-item').onclick = () =>
       document.getElementById('modal-item').classList.add('hidden');
+
+    // Combat HUD buttons
+    document.getElementById('btn-combat-next-turn')?.addEventListener('click', () => this.nextTurn());
+    document.getElementById('btn-combat-end')?.addEventListener('click', () => this.endInitiative());
   }
 
   reset() {
@@ -1212,7 +1296,7 @@ class CharacterSystem {
       concentration:  null, // { spell: 'Bless', dc: null }
       conditions:     [], // [{ name: 'Poisoned', duration: 3, description: '...' }]
       inspiration:    false,
-      initiative:     { active: false, order: [], currentIndex: 0, playerRoll: 0 },
+      initiative:     { active: false, order: [], currentIndex: 0, playerRoll: 0, round: 1 },
       tempHp:         0, // Temporary HP - takes damage first, doesn't stack
       spellSaveDC:    this._calculateSpellSaveDC(cls?.id, stats, 2) // 8 + prof + spellcasting mod
     };
@@ -1515,7 +1599,7 @@ class CharacterSystem {
     // Initiative
     const initiativeBlock = document.getElementById('initiative-block');
     const initiativeGrid = document.getElementById('initiative-grid');
-    if (c.initiative.active) {
+    if (c.initiative?.active) {
       initiativeBlock.style.display = '';
       initiativeGrid.innerHTML = c.initiative.order.map((entry, idx) => {
         const isCurrent = idx === c.initiative.currentIndex;
@@ -1842,34 +1926,44 @@ class CharacterSystem {
       active: true,
       order,
       currentIndex: 0,
-      playerRoll
+      playerRoll,
+      round: 1
     };
-    
+
     const currentName = order[0].name;
     window.app?.showToast(`Initiative! ${currentName} goes first.`, 'success');
-    
+
     // If player goes first, they already have actions
     if (order[0].isPlayer) {
       this.resetActions();
     }
-    
+
+    this._updateCombatHUD();
     this.openSheet(); // Refresh UI
   }
 
   nextTurn() {
     const c = this.character;
-    if (!c || !c.initiative.active) return;
+    if (!c || !c.initiative?.active) return;
     
-    c.initiative.currentIndex = (c.initiative.currentIndex + 1) % c.initiative.order.length;
+    const prevIndex = c.initiative.currentIndex;
+    c.initiative.currentIndex = (prevIndex + 1) % c.initiative.order.length;
+
+    // Increment round counter when the order wraps back to the first combatant
+    if (c.initiative.currentIndex === 0) {
+      c.initiative.round = (c.initiative.round || 1) + 1;
+    }
+
     const current = c.initiative.order[c.initiative.currentIndex];
-    
+
     // If it's the player's turn, reset actions and decrement conditions
     if (current.isPlayer) {
       this.resetActions();
       this.decrementConditions();
     }
-    
+
     window.app?.showToast(`${current.name}'s turn`, 'info');
+    this._updateCombatHUD();
     this.openSheet(); // Refresh UI
   }
 
@@ -1877,9 +1971,39 @@ class CharacterSystem {
     const c = this.character;
     if (!c) return;
     
-    c.initiative = { active: false, order: [], currentIndex: 0, playerRoll: 0 };
+    c.initiative = { active: false, order: [], currentIndex: 0, playerRoll: 0, round: 1 };
     window.app?.showToast('Combat ended', 'success');
+    this._updateCombatHUD();
     this.openSheet(); // Refresh UI
+  }
+
+  _updateCombatHUD() {
+    const hud = document.getElementById('combat-hud');
+    if (!hud) return;
+    const c = this.character;
+    const init = c?.initiative;
+
+    if (!init?.active) {
+      hud.classList.add('hidden');
+      return;
+    }
+
+    hud.classList.remove('hidden');
+    document.getElementById('combat-round').textContent = init.round || 1;
+
+    const current = init.order[init.currentIndex];
+    document.getElementById('combat-current-name').textContent = current?.name || '—';
+
+    // Action economy pips — only meaningful on player's turn
+    const ae = c.actionEconomy || {};
+    const isPlayerTurn = current?.isPlayer;
+    ['action', 'bonus', 'reaction'].forEach((key, i) => {
+      const pip = document.getElementById(['chud-action','chud-bonus','chud-reaction'][i]);
+      if (!pip) return;
+      const aeKey = key === 'bonus' ? 'bonusAction' : key;
+      const used = isPlayerTurn ? !ae[aeKey] : false;
+      pip.classList.toggle('used', used);
+    });
   }
 
   // ── Sheet Tabs ───────────────────────────────────────────────
@@ -2373,8 +2497,14 @@ class CharacterSystem {
       
       // Update class resources for new level
       this.character.classResources = getClassResources(this.character.classId, newLevel, this.character.stats);
-      
-      this._openLevelUpModal(newLevel);
+
+      // Add new class features unlocked at this level
+      const newFeatures = getLevelFeatures(this.character.classId, newLevel);
+      if (newFeatures.length > 0) {
+        this.character.features = [...(this.character.features || []), ...newFeatures];
+      }
+
+      this._openLevelUpModal(newLevel, newFeatures);
     } else {
       const nextThr = thr[Math.min(this.character.level + 1, 20)];
       const remaining = nextThr ? nextThr - this.character.xp : 0;
@@ -2386,7 +2516,7 @@ class CharacterSystem {
     this.updateHUD();
   }
 
-  _openLevelUpModal(newLevel) {
+  _openLevelUpModal(newLevel, newFeatures = []) {
     const c = this.character;
     const hpDie  = c.features ? (CLASSES.find(cl => cl.id === c.classId)?.hpDie || 8) : 8;
     const conMod = this._mod(c.stats.con);
@@ -2398,6 +2528,21 @@ class CharacterSystem {
       `Roll a d${hpDie}${conMod >= 0 ? ' +' : ' '}${conMod} CON`;
     document.getElementById('levelup-avg-hint').textContent =
       `(${avg} HP guaranteed)`;
+
+    // Show new class features
+    const featuresEl = document.getElementById('levelup-features');
+    if (featuresEl) {
+      if (newFeatures.length > 0) {
+        featuresEl.innerHTML = `<div class="levelup-features-title">New Abilities</div>` +
+          newFeatures.map(f => `<div class="levelup-feature-item">
+            <div class="levelup-feature-name">${f.name}</div>
+            <div class="levelup-feature-desc">${f.desc}</div>
+          </div>`).join('');
+        featuresEl.classList.remove('hidden');
+      } else {
+        featuresEl.classList.add('hidden');
+      }
+    }
     document.getElementById('levelup-hp-result').textContent = '';
     document.getElementById('levelup-hp-result').className  = 'levelup-hp-result hidden';
 

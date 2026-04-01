@@ -43,15 +43,6 @@ class DiceSystem {
       this.modifier = parseInt(e.target.value) || 0;
     });
 
-    // Advantage buttons
-    document.getElementById('modal-dice').addEventListener('click', e => {
-      const btn = e.target.closest('.adv-btn');
-      if (!btn) return;
-      document.querySelectorAll('.adv-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      this.mode = btn.dataset.mode;
-    });
-
     // Roll button
     document.getElementById('btn-do-roll').onclick = () => this.roll();
 
@@ -66,20 +57,9 @@ class DiceSystem {
         this._pendingDC = null;
         this._promptMode = 'normal';
         document.getElementById('dice-prompt').classList.add('hidden');
-        // Hide prompt advantage controls
-        document.getElementById('dice-prompt-adv').classList.add('hidden');
         // Callback handles the result
         cb?.(result);
       });
-    });
-
-    // Prompt advantage buttons
-    document.getElementById('dice-prompt-adv').addEventListener('click', e => {
-      const btn = e.target.closest('.prompt-adv-btn');
-      if (!btn) return;
-      document.querySelectorAll('.prompt-adv-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      this._promptMode = btn.dataset.mode;
     });
 
     // Modal open/close
@@ -348,42 +328,69 @@ class DiceSystem {
   }
 
   // ── Request Roll from AI ─────────────────────────────────────
-  requestRoll(spec, label, dc, callback) {
+  // mode can be 'normal', 'advantage', or 'disadvantage' - determined by AI/conditions
+  requestRoll(spec, label, dc, callback, forcedMode = 'normal') {
     this._pendingCallback = callback;
     this._pendingDC = dc;
-    this._promptMode = 'normal';
+    this._promptMode = forcedMode; // Set by AI/conditions, not player choice
     const prompt = document.getElementById('dice-prompt');
     const text   = document.getElementById('dice-prompt-text');
     const dcText = dc ? ` (DC ${dc})` : '';
-    text.textContent    = `Roll ${spec.toUpperCase()} — ${label}${dcText}`;
-    text.dataset.spec   = spec.toLowerCase();
     
-    // Show advantage controls if it's a d20 roll
-    const advControls = document.getElementById('dice-prompt-adv');
-    if (spec.toLowerCase().includes('d20')) {
-      advControls.classList.remove('hidden');
-      // Reset to normal
-      document.querySelectorAll('.prompt-adv-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector('.prompt-adv-btn[data-mode="normal"]')?.classList.add('active');
-      
-      // Add inspiration button if player has inspiration
-      const hasInspiration = window.characterSystem?.character?.inspiration;
-      const inspirationBtn = document.getElementById('btn-use-inspiration');
-      if (hasInspiration && inspirationBtn) {
-        inspirationBtn.style.display = 'inline-block';
-        inspirationBtn.onclick = () => {
-          if (window.characterSystem?.spendInspiration()) {
-            this._promptMode = 'advantage';
-            document.querySelectorAll('.prompt-adv-btn').forEach(b => b.classList.remove('active'));
-            document.querySelector('.prompt-adv-btn[data-mode="advantage"]')?.classList.add('active');
-            inspirationBtn.style.display = 'none';
+    // Display mode indicator
+    let modeText = '';
+    if (forcedMode === 'advantage') {
+      modeText = ' with Advantage';
+    } else if (forcedMode === 'disadvantage') {
+      modeText = ' with Disadvantage';
+    }
+    
+    text.textContent = `Roll ${spec.toUpperCase()} — ${label}${dcText}${modeText}`;
+    text.dataset.spec = spec.toLowerCase();
+    
+    // Show info about why advantage/disadvantage is applied
+    const infoDiv = document.getElementById('dice-prompt-info');
+    if (forcedMode !== 'normal' && infoDiv) {
+      const reasons = [];
+      // Check for conditions that affect this roll
+      const char = window.characterSystem?.character;
+      if (char?.conditions) {
+        // Examples of condition-based advantage/disadvantage
+        if (forcedMode === 'disadvantage') {
+          if (char.conditions.some(c => c.name === 'Restrained' && label.includes('DEX'))) {
+            reasons.push('Restrained condition');
           }
-        };
-      } else if (inspirationBtn) {
-        inspirationBtn.style.display = 'none';
+          if (char.conditions.some(c => c.name === 'Poisoned')) {
+            reasons.push('Poisoned condition');
+          }
+        }
       }
-    } else {
-      advControls.classList.add('hidden');
+      if (reasons.length > 0) {
+        infoDiv.textContent = `(${reasons.join(', ')})`;
+        infoDiv.style.display = 'block';
+      } else {
+        infoDiv.textContent = '';
+        infoDiv.style.display = 'none';
+      }
+    } else if (infoDiv) {
+      infoDiv.textContent = '';
+      infoDiv.style.display = 'none';
+    }
+    
+    // Show inspiration button if player has inspiration and can use it
+    const hasInspiration = window.characterSystem?.character?.inspiration;
+    const inspirationBtn = document.getElementById('btn-use-inspiration');
+    if (hasInspiration && spec.toLowerCase().includes('d20') && forcedMode !== 'advantage' && inspirationBtn) {
+      inspirationBtn.style.display = 'inline-block';
+      inspirationBtn.onclick = () => {
+        if (window.characterSystem?.spendInspiration()) {
+          this._promptMode = 'advantage';
+          text.textContent = `Roll ${spec.toUpperCase()} — ${label}${dcText} with Advantage`;
+          inspirationBtn.style.display = 'none';
+        }
+      };
+    } else if (inspirationBtn) {
+      inspirationBtn.style.display = 'none';
     }
     
     prompt.classList.remove('hidden');
@@ -391,21 +398,49 @@ class DiceSystem {
   }
 
   // ── Request Attack Roll ──────────────────────────────────────
-  requestAttackRoll(attackSpec, weaponName, targetAC, enemyName, damageSpec, damageType, callback) {
-    const advControls = document.getElementById('dice-prompt-adv');
-    advControls.classList.remove('hidden');
-    document.querySelectorAll('.prompt-adv-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector('.prompt-adv-btn[data-mode="normal"]')?.classList.add('active');
-    
-    this._promptMode = 'normal';
+  requestAttackRoll(attackSpec, weaponName, targetAC, enemyName, damageSpec, damageType, callback, forcedMode = 'normal') {
+    this._promptMode = forcedMode;
     this._pendingDC = targetAC;
+    
+    const prompt = document.getElementById('dice-prompt');
+    const text = document.getElementById('dice-prompt-text');
+    
+    // Display mode indicator
+    let modeText = '';
+    if (forcedMode === 'advantage') {
+      modeText = ' with Advantage';
+    } else if (forcedMode === 'disadvantage') {
+      modeText = ' with Disadvantage';
+    }
+    
+    text.textContent = `Attack with ${weaponName} (vs AC ${targetAC})${modeText}`;
+    text.dataset.spec = attackSpec.toLowerCase();
+    
+    // Show inspiration button if player has inspiration and can use it for attack
+    const hasInspiration = window.characterSystem?.character?.inspiration;
+    const inspirationBtn = document.getElementById('btn-use-inspiration');
+    if (hasInspiration && forcedMode !== 'advantage' && inspirationBtn) {
+      inspirationBtn.style.display = 'inline-block';
+      inspirationBtn.onclick = () => {
+        if (window.characterSystem?.spendInspiration()) {
+          this._promptMode = 'advantage';
+          text.textContent = `Attack with ${weaponName} (vs AC ${targetAC}) with Advantage`;
+          inspirationBtn.style.display = 'none';
+        }
+      };
+    } else if (inspirationBtn) {
+      inspirationBtn.style.display = 'none';
+    }
+    
+    prompt.classList.remove('hidden');
+    prompt.scrollIntoView({ behavior: 'smooth', block: 'end' });
     
     this._pendingCallback = (attackResult) => {
       const hit = attackResult.total >= targetAC;
       const natRoll = attackResult.rolls[0];
       const isCrit = natRoll === 20;
       const isMiss = natRoll === 1;
-      
+
       let hitResult = '';
       if (isCrit) {
         hitResult = `CRITICAL HIT vs ${enemyName} (AC ${targetAC})`;
@@ -416,11 +451,11 @@ class DiceSystem {
       } else {
         hitResult = `Miss (needed ${targetAC})`;
       }
-      
+
       // If hit or crit, roll damage
       if (hit || isCrit) {
         let finalDamageSpec = damageSpec;
-        
+
         // On crit, double the dice (not the modifier)
         if (isCrit) {
           const match = damageSpec.match(/(\d+)d(\d+)([+-]\d+)?/);
@@ -431,7 +466,7 @@ class DiceSystem {
             finalDamageSpec = `${count * 2}d${sides}${mod}`;
           }
         }
-        
+
         // Roll damage
         this.rollSpec(finalDamageSpec, (damageResult) => {
           callback({
@@ -454,14 +489,6 @@ class DiceSystem {
         });
       }
     };
-    
-    const prompt = document.getElementById('dice-prompt');
-    const text   = document.getElementById('dice-prompt-text');
-    text.textContent    = `Attack with ${weaponName} (vs AC ${targetAC})`;
-    text.dataset.spec   = attackSpec.toLowerCase();
-    
-    prompt.classList.remove('hidden');
-    prompt.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
 }
 

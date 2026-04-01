@@ -46,6 +46,16 @@ class SaveSystem {
       // Restore character
       window.characterSystem.character = data.character;
 
+      // Normalize fields added in later versions (safe for older saves)
+      const ch = window.characterSystem.character;
+      if (ch) {
+        ch.conditions    = ch.conditions    ?? [];
+        ch.inspiration   = ch.inspiration   ?? false;
+        ch.initiative    = ch.initiative    ?? { active: false, order: [], currentIndex: 0, playerRoll: 0 };
+        ch.concentration = ch.concentration ?? null;
+        ch.tempHp        = ch.tempHp        ?? 0;
+      }
+
       // Restore AI conversation
       window.aiSystem.messages  = data.messages || [];
       window.aiSystem.apiKey    = window.app._getActiveApiKey();

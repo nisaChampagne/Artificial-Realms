@@ -1484,6 +1484,32 @@ input[type=range]::-webkit-slider-thumb {
 .hdr-btn:hover { border-color: var(--border-gold); color: var(--text-parchment); }
 
 /* Game Layout */
+/* Combat HUD strip */
+.combat-hud {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 16px;
+  background: rgba(120, 20, 20, 0.18);
+  border-bottom: 1px solid rgba(180, 50, 50, 0.35);
+  font-family: var(--font-heading); font-size: 12px;
+  letter-spacing: 0.5px; flex-shrink: 0;
+}
+.combat-hud.hidden { display: none; }
+.combat-round-label { color: var(--gold); font-weight: 600; white-space: nowrap; }
+.combat-sep { color: var(--border-dim); }
+.combat-turn-who { color: var(--text-parchment); font-weight: 600; min-width: 80px; }
+.combat-pips { display: flex; gap: 5px; }
+.combat-pip { font-size: 13px; transition: opacity 0.2s; }
+.combat-pip.used { opacity: 0.2; }
+.combat-next-btn { margin-left: auto; white-space: nowrap; }
+.combat-end-btn {
+  background: none; border: none;
+  color: var(--text-dim); font-size: 11px;
+  font-family: var(--font-heading); letter-spacing: 0.5px;
+  cursor: pointer; padding: 2px 6px; border-radius: 4px;
+  transition: color 0.15s;
+}
+.combat-end-btn:hover { color: var(--red); }
+
 .game-layout {
   display: flex; flex: 1; overflow: hidden;
   min-height: 0;
@@ -1565,6 +1591,20 @@ input[type=range]::-webkit-slider-thumb {
   opacity: 0.7;
 }
 .error-text { opacity: 1 !important; color: #c97a4a !important; }
+
+/* DM Thinking Indicator */
+.thinking-dots { display: flex; gap: 6px; padding: 6px 2px; }
+.thinking-dots span {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gold); opacity: 0.35;
+  animation: dot-pulse 1.4s infinite ease-in-out;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot-pulse {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.35; }
+  40%           { transform: scale(1.25); opacity: 1; }
+}
 .btn-retry {
   display: inline-block;
   margin-left: 10px;
@@ -2722,6 +2762,28 @@ input[type=range]::-webkit-slider-thumb {
 .levelup-avg-row { display: flex; align-items: center; gap: 10px; }
 .levelup-avg-hint { font-size: 12px; color: var(--text-dim); }
 
+/* ── Level-Up Features ───────────────────────────────────────────────────── */
+.levelup-features {
+  width: 100%; text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.levelup-features.hidden { display: none; }
+.levelup-features-title {
+  font-family: var(--font-heading); font-size: 10px;
+  letter-spacing: 2px; color: var(--gold);
+  margin-bottom: 4px;
+}
+.levelup-feature-item { border-top: 1px solid var(--border-dim); padding-top: 6px; }
+.levelup-feature-name {
+  font-family: var(--font-heading); font-size: 12px;
+  color: var(--text-parchment); margin-bottom: 2px;
+}
+.levelup-feature-desc { font-size: 11px; color: var(--text-mid); line-height: 1.5; }
+
 /* ── Rest Modal ───────────────────────────────────────────────────────────── */
 .rest-option {
   display: flex; align-items: center; gap: 14px;
@@ -3104,6 +3166,16 @@ input[type=range]::-webkit-slider-thumb {
 .jatt-wary       { color: #c89030; border-color: #8b7020; background: rgba(139,112,32,0.12); }
 .jatt-mysterious { color: #a060c0; border-color: #6a3d9a; background: rgba(106,61,154,0.12); }
 .jcard-icon { margin-right: 8px; }
+
+/* Quest cards */
+.quest-status {
+  font-family: var(--font-heading); font-size: 9px;
+  letter-spacing: 1px; padding: 2px 7px;
+  border-radius: 10px; border: 1px solid;
+}
+.quest-status-active   { color: #c9a227; border-color: #8b7020; background: rgba(201,162,39,0.1); }
+.quest-status-completed{ color: #4aaa4a; border-color: #2d7a2d; background: rgba(45,122,45,0.1); }
+.quest-status-failed   { color: #c02828; border-color: #8b1a1a; background: rgba(139,26,26,0.1); }
 
 /* ── Portrait Generation ────────────────────────────────────────────────────── */
 .portrait-gen-section { margin-top: 8px; }

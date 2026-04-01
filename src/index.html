@@ -499,6 +499,20 @@
     </div>
   </div>
 
+  <!-- Combat HUD (visible only during active combat) -->
+  <div class="combat-hud hidden" id="combat-hud">
+    <span class="combat-round-label">Round <span id="combat-round">1</span></span>
+    <span class="combat-sep">|</span>
+    <span class="combat-turn-who" id="combat-current-name">—</span>
+    <div class="combat-pips">
+      <span class="combat-pip" id="chud-action" title="Action">⚔</span>
+      <span class="combat-pip" id="chud-bonus" title="Bonus Action">⚡</span>
+      <span class="combat-pip" id="chud-reaction" title="Reaction">🛡</span>
+    </div>
+    <button class="btn btn-sm btn-outline combat-next-btn" id="btn-combat-next-turn">Next Turn →</button>
+    <button class="btn-ghost combat-end-btn" id="btn-combat-end">✕ End Combat</button>
+  </div>
+
   <!-- Game Body -->
   <div class="game-layout">
     <!-- Left: Map -->
@@ -523,12 +537,8 @@
         <div class="dice-prompt hidden" id="dice-prompt">
           <span class="dice-prompt-icon">🎲</span>
           <span id="dice-prompt-text">Roll required!</span>
-          <div class="dice-prompt-adv hidden" id="dice-prompt-adv">
-            <button class="prompt-adv-btn active" data-mode="normal">Normal</button>
-            <button class="prompt-adv-btn" data-mode="advantage">Advantage</button>
-            <button class="prompt-adv-btn" data-mode="disadvantage">Disadvantage</button>
-          </div>
-          <button class="btn-inspiration" id="btn-use-inspiration" style="display:none">⭐ Use Inspiration</button>
+          <div class="dice-prompt-info" id="dice-prompt-info" style="margin: 8px 0;"></div>
+          <button class="btn-inspiration" id="btn-use-inspiration" style="display:none">⭐ Use Inspiration (Advantage)</button>
           <button class="btn btn-primary btn-sm" id="btn-roll-prompted">Roll Now</button>
         </div>
         <div class="quick-actions" id="quick-actions">
@@ -615,11 +625,6 @@
         <label>Modifier:
           <input type="number" id="dice-mod" value="0" min="-20" max="20" />
         </label>
-      </div>
-      <div class="adv-row">
-        <button class="adv-btn active" data-mode="normal">Normal</button>
-        <button class="adv-btn" data-mode="advantage">Advantage</button>
-        <button class="adv-btn" data-mode="disadvantage">Disadvantage</button>
       </div>
       <canvas id="dice-canvas" class="dice-canvas" width="320" height="180"></canvas>
       <button class="btn btn-primary btn-full" id="btn-do-roll">🎲 Roll!</button>
@@ -922,6 +927,7 @@
           <span class="levelup-avg-hint" id="levelup-avg-hint"></span>
         </div>
       </div>
+      <div class="levelup-features hidden" id="levelup-features"></div>
       <button class="btn btn-primary btn-full" id="btn-levelup-confirm" disabled>Confirm Level Up</button>
     </div>
   </div>
@@ -1058,6 +1064,7 @@
         <button class="tab-btn active" id="journal-tab-npcs">👥 NPCs</button>
         <button class="tab-btn" id="journal-tab-lore">📜 Lore</button>
         <button class="tab-btn" id="journal-tab-decisions">⚔ Decisions</button>
+        <button class="tab-btn" id="journal-tab-quests">📋 Quests</button>
       </div>
       <div class="journal-panel" id="journal-panel-npcs">
         <div id="journal-npcs" class="journal-entries"></div>
@@ -1067,6 +1074,9 @@
       </div>
       <div class="journal-panel hidden" id="journal-panel-decisions">
         <div id="journal-decisions" class="journal-entries"></div>
+      </div>
+      <div class="journal-panel hidden" id="journal-panel-quests">
+        <div id="journal-quests" class="journal-entries"></div>
       </div>
     </div>
   </div>
@@ -1165,7 +1175,7 @@
           <div class="help-section-title">Conditions & Effects</div>
           <div class="help-row"><span class="help-icon">😵</span><div><strong>Conditions</strong> — status effects like Poisoned, Stunned, Frightened, Paralyzed appear as colored pills in your sheet.</div></div>
           <div class="help-row"><span class="help-icon">⏳</span><div><strong>Duration</strong> — conditions track remaining rounds. They expire automatically on your turn.</div></div>
-          <div class="help-row"><span class="help-icon">🌟</span><div><strong>Inspiration</strong> — awarded for excellent roleplay. Spend it to gain advantage on any d20 roll (shown as a button in dice prompts).</div></div>
+          <div class="help-row"><span class="help-icon">🌟</span><div><strong>Inspiration</strong> — awarded for excellent roleplay. Spend it to gain advantage on any d20 roll (shown as a button in dice prompts). Advantage/disadvantage is otherwise determined by the situation, conditions, and game mechanics.</div></div>
         </div>
         <div class="help-section">
           <div class="help-section-title">Resting</div>
@@ -1196,7 +1206,7 @@
       <div class="help-panel hidden" id="help-panel-toolbar">
         <div class="help-section">
           <div class="help-section-title">Toolbar Buttons</div>
-          <div class="help-row"><span class="help-icon">🎲</span><div><strong>Dice</strong> — roll any die (d4–d100) with a modifier and advantage or disadvantage.</div></div>
+          <div class="help-row"><span class="help-icon">🎲</span><div><strong>Dice</strong> — roll any die (d4–d100) with a modifier. Advantage/disadvantage for ability checks is determined by the game situation, conditions, and DM decisions. You can spend inspiration to gain advantage on any d20 roll.</div></div>
           <div class="help-row"><span class="help-icon">📜</span><div><strong>Character</strong> — full character sheet: HP, Ability Scores, Skills, Saving Throws, Features, and Spells.</div></div>
           <div class="help-row"><span class="help-icon">🌙</span><div><strong>Rest</strong> — take a Short or Long Rest to recover HP.</div></div>
           <div class="help-row"><span class="help-icon">📖</span><div><strong>Rules</strong> — search the official D&amp;D 5e SRD: spells, conditions, equipment, monsters, and more.</div></div>

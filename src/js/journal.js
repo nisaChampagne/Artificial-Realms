@@ -6,6 +6,7 @@ class JournalSystem {
     this.npcs      = {};  // { name: { role, attitude, mentions } }
     this.lore      = [];  // [{ text, turn }]
     this.decisions = [];  // [{ text, turn }]
+    this.quests    = [];  // [{ title, description, status: 'active'|'completed'|'failed', turn }]
     this._turn     = 0;
   }
 
@@ -13,6 +14,7 @@ class JournalSystem {
     this.npcs      = {};
     this.lore      = [];
     this.decisions = [];
+    this.quests    = [];
     this._turn     = 0;
   }
 
@@ -42,6 +44,32 @@ class JournalSystem {
     this.decisions.push({ text: text.trim(), turn: this._turn });
   }
 
+  addQuest(title, description) {
+    if (!title) return;
+    const t = title.trim();
+    if (this.quests.some(q => q.title.toLowerCase() === t.toLowerCase())) return; // already tracked
+    this.quests.push({ title: t, description: (description || '').trim(), status: 'active', turn: this._turn });
+    window.app?.showToast(`📋 New quest: ${t}`, 'success');
+  }
+
+  completeQuest(title) {
+    if (!title) return;
+    const q = this.quests.find(q => q.title.toLowerCase() === title.trim().toLowerCase());
+    if (q) {
+      q.status = 'completed';
+      window.app?.showToast(`✅ Quest complete: ${q.title}`, 'success');
+    }
+  }
+
+  failQuest(title) {
+    if (!title) return;
+    const q = this.quests.find(q => q.title.toLowerCase() === title.trim().toLowerCase());
+    if (q) {
+      q.status = 'failed';
+      window.app?.showToast(`❌ Quest failed: ${q.title}`, 'error');
+    }
+  }
+
   // Compact memory block injected into the AI context window
   buildMemoryBlock() {
     const parts = [];
@@ -57,6 +85,11 @@ class JournalSystem {
     if (this.decisions.length > 0) {
       const lines = this.decisions.slice(-6).map(d => `• ${d.text}`).join('\n');
       parts.push(`Key player decisions:\n${lines}`);
+    }
+    const activeQuests = this.quests.filter(q => q.status === 'active');
+    if (activeQuests.length > 0) {
+      const lines = activeQuests.map(q => `• ${q.title}${q.description ? ': ' + q.description : ''}`).join('\n');
+      parts.push(`Active quests:\n${lines}`);
     }
     if (parts.length === 0) return null;
     return '═══ CAMPAIGN MEMORY ═══\n' + parts.join('\n\n');
@@ -102,11 +135,33 @@ class JournalSystem {
     decEl.innerHTML = this.decisions.length === 0
       ? '<div class="journal-empty">No key decisions recorded yet.</div>'
       : this.decisions.map(d => `<div class="journal-card"><span class="jcard-icon">⚔</span> ${d.text}</div>`).join('');
+
+    // Quests tab
+    const questEl = document.getElementById('journal-quests');
+    if (questEl) {
+      if (this.quests.length === 0) {
+        questEl.innerHTML = '<div class="journal-empty">No quests discovered yet.</div>';
+      } else {
+        const order = ['active', 'completed', 'failed'];
+        const sorted = [...this.quests].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
+        questEl.innerHTML = sorted.map(q => {
+          const statusClass = `quest-status-${q.status}`;
+          const statusLabel = q.status === 'active' ? '◉ Active' : q.status === 'completed' ? '✔ Complete' : '✘ Failed';
+          return `<div class="journal-card quest-card">
+            <div class="jcard-top">
+              <span class="jcard-name">${q.title}</span>
+              <span class="quest-status ${statusClass}">${statusLabel}</span>
+            </div>
+            ${q.description ? `<div class="jcard-role">${q.description}</div>` : ''}
+          </div>`;
+        }).join('');
+      }
+    }
   }
 
   // ── Serialization ────────────────────────────────────────────
   serialize() {
-    return { npcs: this.npcs, lore: this.lore, decisions: this.decisions, turn: this._turn };
+    return { npcs: this.npcs, lore: this.lore, decisions: this.decisions, quests: this.quests, turn: this._turn };
   }
 
   restore(data) {
@@ -114,6 +169,7 @@ class JournalSystem {
     this.npcs      = data.npcs      || {};
     this.lore      = data.lore      || [];
     this.decisions = data.decisions || [];
+    this.quests    = data.quests    || [];
     this._turn     = data.turn      || 0;
   }
 }

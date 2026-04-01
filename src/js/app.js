@@ -590,7 +590,7 @@ class App {
     });
 
     // Journal tabs
-    ['npcs','lore','decisions'].forEach(tab => {
+    ['npcs','lore','decisions','quests'].forEach(tab => {
       const btn = document.getElementById(`journal-tab-${tab}`);
       if (!btn) return;
       btn.addEventListener('click', () => {
