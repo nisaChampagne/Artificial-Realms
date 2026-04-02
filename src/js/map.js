@@ -414,6 +414,7 @@ class MapSystem {
     this.sprite       = { skin:'#e3c49a', hair:'#3d2008', hairStyle:'short', eye:'#4878b0', bodyType:'average' };
     // Perception rolls per scene — persisted so we don't re-roll on revisit
     this._perceptionCache = {};
+    this._floatingTexts   = []; // [{ wx, wy, text, color, life, maxLife }]
   }
 
   init() {
@@ -496,6 +497,13 @@ class MapSystem {
     // Perception check — only rolls once per scene; re-uses cached result on revisit
     const { radius, roll, bonus, label } = this._rollPerception(name);
     this._revealAround(this.playerX, this.playerY, radius);
+
+    // Torches illuminate their surroundings even before the player reaches them
+    for (let ty = 0; ty < this.map.length; ty++) {
+      for (let tx = 0; tx < (this.map[ty]?.length || 0); tx++) {
+        if (this.map[ty][tx] === T.TORCH) this._revealAround(tx, ty, 3);
+      }
+    }
     this._dirty = true;
 
     // Cancel any existing loop then restart fresh
@@ -646,11 +654,22 @@ class MapSystem {
   nameEnemy(name, curHp, maxHp) {
     if (this.enemies.length === 0) return;
     const e = this.enemies[0];
+    // Spawn floating text on HP change
+    if (e.hp !== undefined && curHp < e.hp) {
+      this.addFloatingText(e.x, e.y, `-${e.hp - curHp}`, '#ff5050');
+    } else if (e.hp !== undefined && curHp > e.hp) {
+      this.addFloatingText(e.x, e.y, `+${curHp - e.hp}`, '#50ee80');
+    }
     e.name  = name;
     e.icon  = this._monsterIcon(name);
     e.hp    = curHp;
     e.maxHp = maxHp;
     this._dirty = true;
+  }
+
+  // ── Spawn floating text at a world-grid position ─────────────
+  addFloatingText(wx, wy, text, color = '#ff6060') {
+    this._floatingTexts.push({ wx, wy, text, color, life: 55, maxLife: 55 });
   }
 
   _npcIcon(role) {
@@ -793,10 +812,58 @@ class MapSystem {
     this._dirty = true;
   }
 
+  _enemyTypesForScene(scene) {
+    const pool = {
+      dungeon: [
+        { icon:'👺', hp:15, maxHp:15, type:'goblin',   glow:'rgba(100,160,40,'  },
+        { icon:'💀', hp:22, maxHp:22, type:'undead',   glow:'rgba(140,120,200,' },
+        { icon:'🗡',  hp:18, maxHp:18, type:'humanoid', glow:'rgba(180,100,40,'  },
+      ],
+      cave: [
+        { icon:'🕷', hp:12, maxHp:12, type:'beast',    glow:'rgba(80,40,130,'   },
+        { icon:'🐺', hp:20, maxHp:20, type:'beast',    glow:'rgba(100,150,40,'  },
+        { icon:'👹', hp:28, maxHp:28, type:'goblin',   glow:'rgba(160,80,20,'   },
+      ],
+      forest: [
+        { icon:'🐺', hp:18, maxHp:18, type:'beast',    glow:'rgba(100,160,40,'  },
+        { icon:'🕷', hp:10, maxHp:10, type:'beast',    glow:'rgba(80,40,130,'   },
+        { icon:'🧟', hp:20, maxHp:20, type:'undead',   glow:'rgba(40,150,80,'   },
+      ],
+      castle: [
+        { icon:'⚔',  hp:25, maxHp:25, type:'humanoid', glow:'rgba(180,160,80,'  },
+        { icon:'💀', hp:22, maxHp:22, type:'undead',   glow:'rgba(140,120,200,' },
+        { icon:'🧙', hp:20, maxHp:20, type:'humanoid', glow:'rgba(80,120,200,'  },
+      ],
+      combat: [
+        { icon:'⚔',  hp:20, maxHp:20, type:'humanoid', glow:'rgba(200,120,40,'  },
+        { icon:'🗡',  hp:16, maxHp:16, type:'humanoid', glow:'rgba(160,80,40,'   },
+        { icon:'🏹', hp:14, maxHp:14, type:'humanoid', glow:'rgba(120,160,60,'  },
+      ],
+      boss: [
+        { icon:'🐉', hp:80, maxHp:80, type:'dragon',   glow:'rgba(210,40,20,'   },
+      ],
+      ruins: [
+        { icon:'💀', hp:18, maxHp:18, type:'undead',   glow:'rgba(140,120,200,' },
+        { icon:'🧟', hp:22, maxHp:22, type:'undead',   glow:'rgba(40,150,80,'   },
+      ],
+      crypt: [
+        { icon:'💀', hp:20, maxHp:20, type:'undead',   glow:'rgba(140,120,200,' },
+        { icon:'🧟', hp:18, maxHp:18, type:'undead',   glow:'rgba(40,150,80,'   },
+        { icon:'🦇', hp:10, maxHp:10, type:'beast',    glow:'rgba(100,60,170,'  },
+      ],
+      manor: [
+        { icon:'🧟', hp:20, maxHp:20, type:'undead',   glow:'rgba(40,150,80,'   },
+        { icon:'🦇', hp:10, maxHp:10, type:'beast',    glow:'rgba(100,60,170,'  },
+      ],
+    };
+    return pool[scene] || [{ icon:'☠', hp:20, maxHp:20, type:'unknown', glow:'rgba(200,40,40,' }];
+  }
+
   _spawnEnemies(scene) {
     if (scene === 'rest' || scene === 'tavern' || scene === 'town') return [];
-    const count = scene === 'combat' ? 4 : scene === 'boss' ? 1 : 2;
-    const enms  = [];
+    const count     = scene === 'combat' ? 4 : scene === 'boss' ? 1 : 2;
+    const templates = this._enemyTypesForScene(scene);
+    const enms      = [];
     for (let i = 0; i < count; i++) {
       let ex, ey, tries = 0;
       do {
@@ -805,7 +872,8 @@ class MapSystem {
         tries++;
       } while (tries < 50 && (this._isSolid(ex, ey) || (Math.abs(ex - this.playerX) + Math.abs(ey - this.playerY)) < 4));
       if (tries < 50) {
-        enms.push({ x:ex, y:ey, hp:scene === 'boss' ? 80 : 20, maxHp: scene === 'boss' ? 80 : 20, icon: scene === 'boss' ? '🐉' : '☠' });
+        const tmpl = templates[i % templates.length];
+        enms.push({ x: ex, y: ey, hp: tmpl.hp, maxHp: tmpl.maxHp, icon: tmpl.icon, type: tmpl.type, glow: tmpl.glow });
       }
     }
     return enms;
@@ -875,7 +943,7 @@ class MapSystem {
         }
 
         const tile = map[y][x];
-        this._drawTile(ctx, px, py, ts, tile, pal, time);
+        this._drawTile(ctx, px, py, ts, tile, pal, time, x, y);
       }
     }
 
@@ -914,13 +982,18 @@ class MapSystem {
       if (this.fogEnabled && fog[e.y]?.[e.x] !== false) return;
       const px = offX + e.x * ts + ts / 2;
       const py = offY + e.y * ts + ts / 2;
-      // Glow ring
-      ctx.fillStyle = 'rgba(200,40,40,0.22)';
+      const isBoss = e.maxHp >= 60;
+      // Glow ring (type-colored; boss pulses)
+      const glowBase  = e.glow || 'rgba(200,40,40,';
+      const glowPulse = isBoss ? 0.08 * Math.sin(time * 0.07) : 0;
+      const glowAlpha = (isBoss ? 0.32 : 0.22) + glowPulse;
+      const glowR     = ts * (isBoss ? 0.88 + glowPulse : 0.68);
+      ctx.fillStyle = glowBase + glowAlpha + ')';
       ctx.beginPath();
-      ctx.arc(px, py, ts * 0.68, 0, Math.PI * 2);
+      ctx.arc(px, py, glowR, 0, Math.PI * 2);
       ctx.fill();
-      // Icon
-      ctx.font = `${Math.max(10, ts - 4)}px serif`;
+      // Icon (slightly larger for boss)
+      ctx.font = `${Math.max(10, ts - (isBoss ? 1 : 4))}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(e.icon || '☠', px, py + 1);
@@ -934,6 +1007,19 @@ class MapSystem {
         ctx.shadowBlur = 4;
         ctx.fillText(label, px, py + ts * 0.52);
         ctx.shadowBlur = 0;
+      }
+      // HP bar
+      if (e.maxHp > 0) {
+        const hpRatio = Math.max(0, Math.min(1, e.hp / e.maxHp));
+        const barW    = ts * 0.82;
+        const barH    = Math.max(2, Math.round(ts * 0.11));
+        const barX    = px - barW / 2;
+        const barY    = py + ts * 0.76;
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+        const hpColor = hpRatio > 0.6 ? '#44bb44' : hpRatio > 0.3 ? '#bbbb22' : '#cc3030';
+        ctx.fillStyle = hpColor;
+        ctx.fillRect(barX, barY, barW * hpRatio, barH);
       }
     });
 
@@ -1059,6 +1145,26 @@ class MapSystem {
       ctx.arc(ppx, ppy, ts * 0.22, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // Floating damage / heal texts
+    this._floatingTexts = this._floatingTexts.filter(ft => ft.life > 0);
+    this._floatingTexts.forEach(ft => {
+      ft.life--;
+      const progress = 1 - ft.life / ft.maxLife;
+      const alpha    = ft.life < ft.maxLife * 0.35 ? ft.life / (ft.maxLife * 0.35) : 1;
+      const screenX  = offX + ft.wx * ts + ts / 2;
+      const screenY  = offY + ft.wy * ts - progress * ts * 2.2;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font        = `bold ${Math.max(9, Math.round(ts * 0.68))}px Cinzel, serif`;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle   = ft.color;
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur  = 5;
+      ctx.fillText(ft.text, screenX, screenY);
+      ctx.restore();
+    });
   }
 
   // ── Set sprite appearance from character data ────────────────
@@ -1202,7 +1308,10 @@ class MapSystem {
     return `rgb(${r},${g},${b})`;
   }
 
-  _drawTile(ctx, px, py, ts, tile, pal, time) {
+  _drawTile(ctx, px, py, ts, tile, pal, time, gx = 0, gy = 0) {
+    // Deterministic RNG seeded by grid position
+    const _rng = s => (Math.abs(Math.sin(s * 127.1 + 311.7) * 43758.5453) % 1);
+
     switch(tile) {
       case T.WALL: {
         ctx.fillStyle = pal.wall;
@@ -1215,6 +1324,25 @@ class MapSystem {
         ctx.moveTo(px, py + ts * 0.5);
         ctx.lineTo(px + ts * 0.5, py + ts * 0.5);
         ctx.stroke();
+        // Occasional cracks (deterministic by grid position)
+        const seed = gx * 13 + gy * 7;
+        if (_rng(seed) < 0.18 && ts >= 10) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+          ctx.lineWidth   = 0.5;
+          ctx.beginPath();
+          const cx1 = px + _rng(seed + 1) * ts * 0.7 + ts * 0.1;
+          const cy1 = py + _rng(seed + 2) * ts * 0.7 + ts * 0.1;
+          ctx.moveTo(cx1, cy1);
+          ctx.lineTo(cx1 + (_rng(seed + 3) - 0.5) * ts * 0.4, cy1 + (_rng(seed + 4) - 0.5) * ts * 0.4);
+          ctx.stroke();
+          // Branch crack ~30% of the time
+          if (_rng(seed + 5) < 0.3) {
+            ctx.beginPath();
+            ctx.moveTo(cx1, cy1);
+            ctx.lineTo(cx1 + (_rng(seed + 6) - 0.5) * ts * 0.25, cy1 + (_rng(seed + 7) - 0.5) * ts * 0.25);
+            ctx.stroke();
+          }
+        }
         break;
       }
       case T.FLOOR: {
@@ -1239,14 +1367,26 @@ class MapSystem {
         break;
       }
       case T.LAVA: {
-        const lp = time * 0.03;
-        const la = 0.8 + 0.2 * Math.sin(lp + px * 0.4);
+        const lp   = time * 0.03;
+        const la   = 0.8 + 0.2 * Math.sin(lp + gx * 0.4);
         ctx.fillStyle = `rgba(200,60,10,${la})`;
         ctx.fillRect(px, py, ts, ts);
-        ctx.fillStyle = `rgba(255,140,0,${0.4 + 0.4 * Math.sin(lp * 1.5 + py)})`;
-        ctx.beginPath();
-        ctx.ellipse(px + ts / 2, py + ts / 2, ts * 0.3, ts * 0.15, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Multiple animated bubble spots (positions seeded by grid)
+        const lseed = gx * 17 + gy * 31;
+        for (let b = 0; b < 3; b++) {
+          const bx    = px + _rng(lseed + b * 10)      * ts * 0.75 + ts * 0.1;
+          const by    = py + _rng(lseed + b * 10 + 1)  * ts * 0.75 + ts * 0.1;
+          const phase = lp * (1.2 + b * 0.4) + gy + b * 1.3;
+          const ba    = 0.25 + 0.35 * Math.sin(phase);
+          const bRot  = _rng(lseed + b + 2) * Math.PI;
+          ctx.fillStyle = `rgba(255,${110 + b * 25},0,${Math.max(0, ba)})`;
+          ctx.beginPath();
+          ctx.ellipse(bx, by, ts * 0.13, ts * 0.08, bRot, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Bright highlight flicker on the surface
+        ctx.fillStyle = `rgba(255,200,40,${0.08 + 0.07 * Math.sin(lp * 2.1 + gy)})`;
+        ctx.fillRect(px + 1, py + 1, ts - 2, ts - 2);
         break;
       }
       case T.TREE: {
