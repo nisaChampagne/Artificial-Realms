@@ -110,6 +110,7 @@ class InventorySystem {
       rarity:    open5eData?.rarity || '',
       desc:      open5eData?.desc   || '',
       reqAtune:  !!(open5eData?.requires_attunement || '').includes('requires'),
+      attuned:   false,
       equipped:  false,
     };
     this.items.push(item);
@@ -244,6 +245,47 @@ class InventorySystem {
     window.achievementSystem?.track('equipped_slots', equippedSlots.size);
   }
 
+  // ── Attunement ───────────────────────────────────────────────
+  static MAX_ATTUNED = 3;
+
+  _attunedCount() {
+    return this.items.filter(i => i.attuned).length;
+  }
+
+  attuneItem(id) {
+    const item = this.items.find(i => i.id === id);
+    if (!item || !item.reqAtune) return;
+    if (item.attuned) {
+      item.attuned = false;
+      const charName = window.characterSystem?.character?.name || 'You';
+      window.aiSystem?._addSystemEntry(`🔓 ${charName} ends attunement to <strong>${item.name}</strong>.`);
+    } else {
+      if (this._attunedCount() >= InventorySystem.MAX_ATTUNED) {
+        window.app?.showToast('Already attuned to 3 items — unattune one first.', 'error');
+        return;
+      }
+      item.attuned = true;
+      const charName = window.characterSystem?.character?.name || 'You';
+      window.aiSystem?._addSystemEntry(`✨ ${charName} attunes to <strong>${item.name}</strong>. (${this._attunedCount()}/${InventorySystem.MAX_ATTUNED} attunement slots used)`);
+    }
+    this._render();
+    // Re-render inspect if open
+    const titleEl = document.getElementById('item-title');
+    if (titleEl?.textContent === item.name) this._renderInspect(item);
+    this._updateAttuneCounter();
+  }
+
+  _updateAttuneCounter() {
+    const bar = document.getElementById('inv-attune-bar');
+    const el  = document.getElementById('inv-attune-count');
+    if (!el) return;
+    const count = this._attunedCount();
+    const hasAtunable = this.items.some(i => i.reqAtune);
+    el.textContent = `${count}/${InventorySystem.MAX_ATTUNED}`;
+    el.classList.toggle('attune-full', count >= InventorySystem.MAX_ATTUNED);
+    if (bar) bar.style.display = hasAtunable ? '' : 'none';
+  }
+
   // Recalculate AC from equipped armor / shield
   _applyEquipEffects() {
     const c = window.characterSystem?.character;
@@ -276,6 +318,7 @@ class InventorySystem {
   open() {
     this._render();
     this._renderCurrency();
+    this._updateAttuneCounter();
     document.getElementById('modal-inventory').classList.remove('hidden');
   }
 
@@ -322,6 +365,7 @@ class InventorySystem {
           : '';
       const dropBtn     = `<button class="inv-btn inv-btn-drop" data-id="${item.id}" title="Drop item">🗑</button>`;
       const equippedTag = item.equipped ? '<span class="inv-equipped-tag">Equipped</span>' : '';
+      const attuneTag   = item.attuned  ? '<span class="inv-attuned-tag">Attuned ✨</span>' : (item.reqAtune && !item.attuned ? '<span class="inv-needs-atune-tag">Needs Attunement</span>' : '');
       const qtyTag      = (item.qty || 1) > 1 ? `<span class="inv-qty-tag">×${item.qty}</span>` : '';
       const rarityTag   = item.rarity
         ? `<span class="inv-rarity inv-rarity-${rarityClass}">${item.rarity}</span>`
@@ -331,7 +375,7 @@ class InventorySystem {
           <div class="inv-item-icon">${icon}</div>
           <div class="inv-item-info">
             <div class="inv-item-name">${item.name}${qtyTag}</div>
-            <div class="inv-item-tags">${rarityTag}${equippedTag}</div>
+            <div class="inv-item-tags">${rarityTag}${equippedTag}${attuneTag}</div>
           </div>
           <div class="inv-item-actions">
             <button class="inv-btn inv-btn-inspect" data-id="${item.id}">Inspect</button>
@@ -405,7 +449,9 @@ class InventorySystem {
 
     const rarityTag  = item.rarity   ? `<span class="spell-card-tag">${item.rarity}</span>` : '';
     const typeTag    = item.type     ? `<span class="spell-card-tag">${item.type}</span>` : '';
-    const atuneTag   = item.reqAtune ? `<span class="spell-card-tag warn">Attunement</span>` : '';
+    const atuneTag   = item.reqAtune
+      ? (item.attuned ? `<span class="spell-card-tag ok">Attuned ✨</span>` : `<span class="spell-card-tag warn">Needs Attunement</span>`)
+      : '';
     const slotTag    = item.slot     ? `<span class="spell-card-tag">Slot: ${item.slot}</span>` : '';
     const desc       = item.desc
       ? item.desc.replace(/\n/g, '<br>')
@@ -417,6 +463,9 @@ class InventorySystem {
       : isConsumable
         ? `<button class="btn btn-primary btn-sm" id="inspect-use-btn">🧪 Use</button>`
         : '';
+    const attuneBtn = item.reqAtune
+      ? `<button class="btn btn-outline btn-sm" id="inspect-attune-btn" style="${item.attuned ? 'border-color:var(--gold);color:var(--gold)' : ''}">${item.attuned ? '🔓 Unattune' : '✨ Attune'}</button>`
+      : '';
     const dropBtn = `<button class="btn btn-outline btn-sm" id="inspect-drop-btn" style="border-color:#8b3a3a;color:#c97a7a;">🗑 Drop</button>`;
 
     document.getElementById('item-body').innerHTML = `
@@ -424,6 +473,7 @@ class InventorySystem {
       <div class="spell-card-desc">${desc}</div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
         ${primaryBtn}
+        ${attuneBtn}
         ${dropBtn}
       </div>`;
 
@@ -432,6 +482,7 @@ class InventorySystem {
       const updated = this.items.find(i => i.id === id);
       if (updated) document.getElementById('inspect-equip-btn').textContent = updated.equipped ? '✕ Unequip' : '⚔ Equip';
     });
+    document.getElementById('inspect-attune-btn')?.addEventListener('click', () => this.attuneItem(id));
     document.getElementById('inspect-use-btn')?.addEventListener('click', () => this.useConsumable(id));
     document.getElementById('inspect-drop-btn')?.addEventListener('click', () => this.dropItem(id));
   }

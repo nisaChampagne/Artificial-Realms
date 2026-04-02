@@ -544,6 +544,20 @@ class CharacterSystem {
     document.getElementById('sh-hp-plus').onclick  = () => this._adjustHP(+1);
     document.getElementById('close-modal-char').onclick = () => this.closeSheet();
 
+    // Action economy pills — click to manually toggle used/available
+    // Reactions are especially important since they happen on enemy turns
+    [['action-pill-action','action'],['action-pill-bonus','bonusAction'],['action-pill-reaction','reaction']].forEach(([id, key]) => {
+      document.getElementById(id)?.addEventListener('click', () => {
+        const c = this.character;
+        if (!c?.actionEconomy) return;
+        c.actionEconomy[key] = !c.actionEconomy[key];
+        this._updateActionEconomy();
+        const label = key === 'bonusAction' ? 'Bonus Action' : key.charAt(0).toUpperCase() + key.slice(1);
+        const state = c.actionEconomy[key] ? 'available' : 'used';
+        window.app?.showToast(`${label} marked ${state}`, 'info');
+      });
+    });
+
     // Rest
     document.getElementById('btn-rest').onclick = () => this._openRestModal();
     document.getElementById('close-modal-rest').onclick = () =>
@@ -1482,6 +1496,15 @@ class CharacterSystem {
     document.getElementById('s-init').textContent  = (initVal >= 0 ? '+' : '') + initVal;
     document.getElementById('s-speed').textContent = `${c.speed} ft`;
     document.getElementById('s-prof').textContent  = `+${c.profBonus}`;
+
+    // Passive scores (10 + skill modifier)
+    const allProfSkills = new Set([...(c.bgSkills || []), ...(c.extraSkillProf || [])]);
+    const percMod  = this._mod(c.stats.wis) + (allProfSkills.has('Perception')    ? c.profBonus : 0);
+    const invMod   = this._mod(c.stats.int) + (allProfSkills.has('Investigation') ? c.profBonus : 0);
+    const passivePercEl = document.getElementById('s-passive-perception');
+    const passiveInvEl  = document.getElementById('s-passive-investigation');
+    if (passivePercEl)  passivePercEl.textContent  = 10 + percMod;
+    if (passiveInvEl)   passiveInvEl.textContent   = 10 + invMod;
     
     // Spell Save DC display
     const spellSaveDCEl = document.getElementById('s-spell-save-dc');
@@ -2386,9 +2409,17 @@ class CharacterSystem {
     const avail = hd.total - hd.spent;
     document.getElementById('rest-hd-count').textContent = avail;
     document.getElementById('rest-hd-die').textContent   = `d${hd.die}`;
+    const inlineDie = document.getElementById('rest-hd-die-inline');
+    if (inlineDie) inlineDie.textContent = hd.die;
     document.getElementById('rest-hd-val').textContent   = Math.min(1, avail);
     document.getElementById('rest-short-result').textContent = '';
-    document.getElementById('rest-hd-row').classList.add('hidden');
+    // Auto-expand hit dice controls if dice are available; collapse if none remain
+    const hdRow = document.getElementById('rest-hd-row');
+    if (avail > 0) {
+      hdRow.classList.remove('hidden');
+    } else {
+      hdRow.classList.add('hidden');
+    }
     document.getElementById('modal-rest').classList.remove('hidden');
     this._hdSpend = Math.min(1, avail);
   }
