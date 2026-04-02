@@ -52,7 +52,8 @@ class AISystem {
     this.demoMode  = demoMode;
     this.textSpeed = textSpeed;
     this.messages   = [];
-    this._demoState  = null;
+    this._demoState     = null;
+    this._pendingInitRoll = undefined;
     
     // Reset demo memory for new campaign
     this._demoMemory = {
@@ -898,11 +899,16 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
   async sendMessage(text, isSystem = false) {
     if (this.isTyping) return;
 
-    // Player-initiated attack actions require an initiative roll first
+    // Player-initiated attack actions require an initiative roll first.
+    // We cache the roll total so that when [COMBAT:START] arrives in the AI
+    // response we can use it directly instead of prompting a second time.
     if (!isSystem && this._isAttackAction(text)) {
       const dex    = window.characterSystem?.character?.stats?.dex ?? 10;
       const dexMod = Math.floor((dex - 10) / 2);
-      this._openInitiativeModal(dexMod, 0, () => this._doSend(text, isSystem));
+      this._openInitiativeModal(dexMod, 0, (rollTotal) => {
+        this._pendingInitRoll = rollTotal; // consumed by [COMBAT:START] handler
+        this._doSend(text, isSystem);
+      });
       return;
     }
 
@@ -1316,16 +1322,22 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
         }
         case 'COMBAT': {
           if (val.toLowerCase() === 'start') {
-            // Roll initiative for player
             const c = window.characterSystem?.character;
             if (c) {
-              const dexMod = Math.floor((c.stats.dex - 10) / 2);
-              const initRoll = `d20${dexMod >= 0 ? '+' : ''}${dexMod}`;
-              window.diceSystem.requestRoll(initRoll, 'Initiative', null, (result) => {
-                // For now, create mock enemy initiatives - AI should provide these
-                const enemyInits = [{ name: 'Enemy', roll: Math.floor(Math.random() * 20) + 1, isPlayer: false }];
-                window.characterSystem?.startInitiative(result.total, enemyInits);
-              });
+              const enemyInits = [{ name: 'Enemy', roll: Math.floor(Math.random() * 20) + 1, isPlayer: false }];
+              if (this._pendingInitRoll !== undefined) {
+                // Player already rolled initiative via the pre-send modal — use that result
+                const savedRoll = this._pendingInitRoll;
+                this._pendingInitRoll = undefined;
+                window.characterSystem?.startInitiative(savedRoll, enemyInits);
+              } else {
+                // Combat started by the narrative (no attack action pre-roll) — prompt now
+                const dexMod = Math.floor((c.stats.dex - 10) / 2);
+                const initRoll = `d20${dexMod >= 0 ? '+' : ''}${dexMod}`;
+                window.diceSystem.requestRoll(initRoll, 'Initiative', null, (result) => {
+                  window.characterSystem?.startInitiative(result.total, enemyInits);
+                });
+              }
             }
           } else if (val.toLowerCase() === 'end') {
             window.characterSystem?.endInitiative();
