@@ -7,18 +7,18 @@ const T = { VOID:0, WALL:1, FLOOR:2, WATER:3, LAVA:4, GRASS:5, TREE:6, PATH:7,
 
 // ── Scene Palette ────────────────────────────────────────────
 const PALETTES = {
-  dungeon: { floor:'#1e1a10', wall:'#0e0c08', torch:true },
-  tavern:  { floor:'#4a2d14', wall:'#2e1c0c', torch:true },
-  forest:  { floor:'#152810', wall:'#0a1a08' },
-  cave:    { floor:'#181418', wall:'#0c0a0c' },
-  castle:  { floor:'#1a1820', wall:'#0e0c14' },
-  town:    { floor:'#2a2015', wall:'#1a1410' },
-  combat:  { floor:'#1e1408', wall:'#0e0a04' },
-  boss:    { floor:'#1e0808', wall:'#0e0404' },
-  rest:    { floor:'#1a2010', wall:'#101408' },
-  manor:   { floor:'#2a1e0e', wall:'#16100a', torch:true },
-  ruins:   { floor:'#181c10', wall:'#0e100a' },
-  crypt:   { floor:'#141018', wall:'#0a080e', torch:true },
+  dungeon: { floor:'#221d11', wall:'#110f09', wallEdge:'rgba(255,255,255,0.07)', floorEdge:'rgba(0,0,0,0.45)', torch:true,  fogColor:'#04030a', ambient:'rgba(18,10,50,0.10)', particles:'dust'      },
+  tavern:  { floor:'#52311a', wall:'#311e0e', wallEdge:'rgba(255,210,130,0.07)', floorEdge:'rgba(0,0,0,0.40)', torch:true,  fogColor:'#080400', ambient:'rgba(170,70,10,0.07)', particles:null        },
+  forest:  { floor:'#1c3012', wall:'#0d1f09', wallEdge:'rgba(100,200,50,0.05)',  floorEdge:'rgba(0,0,0,0.25)', torch:false, fogColor:'#020600', ambient:'rgba(10,55,5,0.09)',   particles:'leaves'    },
+  cave:    { floor:'#1c181c', wall:'#0e0c0e', wallEdge:'rgba(255,255,255,0.05)', floorEdge:'rgba(0,0,0,0.55)', torch:false, fogColor:'#050305', ambient:'rgba(28,5,38,0.08)',   particles:'drips'     },
+  castle:  { floor:'#1e1c26', wall:'#0f0e16', wallEdge:'rgba(200,185,255,0.06)', floorEdge:'rgba(0,0,0,0.45)', torch:false, fogColor:'#040410', ambient:'rgba(18,14,55,0.08)', particles:'dust'      },
+  town:    { floor:'#2e2418', wall:'#1c1812', wallEdge:'rgba(255,225,140,0.06)', floorEdge:'rgba(0,0,0,0.35)', torch:false, fogColor:'#060402', ambient:'rgba(90,55,8,0.06)',   particles:null        },
+  combat:  { floor:'#221608', wall:'#100a04', wallEdge:'rgba(255,90,0,0.08)',    floorEdge:'rgba(0,0,0,0.45)', torch:false, fogColor:'#080300', ambient:'rgba(75,15,5,0.10)',   particles:'embers'    },
+  boss:    { floor:'#220808', wall:'#0e0404', wallEdge:'rgba(255,40,0,0.11)',    floorEdge:'rgba(0,0,0,0.50)', torch:false, fogColor:'#0a0202', ambient:'rgba(110,8,5,0.14)',   particles:'embers'    },
+  rest:    { floor:'#1e2612', wall:'#12180a', wallEdge:'rgba(150,220,90,0.05)',  floorEdge:'rgba(0,0,0,0.30)', torch:false, fogColor:'#030601', ambient:'rgba(15,45,5,0.08)',   particles:'fireflies' },
+  manor:   { floor:'#2e2212', wall:'#18110a', wallEdge:'rgba(255,195,90,0.06)',  floorEdge:'rgba(0,0,0,0.40)', torch:true,  fogColor:'#080500', ambient:'rgba(55,26,5,0.08)',   particles:'dust'      },
+  ruins:   { floor:'#1c2012', wall:'#0e1209', wallEdge:'rgba(195,215,145,0.05)', floorEdge:'rgba(0,0,0,0.38)', torch:false, fogColor:'#040502', ambient:'rgba(28,38,8,0.08)',   particles:'dust'      },
+  crypt:   { floor:'#14101a', wall:'#0a0810', wallEdge:'rgba(150,100,210,0.08)', floorEdge:'rgba(0,0,0,0.55)', torch:true,  fogColor:'#030206', ambient:'rgba(36,5,55,0.10)',   particles:'spirits'   },
 };
 
 // ── Map Layouts ──────────────────────────────────────────────
@@ -404,7 +404,9 @@ class MapSystem {
     this.items        = [];
     this.landmarks    = [];   // [{ label, x, y }] named POI pins
     this._sceneEntitiesAdded = new Set(); // dedup guard per scene
-    this.currentScene = null; // Wait for AI to set the scene
+    this.currentScene     = null; // Wait for AI to set the scene
+    this._locationOverride = null; // Named location (e.g. "The Tarnished Flagon") overrides generic label
+    this._combatFlash     = 0;    // Used for combat border pulse effect
     this.fogEnabled   = true;
     this.time         = 0;
     this._raf         = null;
@@ -415,6 +417,14 @@ class MapSystem {
     // Perception rolls per scene — persisted so we don't re-roll on revisit
     this._perceptionCache = {};
     this._floatingTexts   = []; // [{ wx, wy, text, color, life, maxLife }]
+    this._particles       = [];
+    this._particleScene   = null;
+    this._trail           = []; // [{x,y}] last N player positions
+    this._rooms           = []; // [{cx,cy,label}] detected room centres
+    this._bumpFX          = 0;  // fractional-tile bump offset X (decays)
+    this._bumpFY          = 0;  // fractional-tile bump offset Y
+    this._wallFlash       = null; // {x, y, life} — flashing obstacle tile
+    this._impactDust      = []; // [{wx,wy,vx,vy,life,decay,size}]
   }
 
   init() {
@@ -456,10 +466,13 @@ class MapSystem {
   // ── Scene ────────────────────────────────────────────────────
   setScene(name) {
     if (!this.canvas) return;
+    if (this.currentScene === name) return; // same scene — keep the existing map intact
     this.currentScene = name;
     this.landmarks    = [];
     this.npcs         = [];
     this.mapObjects   = [];
+    this._trail       = [];
+    this._rooms       = [];
     this._sceneEntitiesAdded = new Set();
     
     // Track location visits for achievements (skip during initial setup)
@@ -470,6 +483,7 @@ class MapSystem {
       }
     }
     
+    this._locationOverride = null;
     document.getElementById('map-location').textContent = this._sceneLabel(name);
     document.getElementById('music-now').textContent    = this._musicLabel(name);
 
@@ -506,8 +520,11 @@ class MapSystem {
     }
     this._dirty = true;
 
+    this._detectRooms(name);
+
     // Cancel any existing loop then restart fresh
     if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+    this._initParticles(name);
     this._loop();
   }
 
@@ -645,7 +662,8 @@ class MapSystem {
       }
     }
 
-    this.npcs.push({ name, role, attitude, x: tx, y: ty });
+    this.npcs.push({ name, role, attitude, x: tx, y: ty, origX: tx, origY: ty,
+                     wanderTimer: 100 + Math.floor(Math.random() * 100) });
     this._revealAround(tx, ty, 2);
     this._dirty = true;
   }
@@ -711,6 +729,19 @@ class MapSystem {
       case 'captive':  return 'rgba(220,150,40,';
       default:         return 'rgba(180,180,200,';
     }
+  }
+
+  // ── Named location label (overrides generic scene label) ────
+  setLocationName(name) {
+    this._locationOverride = name || null;
+    document.getElementById('map-location').textContent = name || this._sceneLabel(this.currentScene);
+  }
+
+  // ── Clear enemies and hostile NPCs after combat ends ────────
+  clearEnemies() {
+    this.enemies = [];
+    this.npcs = this.npcs.filter(n => (n.attitude || '').toLowerCase() !== 'hostile');
+    this._dirty = true;
   }
 
   // ── Infer entities from narrative prose ─────────────────────
@@ -873,7 +904,9 @@ class MapSystem {
       } while (tries < 50 && (this._isSolid(ex, ey) || (Math.abs(ex - this.playerX) + Math.abs(ey - this.playerY)) < 4));
       if (tries < 50) {
         const tmpl = templates[i % templates.length];
-        enms.push({ x: ex, y: ey, hp: tmpl.hp, maxHp: tmpl.maxHp, icon: tmpl.icon, type: tmpl.type, glow: tmpl.glow });
+        enms.push({ x: ex, y: ey, spawnX: ex, spawnY: ey,
+                    hp: tmpl.hp, maxHp: tmpl.maxHp, icon: tmpl.icon, type: tmpl.type, glow: tmpl.glow,
+                    wanderTimer: 60 + Math.floor(Math.random() * 80) });
       }
     }
     return enms;
@@ -901,6 +934,11 @@ class MapSystem {
   // ── Render ───────────────────────────────────────────────────
   _loop() {
     this.time++;
+    this._updateParticles();
+    this._updateWander();
+    // Decay bump
+    this._bumpFX *= 0.68; if (Math.abs(this._bumpFX) < 0.003) this._bumpFX = 0;
+    this._bumpFY *= 0.68; if (Math.abs(this._bumpFY) < 0.003) this._bumpFY = 0;
     this._draw();
     this._raf = requestAnimationFrame(() => this._loop());
   }
@@ -926,7 +964,8 @@ class MapSystem {
     const offX   = Math.floor((canvas.width  - totalW) / 2);
     const offY   = Math.floor((canvas.height - totalH) / 2);
 
-    ctx.fillStyle = '#050404';
+    const fogColor = pal.fogColor || '#050404';
+    ctx.fillStyle = fogColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw tiles
@@ -937,7 +976,7 @@ class MapSystem {
         const isF = this.fogEnabled && fog[y]?.[x] !== false;
 
         if (isF) {
-          ctx.fillStyle = '#050404';
+          ctx.fillStyle = fogColor;
           ctx.fillRect(px, py, ts, ts);
           continue;
         }
@@ -964,18 +1003,35 @@ class MapSystem {
       }
     }
 
-    // Half fog (explored but dark)
+    // Fog layer (unexplored tiles)
     if (this.fogEnabled) {
+      ctx.fillStyle = fogColor;
       for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
           if (fog[y]?.[x] === false) continue;
           const px = offX + x * ts;
           const py = offY + y * ts;
-          ctx.fillStyle = '#050404';
           ctx.fillRect(px, py, ts, ts);
         }
       }
     }
+
+    // Wall flash (hit obstacle highlight)
+    if (this._wallFlash && this._wallFlash.life > 0) {
+      const { x: fx, y: fy, life } = this._wallFlash;
+      if (!this.fogEnabled || fog[fy]?.[fx] === false) {
+        const alpha = (life / 14) * 0.55;
+        ctx.fillStyle = `rgba(255,215,120,${alpha})`;
+        ctx.fillRect(offX + fx * ts, offY + fy * ts, ts, ts);
+      }
+      this._wallFlash.life--;
+    }
+
+    // Room labels (over tiles, under entities)
+    this._drawRoomLabels(ctx, offX, offY, ts);
+
+    // Scene ambient colour wash (over tiles, under entities)
+    this._drawAmbientOverlay(ctx, canvas, pal);
 
     // Enemies
     this.enemies.forEach(e => {
@@ -1041,10 +1097,14 @@ class MapSystem {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(this._npcIcon(npc.role), px, py + 1);
-      // Name label (first word)
+      // Name label (first word) — color matches attitude
       const label = npc.name.split(' ')[0];
       ctx.font = `bold ${Math.max(6, Math.round(ts * 0.42))}px Cinzel, serif`;
-      ctx.fillStyle = 'rgba(230,210,160,0.95)';
+      ctx.fillStyle = {
+        friendly: 'rgba(100,230,110,0.95)',
+        hostile:  'rgba(255,110,80,0.95)',
+        captive:  'rgba(240,175,50,0.95)',
+      }[(npc.attitude || '').toLowerCase()] || 'rgba(230,210,160,0.95)';
       ctx.textBaseline = 'top';
       ctx.shadowColor = 'rgba(0,0,0,0.9)';
       ctx.shadowBlur = 4;
@@ -1120,9 +1180,26 @@ class MapSystem {
       ctx.shadowBlur = 0;
     });
 
-    // Player
-    const ppx = offX + this.playerX * ts + ts / 2;
-    const ppy = offY + this.playerY * ts + ts / 2;
+    // Footprint trail
+    this._drawTrail(ctx, offX, offY, ts);
+
+    // Impact dust (wall collision particles)
+    this._impactDust = this._impactDust.filter(p => {
+      p.wx  += p.vx; p.wy += p.vy; p.life -= p.decay;
+      if (p.life <= 0) return false;
+      const px = offX + p.wx * ts + ts / 2;
+      const py = offY + p.wy * ts + ts / 2;
+      ctx.save();
+      ctx.globalAlpha = p.life * 0.75;
+      ctx.fillStyle   = 'rgba(205,188,148,1)';
+      ctx.beginPath(); ctx.arc(px, py, p.size, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      return true;
+    });
+
+    // Player (with bump offset)
+    const ppx = offX + (this.playerX + this._bumpFX) * ts + ts / 2;
+    const ppy = offY + (this.playerY + this._bumpFY) * ts + ts / 2;
     // Player glow
     const pg = ctx.createRadialGradient(ppx, ppy, 0, ppx, ppy, ts * 1.2);
     pg.addColorStop(0,   'rgba(240,210,50,0.3)');
@@ -1165,6 +1242,16 @@ class MapSystem {
       ctx.fillText(ft.text, screenX, screenY);
       ctx.restore();
     });
+
+    // Atmospheric particles (drawn over everything so they float above the map)
+    this._drawParticles(ctx);
+
+    // Weather + time-of-day overlay
+    this._drawWeatherOverlay(ctx, canvas);
+
+    // Vignette + compass (UI layer, always on top)
+    this._drawVignette(ctx, canvas);
+    this._drawCompass(ctx, canvas);
   }
 
   // ── Set sprite appearance from character data ────────────────
@@ -1316,13 +1403,22 @@ class MapSystem {
       case T.WALL: {
         ctx.fillStyle = pal.wall;
         ctx.fillRect(px, py, ts, ts);
-        // Stone texture lines
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(px + 0.5, py + 0.5, ts - 1, ts - 1);
+        // Top-left highlight edge (simulates top-left light source)
+        const wEdge = pal.wallEdge || 'rgba(255,255,255,0.07)';
+        ctx.strokeStyle = wEdge;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(px, py + ts * 0.5);
-        ctx.lineTo(px + ts * 0.5, py + ts * 0.5);
+        ctx.moveTo(px, py + ts);
+        ctx.lineTo(px, py);
+        ctx.lineTo(px + ts, py);
+        ctx.stroke();
+        // Bottom-right shadow edge
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px + ts, py);
+        ctx.lineTo(px + ts, py + ts);
+        ctx.lineTo(px, py + ts);
         ctx.stroke();
         // Occasional cracks (deterministic by grid position)
         const seed = gx * 13 + gy * 7;
@@ -1335,7 +1431,6 @@ class MapSystem {
           ctx.moveTo(cx1, cy1);
           ctx.lineTo(cx1 + (_rng(seed + 3) - 0.5) * ts * 0.4, cy1 + (_rng(seed + 4) - 0.5) * ts * 0.4);
           ctx.stroke();
-          // Branch crack ~30% of the time
           if (_rng(seed + 5) < 0.3) {
             ctx.beginPath();
             ctx.moveTo(cx1, cy1);
@@ -1348,9 +1443,21 @@ class MapSystem {
       case T.FLOOR: {
         ctx.fillStyle = pal.floor;
         ctx.fillRect(px, py, ts, ts);
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        // Grout line
+        const fEdge = pal.floorEdge || 'rgba(0,0,0,0.4)';
+        ctx.strokeStyle = fEdge;
         ctx.lineWidth = 0.5;
         ctx.strokeRect(px + 0.5, py + 0.5, ts - 1, ts - 1);
+        // Subtle top-left inner highlight
+        if (ts >= 14) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(px + 1.5, py + ts - 2);
+          ctx.lineTo(px + 1.5, py + 1.5);
+          ctx.lineTo(px + ts - 2, py + 1.5);
+          ctx.stroke();
+        }
         break;
       }
       case T.WATER: {
@@ -1449,18 +1556,40 @@ class MapSystem {
       case T.CHEST: {
         ctx.fillStyle = pal.floor;
         ctx.fillRect(px, py, ts, ts);
+        // Pulsing gold glow
+        const cpulse = 0.78 + 0.22 * Math.sin(time * 0.06 + gx * 0.7 + gy * 0.5);
+        const cgr = ctx.createRadialGradient(px + ts/2, py + ts*0.6, 0, px + ts/2, py + ts*0.6, ts * 1.1);
+        cgr.addColorStop(0, `rgba(220,165,25,${0.38 * cpulse})`);
+        cgr.addColorStop(0.6, `rgba(180,110,10,${0.14 * cpulse})`);
+        cgr.addColorStop(1, 'transparent');
+        ctx.fillStyle = cgr;
+        ctx.fillRect(px - ts * 0.15, py - ts * 0.15, ts * 1.3, ts * 1.3);
+        // Chest body
         ctx.fillStyle = '#7a4a10';
         ctx.fillRect(px + ts * 0.12, py + ts * 0.35, ts * 0.76, ts * 0.5);
         ctx.fillStyle = '#5a3508';
         ctx.fillRect(px + ts * 0.12, py + ts * 0.35, ts * 0.76, ts * 0.15);
-        ctx.fillStyle = '#c9a227';
+        // Lid highlight
+        ctx.fillStyle = `rgba(${160 + Math.round(40 * cpulse)},${90 + Math.round(30 * cpulse)},20,0.5)`;
+        ctx.fillRect(px + ts * 0.14, py + ts * 0.36, ts * 0.72, ts * 0.05);
+        // Clasp
+        ctx.fillStyle = `rgba(${200 + Math.round(55 * cpulse)},${165 + Math.round(35 * cpulse)},35,0.95)`;
         ctx.fillRect(px + ts * 0.43, py + ts * 0.42, ts * 0.14, ts * 0.12);
         break;
       }
       case T.STAIRS: {
         ctx.fillStyle = pal.floor;
         ctx.fillRect(px, py, ts, ts);
-        ctx.strokeStyle = '#a09070';
+        // Pulsing blue-white glow
+        const spulse = 0.7 + 0.3 * Math.sin(time * 0.038 + gx * 0.4 + gy * 0.4);
+        const sgr = ctx.createRadialGradient(px + ts/2, py + ts/2, 0, px + ts/2, py + ts/2, ts * 1.05);
+        sgr.addColorStop(0, `rgba(80,155,255,${0.28 * spulse})`);
+        sgr.addColorStop(0.6, `rgba(40,100,200,${0.10 * spulse})`);
+        sgr.addColorStop(1, 'transparent');
+        ctx.fillStyle = sgr;
+        ctx.fillRect(px - ts * 0.1, py - ts * 0.1, ts * 1.2, ts * 1.2);
+        // Step lines
+        ctx.strokeStyle = `rgba(${130 + Math.round(60 * spulse)},${175 + Math.round(50 * spulse)},255,0.82)`;
         ctx.lineWidth = 1;
         for (let i = 0; i < 4; i++) {
           const sy = py + ts * (0.2 + i * 0.18);
@@ -1469,7 +1598,7 @@ class MapSystem {
           ctx.lineTo(px + ts * (0.9 - i * 0.05), sy);
           ctx.stroke();
         }
-        ctx.fillStyle = '#c9a227';
+        ctx.fillStyle = `rgba(${155 + Math.round(70 * spulse)},${195 + Math.round(55 * spulse)},255,0.88)`;
         ctx.font = `${ts * 0.4}px serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1512,15 +1641,503 @@ class MapSystem {
     }
   }
 
+  // ── Room detection & labels ──────────────────────────────────
+  _detectRooms(scene) {
+    const map  = this.map;
+    const rows = map.length;
+    const cols = map[0]?.length || 0;
+    if (!rows || !cols) return;
+
+    const WALKABLE = new Set([T.FLOOR, T.TORCH, T.DOOR, T.CHEST, T.STAIRS, T.TABLE, T.COLUMN, T.SAND, T.PATH]);
+    const visited  = Array.from({ length: rows }, () => new Uint8Array(cols));
+    this._rooms    = [];
+
+    for (let sy = 0; sy < rows; sy++) {
+      for (let sx = 0; sx < cols; sx++) {
+        if (visited[sy][sx] || !WALKABLE.has(map[sy][sx])) continue;
+
+        // BFS flood fill to find the connected region
+        const region = [];
+        const queue  = [[sx, sy]];
+        visited[sy][sx] = 1;
+        while (queue.length) {
+          const [cx, cy] = queue.shift();
+          region.push([cx, cy]);
+          for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+            const nx = cx + dx, ny = cy + dy;
+            if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+            if (visited[ny][nx] || !WALKABLE.has(map[ny][nx])) continue;
+            visited[ny][nx] = 1;
+            queue.push([nx, ny]);
+          }
+        }
+
+        if (region.length < 4) continue; // skip tiny alcoves
+
+        // Compute centroid
+        const cx = Math.round(region.reduce((s, [x]) => s + x, 0) / region.length);
+        const cy = Math.round(region.reduce((s, [, y]) => s + y, 0) / region.length);
+
+        // Count tile types inside the region
+        const counts = {};
+        for (const [rx, ry] of region) {
+          const t = map[ry][rx];
+          counts[t] = (counts[t] || 0) + 1;
+        }
+        const n = region.length;
+
+        const label = this._roomLabel(scene, counts, n);
+        if (label) this._rooms.push({ cx, cy, label });
+      }
+    }
+  }
+
+  _roomLabel(scene, counts, size) {
+    if (counts[T.STAIRS])                          return 'Exit';
+    if (counts[T.CHEST])                           return 'Vault';
+    if (counts[T.LAVA] > 4)                        return 'Inferno';
+    if (counts[T.WATER] > 4)                       return 'Cistern';
+    if ((counts[T.TABLE] || 0) >= 3) {
+      const halls = { tavern:'Dining Hall', manor:'Grand Hall', castle:'Banquet Hall', town:'Market', dungeon:'Mess Hall' };
+      return halls[scene] || 'Hall';
+    }
+    if ((counts[T.TORCH] || 0) >= 3 && size < 14) return 'Watch Post';
+    if ((counts[T.COLUMN] || 0) >= 2)             return 'Pillared Hall';
+
+    // Generic room names per scene
+    const small = size < 8;
+    const large = size > 22;
+    const NAMES = {
+      dungeon: small ? 'Cell'        : large ? 'Great Hall'    : 'Chamber',
+      cave:    small ? 'Alcove'      : large ? 'Cavern'        : 'Grotto',
+      castle:  small ? 'Anteroom'    : large ? 'Throne Room'   : 'Corridor',
+      boss:    small ? 'Approach'    : large ? "Dragon's Lair" : 'Arena',
+      tavern:  small ? 'Backroom'    : large ? 'Common Room'   : 'Side Room',
+      forest:  small ? 'Clearing'    : large ? 'Grove'         : 'Glade',
+      combat:  small ? 'Approach'    : large ? 'Arena Floor'   : 'Pit',
+      rest:    small ? 'Nook'        : large ? 'Camp'          : 'Shelter',
+      manor:   small ? 'Closet'      : large ? 'Ballroom'      : 'Study',
+      ruins:   small ? 'Niche'       : large ? 'Courtyard'     : 'Ruin',
+      crypt:   small ? 'Burial Nook' : large ? 'Ossuary'       : 'Tomb',
+      town:    small ? 'Alley'       : large ? 'Plaza'         : 'Street',
+    };
+    return NAMES[scene] || (small ? 'Alcove' : large ? 'Hall' : 'Room');
+  }
+
+  _drawRoomLabels(ctx, offX, offY, ts) {
+    if (!this._rooms.length || ts < 10) return;
+    ctx.save();
+    ctx.font         = `bold ${Math.max(7, Math.round(ts * 0.44))}px Cinzel, serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    for (const { cx, cy, label } of this._rooms) {
+      if (this.fogEnabled && this.fog[cy]?.[cx] !== false) continue;
+      const px = offX + cx * ts + ts / 2;
+      const py = offY + cy * ts + ts / 2;
+      ctx.globalAlpha  = 0.52;
+      ctx.fillStyle    = 'rgba(210,185,110,1)';
+      ctx.shadowColor  = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur   = 4;
+      ctx.fillText(label, px, py);
+      ctx.shadowBlur   = 0;
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // ── Wander (enemies + NPCs) ──────────────────────────────────
+  _updateWander() {
+    const rows = this.map.length;
+    const cols = this.map[0]?.length || 0;
+
+    const tryStep = (entity, radius, ox, oy) => {
+      entity.wanderTimer--;
+      if (entity.wanderTimer > 0) return;
+      entity.wanderTimer = 70 + Math.floor(Math.random() * 90);
+
+      // Pick a random adjacent walkable tile, biased toward origin
+      const candidates = [];
+      const DIRS = [[0,-1],[0,1],[-1,0],[1,0]];
+      for (const [dx, dy] of DIRS) {
+        const nx = entity.x + dx, ny = entity.y + dy;
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        if (this._isSolid(nx, ny)) continue;
+        if (nx === this.playerX && ny === this.playerY) continue;
+        // Stay within wander radius of origin
+        if (Math.abs(nx - ox) > radius || Math.abs(ny - oy) > radius) continue;
+        // Don't collide with other entities
+        const blocked = this.enemies.some(e => e !== entity && e.x === nx && e.y === ny) ||
+                        this.npcs.some(n => n !== entity && n.x === nx && n.y === ny);
+        if (!blocked) candidates.push([nx, ny]);
+      }
+      if (!candidates.length) return;
+      const [nx, ny] = candidates[Math.floor(Math.random() * candidates.length)];
+      entity.x = nx;
+      entity.y = ny;
+      if (this.fogEnabled && this.fog[ny]?.[nx] === false) this._dirty = true;
+    };
+
+    for (const e of this.enemies) tryStep(e, 5, e.spawnX, e.spawnY);
+    for (const n of this.npcs)    tryStep(n, 3, n.origX,  n.origY);
+  }
+
+  // ── Particles ────────────────────────────────────────────────
+  _initParticles(scene) {
+    this._particles = [];
+    this._particleScene = scene;
+    const type = PALETTES[scene]?.particles;
+    if (!type) return;
+    const count = { embers:40, spirits:12, fireflies:15, drips:20, leaves:25, dust:30 }[type] ?? 28;
+    for (let i = 0; i < count; i++) this._particles.push(this._spawnParticle(type, true));
+  }
+
+  _spawnParticle(type, initial = false) {
+    const w = this.canvas?.width  || 400;
+    const h = this.canvas?.height || 300;
+    const x = Math.random() * w;
+    const y = initial ? Math.random() * h
+            : (type === 'embers' || type === 'spirits') ? h + 4 : -4;
+    const base = { type, x, y, life: 1, decay: 0 };
+    switch (type) {
+      case 'dust':
+        return { ...base, vx:(Math.random()-0.5)*0.28, vy:0.18+Math.random()*0.28, size:0.6+Math.random()*1.1, alpha:0.12+Math.random()*0.20 };
+      case 'embers':
+        return { ...base, vx:(Math.random()-0.5)*0.5, vy:-(0.35+Math.random()*0.75), size:1+Math.random()*1.4, alpha:0.55+Math.random()*0.45, decay:0.003+Math.random()*0.003 };
+      case 'leaves':
+        return { ...base, y: initial ? Math.random()*h : -4, vx:0.18+Math.random()*0.38, vy:0.14+Math.random()*0.28, rot:Math.random()*Math.PI*2, rotV:(Math.random()-0.5)*0.05, size:2+Math.random()*2, alpha:0.3+Math.random()*0.38 };
+      case 'drips':
+        return { ...base, y: initial ? Math.random()*h*0.6 : 0, vx:0, vy:0.55+Math.random()*0.75, size:0.7+Math.random()*0.7, alpha:0.35+Math.random()*0.3 };
+      case 'fireflies':
+        return { ...base, y: initial ? Math.random()*h : Math.random()*h, vx:(Math.random()-0.5)*0.38, vy:(Math.random()-0.5)*0.28, size:1.4+Math.random()*0.9, alpha:0, targetAlpha:0.35+Math.random()*0.45, blinkTimer:Math.random()*200 };
+      case 'spirits':
+        return { ...base, vx:(Math.random()-0.5)*0.42, vy:-(0.18+Math.random()*0.35), size:2.5+Math.random()*3, alpha:0.08+Math.random()*0.18, decay:0.001 };
+    }
+  }
+
+  _updateParticles() {
+    const type = PALETTES[this._particleScene]?.particles;
+    if (!type) { this._particles = []; return; }
+    const w = this.canvas?.width  || 400;
+    const h = this.canvas?.height || 300;
+    this._particles = this._particles.filter(p => {
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.life -= p.decay;
+      if (p.type === 'leaves')    { p.rot += p.rotV; p.vx += Math.sin(this.time * 0.018) * 0.018; }
+      if (p.type === 'embers')    { p.vx  += (Math.random()-0.5) * 0.09; p.vx = Math.max(-0.75, Math.min(0.75, p.vx)); }
+      if (p.type === 'spirits')   { p.alpha = 0.08 + 0.10 * Math.sin(this.time * 0.028 + p.x * 0.1); p.vx += Math.sin(this.time * 0.018) * 0.018; }
+      if (p.type === 'fireflies') {
+        p.blinkTimer++;
+        p.alpha = Math.max(0, Math.sin(p.blinkTimer * 0.025) * p.targetAlpha);
+        p.vx += (Math.random()-0.5) * 0.035;
+        p.vy += (Math.random()-0.5) * 0.035;
+        p.vx = Math.max(-0.48, Math.min(0.48, p.vx));
+        p.vy = Math.max(-0.48, Math.min(0.48, p.vy));
+      }
+      // Wrap / cull per type
+      if (p.type === 'dust' || p.type === 'drips') {
+        if (p.y > h) { p.y = 0; p.x = Math.random() * w; }
+        if (p.x < -2) p.x = w; if (p.x > w + 2) p.x = 0;
+      } else if (p.type === 'leaves') {
+        if (p.y > h + 8) { p.y = -4; p.x = Math.random() * w; }
+      } else if (p.type === 'fireflies') {
+        if (p.x < -20) p.x = w+10; if (p.x > w+20) p.x = -10;
+        if (p.y < -20) p.y = h+10; if (p.y > h+20) p.y = -10;
+      } else if (p.type === 'embers' || p.type === 'spirits') {
+        if (p.y < -12 || p.life <= 0) return false;
+      }
+      return p.life > 0;
+    });
+    const target = { embers:40, spirits:12, fireflies:15, drips:20, leaves:25, dust:30 }[type] ?? 28;
+    while (this._particles.length < target) this._particles.push(this._spawnParticle(type));
+  }
+
+  _drawParticles(ctx) {
+    const type = PALETTES[this._particleScene]?.particles;
+    if (!type || !this._particles.length) return;
+    ctx.save();
+    for (const p of this._particles) {
+      if (p.alpha <= 0.01) continue;
+      ctx.globalAlpha = p.alpha;
+      switch (p.type) {
+        case 'dust':
+          ctx.fillStyle = 'rgba(200,190,160,1)';
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+          break;
+        case 'embers': {
+          const hue = 60 + Math.round(Math.random() * 50);
+          ctx.fillStyle = `rgba(255,${hue},0,1)`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+          // Inner bright core
+          ctx.fillStyle = 'rgba(255,240,180,0.6)';
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 0.4, 0, Math.PI*2); ctx.fill();
+          break;
+        }
+        case 'leaves':
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.fillStyle = Math.sin(p.rot) > 0 ? 'rgba(110,175,35,1)' : 'rgba(55,125,18,1)';
+          ctx.beginPath(); ctx.ellipse(0, 0, p.size, p.size*0.45, 0, 0, Math.PI*2); ctx.fill();
+          ctx.restore(); break;
+        case 'drips':
+          ctx.fillStyle = 'rgba(90,130,195,1)';
+          ctx.beginPath(); ctx.ellipse(p.x, p.y, p.size*0.35, p.size, 0, 0, Math.PI*2); ctx.fill();
+          break;
+        case 'fireflies': {
+          const fg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3.5);
+          fg.addColorStop(0, 'rgba(210,255,90,0.95)');
+          fg.addColorStop(0.4, 'rgba(160,230,40,0.5)');
+          fg.addColorStop(1, 'transparent');
+          ctx.fillStyle = fg;
+          ctx.fillRect(p.x - p.size*3.5, p.y - p.size*3.5, p.size*7, p.size*7);
+          break;
+        }
+        case 'spirits': {
+          const sg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2.2);
+          sg.addColorStop(0, 'rgba(185,155,255,0.7)');
+          sg.addColorStop(1, 'transparent');
+          ctx.fillStyle = sg;
+          ctx.fillRect(p.x - p.size*2.2, p.y - p.size*2.2, p.size*4.4, p.size*4.4);
+          break;
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // ── Scene ambient colour wash ─────────────────────────────────
+  _drawAmbientOverlay(ctx, canvas, pal) {
+    if (!pal.ambient) return;
+    ctx.fillStyle = pal.ambient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // ── Weather + time-of-day overlay ────────────────────────────
+  _drawWeatherOverlay(ctx, canvas) {
+    const weather = window.worldState?.weather || 'clear';
+    const tod     = window.worldState?.timeOfDay || 'morning';
+    const w = canvas.width, h = canvas.height;
+    const t = this.time;
+
+    // ── Time-of-day tint ──────────────────────────────────────
+    const timeTint = {
+      dawn:      'rgba(210,110,30,0.12)',
+      morning:   null,
+      afternoon: null,
+      dusk:      'rgba(180,80,20,0.14)',
+      evening:   'rgba(20,10,60,0.20)',
+      night:     'rgba(5,5,35,0.38)',
+    }[tod];
+    if (timeTint) {
+      ctx.fillStyle = timeTint;
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    // ── Weather overlays ──────────────────────────────────────
+    if (weather === 'fog') {
+      // Rolling fog — layered horizontal gradient bands
+      for (let i = 0; i < 3; i++) {
+        const speed  = 0.18 + i * 0.09;
+        const offY2  = ((t * speed + i * h / 3) % h);
+        const alpha  = 0.11 + 0.04 * Math.sin(t * 0.02 + i);
+        const grad   = ctx.createLinearGradient(0, offY2, 0, offY2 + h * 0.35);
+        grad.addColorStop(0,   `rgba(220,225,230,0)`);
+        grad.addColorStop(0.4, `rgba(220,225,230,${alpha})`);
+        grad.addColorStop(1,   `rgba(220,225,230,0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, offY2 - h * 0.1, w, h * 0.5);
+        ctx.fillRect(0, offY2 - h * 0.1 - h, w, h * 0.5); // wrap
+      }
+    }
+
+    if (weather === 'rain' || weather === 'storm') {
+      const count  = weather === 'storm' ? 120 : 60;
+      const speed  = weather === 'storm' ? 14  : 8;
+      const alpha  = weather === 'storm' ? 0.28 : 0.18;
+      ctx.save();
+      ctx.strokeStyle = `rgba(160,185,220,${alpha})`;
+      ctx.lineWidth   = 0.8;
+      for (let i = 0; i < count; i++) {
+        // Deterministic per frame + index so drops don't flicker
+        const seed = i * 127.1 + t * speed;
+        const rx   = ((seed * 13.7) % w + w) % w;
+        const ry   = ((seed * 7.3  + t * speed) % (h + 40) + h + 40) % (h + 40) - 20;
+        const len  = 6 + (i % 5);
+        ctx.beginPath();
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx + len * 0.3, ry + len);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Storm: occasional lightning flash
+      if (weather === 'storm' && (t % 240 < 3 || t % 379 < 2)) {
+        ctx.fillStyle = 'rgba(200,220,255,0.10)';
+        ctx.fillRect(0, 0, w, h);
+      }
+    }
+
+    if (weather === 'snow') {
+      ctx.save();
+      for (let i = 0; i < 55; i++) {
+        const seed = i * 83.1;
+        const sx   = ((seed * 17.3 + t * 0.3) % (w + 20) + w + 20) % (w + 20) - 10;
+        const sy   = ((seed * 5.7  + t * (0.5 + (i % 5) * 0.12)) % (h + 20) + h + 20) % (h + 20) - 10;
+        const sr   = 0.8 + (i % 4) * 0.4;
+        ctx.globalAlpha = 0.45 + (i % 3) * 0.1;
+        ctx.fillStyle   = 'rgba(230,240,255,1)';
+        ctx.beginPath();
+        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // ── Dark vignette around canvas edges ────────────────────────
+  _drawVignette(ctx, canvas) {
+    const cx = canvas.width  / 2;
+    const cy = canvas.height / 2;
+    const r  = Math.max(cx, cy) * 1.42;
+    const vg = ctx.createRadialGradient(cx, cy, r * 0.32, cx, cy, r);
+    vg.addColorStop(0, 'transparent');
+    vg.addColorStop(1, 'rgba(0,0,0,0.78)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Combat border pulse — red radial ring while an enemy is active
+    if (window.aiSystem?.currentEnemy) {
+      const pulse = 0.38 + 0.28 * Math.sin(this.time * 0.07);
+      const cg = ctx.createRadialGradient(cx, cy, r * 0.38, cx, cy, r);
+      cg.addColorStop(0, 'transparent');
+      cg.addColorStop(1, `rgba(210,30,10,${pulse})`);
+      ctx.fillStyle = cg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  // ── Compass rose ─────────────────────────────────────────────
+  _drawCompass(ctx, canvas) {
+    const margin = 28;
+    const cx = canvas.width - margin;
+    const cy = margin;
+    const r  = 14;
+    ctx.save();
+    ctx.globalAlpha = 0.52;
+    // Outer ring
+    ctx.strokeStyle = 'rgba(200,175,110,0.45)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+    // Cardinal direction lines + labels
+    const dirs = [
+      { a: -Math.PI/2, label:'N', color:'#e05555' },
+      { a:  Math.PI/2, label:'S', color:'#b09060' },
+      { a:  0,         label:'E', color:'#b09060' },
+      { a:  Math.PI,   label:'W', color:'#b09060' },
+    ];
+    dirs.forEach(d => {
+      const ex = cx + Math.cos(d.a) * r * 0.82;
+      const ey = cy + Math.sin(d.a) * r * 0.82;
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth   = d.label === 'N' ? 1.5 : 1;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(d.a) * r * 0.28, cy + Math.sin(d.a) * r * 0.28);
+      ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.font        = `bold ${Math.round(r * 0.58)}px Cinzel, serif`;
+      ctx.fillStyle   = d.color;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur  = 3;
+      ctx.fillText(d.label, cx + Math.cos(d.a) * (r * 0.58), cy + Math.sin(d.a) * (r * 0.58));
+      ctx.shadowBlur  = 0;
+    });
+    // Centre dot
+    ctx.fillStyle = 'rgba(200,175,110,0.75)';
+    ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   // ── Player Movement ──────────────────────────────────────────
   movePlayer(dx, dy) {
     const nx = this.playerX + dx;
     const ny = this.playerY + dy;
     if (!this._isSolid(nx, ny)) {
+      this._trail.push({ x: this.playerX, y: this.playerY });
+      if (this._trail.length > 22) this._trail.shift();
       this.playerX = nx;
       this.playerY = ny;
       this._revealAround(nx, ny, 4);
+    } else {
+      // ── Collision feedback ───────────────────────────────────
+      // 1. Player bump nudge
+      this._bumpFX = dx * 0.28;
+      this._bumpFY = dy * 0.28;
+      // 2. Flash the obstacle tile
+      this._wallFlash = { x: nx, y: ny, life: 14 };
+      // 3. Impact dust burst at the contact edge
+      const cx = this.playerX + dx * 0.62;
+      const cy = this.playerY + dy * 0.62;
+      for (let i = 0; i < 7; i++) {
+        this._impactDust.push({
+          wx: cx, wy: cy,
+          vx: (Math.random() - 0.5) * 0.14,
+          vy: -0.04 - Math.random() * 0.10,
+          life: 1, decay: 0.07 + Math.random() * 0.06,
+          size: 0.8 + Math.random() * 1.4,
+        });
+      }
+      // 4. Thud sound
+      this._playThud();
     }
+  }
+
+  // ── Wall thud sound ──────────────────────────────────────────
+  _playThud() {
+    const as = window.audioSystem;
+    if (!as?._ctx || as.muted) return;
+    const ac  = as._ctx;
+    const now = ac.currentTime;
+    const len = Math.floor(ac.sampleRate * 0.07);
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src  = ac.createBufferSource();
+    src.buffer = buf;
+    const filt = ac.createBiquadFilter();
+    filt.type            = 'lowpass';
+    filt.frequency.value = 190;
+    const gain = ac.createGain();
+    gain.gain.setValueAtTime(0.10, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+    src.connect(filt);
+    filt.connect(gain);
+    gain.connect(as._master);
+    src.start(now);
+    src.stop(now + 0.08);
+  }
+
+  // ── Footprint trail ──────────────────────────────────────────
+  _drawTrail(ctx, offX, offY, ts) {
+    if (!this._trail.length) return;
+    const total = this._trail.length;
+    ctx.save();
+    for (let i = 0; i < total; i++) {
+      const { x, y } = this._trail[i];
+      if (this.fogEnabled && this.fog[y]?.[x] !== false) continue;
+      const age   = (total - i) / total;       // 1 = oldest, ~0 = newest
+      const alpha = (1 - age) * 0.38;
+      const r     = ts * (0.12 + (1 - age) * 0.10);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle   = '#c8a840';
+      ctx.beginPath();
+      ctx.arc(offX + x * ts + ts / 2, offY + y * ts + ts / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 }
 

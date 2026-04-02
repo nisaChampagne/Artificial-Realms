@@ -716,10 +716,24 @@ class App {
   _bindKeyboard() {
     document.addEventListener('keydown', (e) => {
       if (this.currentScreen !== 'game') return;
-      const tag = document.activeElement?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
       const openModals = () => [...document.querySelectorAll('.modal-overlay')].filter(m => !m.classList.contains('hidden'));
+
+      // WASD / Arrow keys : always intercept for map movement, even when input is focused
+      if (openModals().length === 0) {
+        const MOVE = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0],
+                       w:[0,-1], W:[0,-1], a:[-1,0], A:[-1,0], s:[0,1], S:[0,1], d:[1,0], D:[1,0] };
+        const dir = MOVE[e.key];
+        if (dir) {
+          e.preventDefault();
+          document.activeElement?.blur();
+          window.mapSystem?.movePlayer(dir[0], dir[1]);
+          return;
+        }
+      }
+
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
       // 1–4 : pick latest choice card
       if (e.key >= '1' && e.key <= '4' && openModals().length === 0) {
@@ -760,16 +774,13 @@ class App {
         return;
       }
 
+
       // C : character sheet (no modal open)
       if ((e.key === 'c' || e.key === 'C') && openModals().length === 0) {
         window.characterSystem?.openSheet(); return;
       }
 
-      // D : dice roller (no modal open)
-      if ((e.key === 'd' || e.key === 'D') && openModals().length === 0) {
-        window.diceSystem?.openModal(); return;
-      }
-
+      // D : dice roller — use toolbar button; D key is now movement
       // J : journal (no modal open)
       if ((e.key === 'j' || e.key === 'J') && openModals().length === 0) {
         window.journalSystem?.open(); return;
@@ -778,6 +789,13 @@ class App {
       // P : perception log (no modal open)
       if ((e.key === 'p' || e.key === 'P') && openModals().length === 0) {
         this._openPerceptionLog(); return;
+      }
+
+      // M : toggle minimap panel
+      if ((e.key === 'm' || e.key === 'M') && openModals().length === 0) {
+        const panel = document.querySelector('.game-map-panel');
+        if (panel) panel.classList.toggle('map-hidden');
+        return;
       }
     });
   }

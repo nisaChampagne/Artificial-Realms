@@ -1792,32 +1792,41 @@ input[type=range]::-webkit-slider-thumb {
 .map-topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 6px 12px;
-  background: rgba(10,8,4,0.9);
+  background: rgba(8,6,3,0.95);
   border-bottom: 1px solid var(--border-dim);
+  box-shadow: 0 1px 0 rgba(200,170,80,0.07);
   flex-shrink: 0;
 }
 .map-location {
   font-family: var(--font-heading);
   font-size: 12px; color: var(--gold); letter-spacing: 2px;
+  text-shadow: 0 0 12px rgba(200,160,40,0.35);
 }
 #map-canvas {
   flex: 1;
   display: block;
   width: 100%; height: 100%;
   image-rendering: pixelated;
+  box-shadow: inset 0 0 28px rgba(0,0,0,0.55);
 }
 .map-legend {
-  display: flex; gap: 16px;
-  padding: 4px 12px;
-  font-size: 11px; font-family: var(--font-ui);
-  background: rgba(10,8,4,0.9);
+  display: flex; gap: 12px; flex-wrap: wrap;
+  padding: 4px 10px;
+  font-size: 10px; font-family: var(--font-ui);
+  background: rgba(8,6,3,0.95);
   border-top: 1px solid var(--border-dim);
+  box-shadow: 0 -1px 0 rgba(200,170,80,0.07);
   flex-shrink: 0;
+  opacity: 0.82;
 }
-.legend-you   { color: #f0d050; }
-.legend-enemy { color: #e05050; }
-.legend-item  { color: #50c0d0; }
-.legend-door  { color: #a08060; }
+.legend-you     { color: #f0d050; }
+.legend-enemy   { color: #e05050; }
+.legend-npc     { color: #50e890; }
+.legend-landmark { color: #e0c040; }
+.legend-item    { color: #50c0d0; }
+.legend-door    { color: #a08060; }
+.legend-chest   { color: #d4a820; }
+.legend-stairs  { color: #80b0ff; }
 
 /* Story Panel */
 .game-story-panel {
@@ -2905,7 +2914,18 @@ input[type=range]::-webkit-slider-thumb {
   background: var(--bg-card); border-radius: var(--radius);
   padding: 12px; margin-bottom: 8px;
 }
-.feature-name { font-family: var(--font-heading); font-size: 12px; color: var(--gold); margin-bottom: 3px; letter-spacing: 1px; }
+.feature-item-subclass {
+  background: linear-gradient(135deg, rgba(201,162,39,0.10) 0%, var(--bg-card) 60%);
+  border-left: 2px solid var(--gold);
+}
+.feature-name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; flex-wrap: wrap; }
+.feature-name { font-family: var(--font-heading); font-size: 12px; color: var(--gold); letter-spacing: 1px; }
+.feature-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 3px; flex-shrink: 0;
+}
+.feature-badge-subclass { background: rgba(201,162,39,0.22); color: var(--gold); border: 1px solid rgba(201,162,39,0.4); }
+.feature-badge-level    { background: rgba(120,140,180,0.18); color: #9ab; border: 1px solid rgba(120,140,180,0.3); }
 .feature-desc { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
 .equip-item {
   display: flex; align-items: center; gap: 8px;
