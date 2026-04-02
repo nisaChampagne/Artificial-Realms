@@ -399,9 +399,12 @@ class MapSystem {
     this.playerX      = 5;
     this.playerY      = 10;
     this.enemies      = [];
+    this.npcs         = [];   // [{ name, role, attitude, x, y }] characters from narrative
+    this.mapObjects   = [];   // [{ icon, label, x, y }] objects inferred from text
     this.items        = [];
     this.landmarks    = [];   // [{ label, x, y }] named POI pins
-    this.currentScene = 'dungeon';
+    this._sceneEntitiesAdded = new Set(); // dedup guard per scene
+    this.currentScene = null; // Wait for AI to set the scene
     this.fogEnabled   = true;
     this.time         = 0;
     this._raf         = null;
@@ -411,6 +414,7 @@ class MapSystem {
     this.sprite       = { skin:'#e3c49a', hair:'#3d2008', hairStyle:'short', eye:'#4878b0', bodyType:'average' };
     // Perception rolls per scene — persisted so we don't re-roll on revisit
     this._perceptionCache = {};
+    this._floatingTexts   = []; // [{ wx, wy, text, color, life, maxLife }]
   }
 
   init() {
@@ -429,7 +433,15 @@ class MapSystem {
       });
     }
 
-    this.setScene('dungeon');
+    // Initialize with minimal map if no scene is set yet
+    if (!this.currentScene && this.map.length === 0) {
+      // Create a small empty map as placeholder until AI sets the scene
+      const emptyMap = Array(15).fill(null).map(() => Array(20).fill(0)); // 0 = floor
+      this.map = emptyMap;
+      this.fog = emptyMap.map(row => row.map(() => 1)); // All fog
+      document.getElementById('map-location').textContent = this._sceneLabel(null);
+      document.getElementById('music-now').textContent = this._musicLabel(null);
+    }
   }
 
   _resize() {
@@ -446,6 +458,18 @@ class MapSystem {
     if (!this.canvas) return;
     this.currentScene = name;
     this.landmarks    = [];
+    this.npcs         = [];
+    this.mapObjects   = [];
+    this._sceneEntitiesAdded = new Set();
+    
+    // Track location visits for achievements (skip during initial setup)
+    if (!window.achievementSystem?._initialSetup) {
+      window.achievementSystem?.track('location_visited', name);
+      if (['dungeon', 'cave', 'castle', 'boss'].includes(name)) {
+        window.achievementSystem?.track('dungeon_entered');
+      }
+    }
+    
     document.getElementById('map-location').textContent = this._sceneLabel(name);
     document.getElementById('music-now').textContent    = this._musicLabel(name);
 
@@ -473,6 +497,13 @@ class MapSystem {
     // Perception check — only rolls once per scene; re-uses cached result on revisit
     const { radius, roll, bonus, label } = this._rollPerception(name);
     this._revealAround(this.playerX, this.playerY, radius);
+
+    // Torches illuminate their surroundings even before the player reaches them
+    for (let ty = 0; ty < this.map.length; ty++) {
+      for (let tx = 0; tx < (this.map[ty]?.length || 0); tx++) {
+        if (this.map[ty][tx] === T.TORCH) this._revealAround(tx, ty, 3);
+      }
+    }
     this._dirty = true;
 
     // Cancel any existing loop then restart fresh
@@ -506,6 +537,7 @@ class MapSystem {
   }
 
   _sceneLabel(s) {
+    if (!s) return 'Awaiting Adventure...';
     return { dungeon:'The Dungeon', tavern:'The Tavern', forest:'Whispering Forest',
              cave:'Dark Caverns', castle:'The Castle', town:'Town Square',
              combat:'Battle Arena', boss:"Dragon's Lair", rest:'Safe Camp',
@@ -513,6 +545,7 @@ class MapSystem {
   }
 
   _musicLabel(s) {
+    if (!s) return '—';
     return { dungeon:'Dungeon Depths', tavern:'Tavern Lofi', forest:'Forest Ambience',
              cave:'Cave Echoes', castle:'Castle Hall', town:'Town Square',
              combat:'Battle Theme', boss:'Boss Encounter', rest:'Campfire Rest',
@@ -578,10 +611,259 @@ class MapSystem {
     this._dirty = true;
   }
 
+  // ── Place NPC from narrative ─────────────────────────────────
+  addNPC(name, role, attitude) {
+    const existing = this.npcs.find(n => n.name === name);
+    if (existing) {
+      existing.attitude = attitude;
+      this._dirty = true;
+      return;
+    }
+    const rows = this.map.length;
+    const cols = this.map[0]?.length || 0;
+    if (!rows || !cols) return;
+
+    // Place 3–6 tiles from player in a random direction
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 3 + Math.floor(Math.random() * 4);
+    let tx = Math.round(this.playerX + Math.cos(angle) * dist);
+    let ty = Math.round(this.playerY + Math.sin(angle) * dist);
+    tx = Math.max(1, Math.min(cols - 2, tx));
+    ty = Math.max(1, Math.min(rows - 2, ty));
+
+    outer: for (let r = 0; r <= 6; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+          const nx = tx + dx, ny = ty + dy;
+          if (ny >= 0 && ny < rows && nx >= 0 && nx < cols &&
+              !this._isSolid(nx, ny) &&
+              !(nx === this.playerX && ny === this.playerY)) {
+            tx = nx; ty = ny; break outer;
+          }
+        }
+      }
+    }
+
+    this.npcs.push({ name, role, attitude, x: tx, y: ty });
+    this._revealAround(tx, ty, 2);
+    this._dirty = true;
+  }
+
+  // ── Give spawned enemy a name + creature icon ────────────────
+  nameEnemy(name, curHp, maxHp) {
+    if (this.enemies.length === 0) return;
+    const e = this.enemies[0];
+    // Spawn floating text on HP change
+    if (e.hp !== undefined && curHp < e.hp) {
+      this.addFloatingText(e.x, e.y, `-${e.hp - curHp}`, '#ff5050');
+    } else if (e.hp !== undefined && curHp > e.hp) {
+      this.addFloatingText(e.x, e.y, `+${curHp - e.hp}`, '#50ee80');
+    }
+    e.name  = name;
+    e.icon  = this._monsterIcon(name);
+    e.hp    = curHp;
+    e.maxHp = maxHp;
+    this._dirty = true;
+  }
+
+  // ── Spawn floating text at a world-grid position ─────────────
+  addFloatingText(wx, wy, text, color = '#ff6060') {
+    this._floatingTexts.push({ wx, wy, text, color, life: 55, maxLife: 55 });
+  }
+
+  _npcIcon(role) {
+    const r = (role || '').toLowerCase();
+    if (r.includes('innkeeper') || r.includes('bartender')) return '🍺';
+    if (r.includes('witch') || r.includes('mage') || r.includes('wizard') || r.includes('sorcerer')) return '🧙';
+    if (r.includes('guard') || r.includes('soldier') || r.includes('knight')) return '🛡';
+    if (r.includes('merchant') || r.includes('trader') || r.includes('shopkeeper')) return '💰';
+    if (r.includes('priest') || r.includes('cleric') || r.includes('healer')) return '✚';
+    if (r.includes('thief') || r.includes('rogue') || r.includes('assassin')) return '🗡';
+    if (r.includes('bard') || r.includes('musician') || r.includes('singer')) return '🎵';
+    if (r.includes('captain') || r.includes('lord') || r.includes('king') || r.includes('queen')) return '👑';
+    if (r.includes('ranger') || r.includes('hunter') || r.includes('scout')) return '🏹';
+    if (r.includes('shaman') || r.includes('ritual')) return '🔮';
+    return '👤';
+  }
+
+  _monsterIcon(name) {
+    const n = (name || '').toLowerCase();
+    if (n.includes('dragon') || n.includes('wyvern') || n.includes('drake')) return '🐉';
+    if (n.includes('goblin')) return '👺';
+    if (n.includes('orc') || n.includes('ogre') || n.includes('troll')) return '👹';
+    if (n.includes('skeleton') || n.includes('lich') || n.includes('wight')) return '💀';
+    if (n.includes('zombie') || n.includes('ghoul') || n.includes('specter')) return '🧟';
+    if (n.includes('wolf') || n.includes('bear') || n.includes('beast') || n.includes('dire')) return '🐺';
+    if (n.includes('spider') || n.includes('scorpion')) return '🕷';
+    if (n.includes('vampire') || n.includes('bat')) return '🦇';
+    if (n.includes('demon') || n.includes('devil') || n.includes('fiend')) return '😈';
+    if (n.includes('shaman') || n.includes('cultist') || n.includes('warlock')) return '🔮';
+    if (n.includes('bandit') || n.includes('thug') || n.includes('assassin')) return '🗡';
+    if (n.includes('guard') || n.includes('soldier') || n.includes('knight')) return '⚔';
+    return '☠';
+  }
+
+  _attitudeGlow(attitude) {
+    switch ((attitude || '').toLowerCase()) {
+      case 'friendly': return 'rgba(50,200,80,';
+      case 'hostile':  return 'rgba(220,80,50,';
+      case 'captive':  return 'rgba(220,150,40,';
+      default:         return 'rgba(180,180,200,';
+    }
+  }
+
+  // ── Infer entities from narrative prose ─────────────────────
+  inferFromText(text) {
+    if (!text || !this.map.length) return;
+
+    // ── Anonymous NPC patterns ────────────────────────────────
+    const npcPatterns = [
+      { re: /\b(?:the |an? )?inn?keeper\b/i,                        name: 'Innkeeper',  role: 'innkeeper',  att: 'Friendly' },
+      { re: /\b(?:the |an? )?barkeep(?:er)?\b/i,                    name: 'Barkeep',    role: 'innkeeper',  att: 'Friendly' },
+      { re: /\b(?:the |an? )?merchant\b/i,                          name: 'Merchant',   role: 'merchant',   att: 'Neutral'  },
+      { re: /\b(?:the |an? )?(?:city |town |village )?guard\b/i,    name: 'Guard',      role: 'guard',      att: 'Neutral'  },
+      { re: /\b(?:the |an? )?(?:wizard|mage|arcanist|sorcerer)\b/i, name: 'Mage',       role: 'mage',       att: 'Neutral'  },
+      { re: /\b(?:the |an? )?(?:priest|cleric|acolyte)\b/i,         name: 'Priest',     role: 'priest',     att: 'Friendly' },
+      { re: /\b(?:the |an? )?bard\b/i,                              name: 'Bard',       role: 'bard',       att: 'Friendly' },
+      { re: /\b(?:the |an? )?blacksmith\b/i,                        name: 'Blacksmith', role: 'blacksmith', att: 'Friendly' },
+      { re: /\b(?:the |an? )?ranger\b/i,                            name: 'Ranger',     role: 'ranger',     att: 'Neutral'  },
+      { re: /\b(?:the |an? )?(?:hooded|cloaked|robed|masked) (?:figure|stranger|man|woman)\b/i, name: 'Stranger', role: 'figure', att: 'Unknown' },
+      { re: /\b(?:the |an? )?(?:old|elderly) (?:man|woman|crone|sage)\b/i, name: 'Elder', role: 'elder', att: 'Neutral' },
+      { re: /\bpatrons?\b/i,                                         name: 'Patron',     role: 'commoner',   att: 'Friendly' },
+      { re: /\bbarmaids?\b/i,                                        name: 'Barmaid',    role: 'commoner',   att: 'Friendly' },
+      { re: /\b(?:the |an? )?(?:town|village) elder\b/i,            name: 'Elder',      role: 'elder',      att: 'Friendly' },
+      { re: /\b(?:the |an? )?stable(?:\s?boy|hand|master)\b/i,      name: 'Stablehand', role: 'commoner',   att: 'Friendly' },
+      { re: /\b(?:the |an? )?blackguard\b/i,                        name: 'Blackguard', role: 'guard',      att: 'Hostile'  },
+      { re: /\b(?:the |an? )?captain\b/i,                           name: 'Captain',    role: 'captain',    att: 'Neutral'  },
+      { re: /\b(?:a |an? )?(?:wounded|injured|dying) (?:man|woman|traveler|soldier|figure)\b/i, name: 'Wounded', role: 'commoner', att: 'Friendly' },
+    ];
+
+    // ── Object / prop patterns ────────────────────────────────
+    const objPatterns = [
+      { re: /\b(?:camp)?fire\b|\bhearth\b|\bfireplace\b/i,          icon: '🔥', label: 'Fire'        },
+      { re: /\b(?:stone |ancient |ritual |sacrificial )?altar\b/i,  icon: '⛩',  label: 'Altar'       },
+      { re: /\bshrine\b/i,                                           icon: '🕯',  label: 'Shrine'      },
+      { re: /\b(?:stone |ancient |crumbling )?statue\b|\bidol\b/i,  icon: '🗿', label: 'Statue'      },
+      { re: /\bsarcophag(?:us|i)\b|\bcoffin\b/i,                    icon: '⚰',  label: 'Tomb'        },
+      { re: /\b(?:glowing |pulsing |arcane )?crystal\b/i,           icon: '💎', label: 'Crystal'     },
+      { re: /\b(?:ancient |old |forbidden )?tome\b|\bgrimoire\b/i,  icon: '📖', label: 'Tome'        },
+      { re: /\bbod(?:y|ies)\b|\bcorpses?\b/i,                       icon: '🩸', label: 'Body'        },
+      { re: /\bbarrel/i,                                             icon: '🛢',  label: 'Barrel'      },
+      { re: /\bcrate/i,                                              icon: '📦', label: 'Crate'       },
+      { re: /\b(?:iron |rusted )?cage\b/i,                          icon: '⛓',  label: 'Cage'        },
+      { re: /\bportal\b|\bvortex\b|\brift\b/i,                      icon: '🌀', label: 'Portal'      },
+      { re: /\b(?:stone |old )?well\b/i,                             icon: '🪣',  label: 'Well'        },
+      { re: /\bwagon\b|\bcart\b/i,                                   icon: '🪵', label: 'Cart'        },
+      { re: /\b(?:iron |wooden )?throne\b/i,                         icon: '🪑', label: 'Throne'      },
+      { re: /\b(?:magic |arcane |glowing )?orb\b/i,                  icon: '🔮', label: 'Orb'         },
+      { re: /\bcauldron\b|\bbubbling pot\b/i,                        icon: '🫕', label: 'Cauldron'    },
+      { re: /\bbound|chained|shackled/i,                             icon: '⛓',  label: 'Chains'      },
+      { re: /\btrap\b|\bpressure plate\b|\btripwire\b/i,             icon: '⚠',  label: 'Trap'        },
+    ];
+
+    for (const p of npcPatterns) {
+      if (!p.re.test(text)) continue;
+      // Skip if a named or anonymous NPC with same role is already on the map
+      if (this.npcs.some(n => n.role === p.role)) continue;
+      if (this._sceneEntitiesAdded.has('npc:' + p.name)) continue;
+      this._sceneEntitiesAdded.add('npc:' + p.name);
+      this.addNPC(p.name, p.role, p.att);
+    }
+
+    for (const p of objPatterns) {
+      if (!p.re.test(text)) continue;
+      if (this._sceneEntitiesAdded.has('obj:' + p.label)) continue;
+      this._sceneEntitiesAdded.add('obj:' + p.label);
+      this._placeObject(p.icon, p.label);
+    }
+  }
+
+  _placeObject(icon, label) {
+    const rows = this.map.length;
+    const cols = this.map[0]?.length || 0;
+    if (!rows || !cols) return;
+
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 2 + Math.floor(Math.random() * 6);
+    let tx = Math.round(this.playerX + Math.cos(angle) * dist);
+    let ty = Math.round(this.playerY + Math.sin(angle) * dist);
+    tx = Math.max(1, Math.min(cols - 2, tx));
+    ty = Math.max(1, Math.min(rows - 2, ty));
+
+    outer: for (let r = 0; r <= 6; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+          const nx = tx + dx, ny = ty + dy;
+          if (ny >= 0 && ny < rows && nx >= 0 && nx < cols &&
+              !this._isSolid(nx, ny) &&
+              !(nx === this.playerX && ny === this.playerY) &&
+              !this.npcs.some(n => n.x === nx && n.y === ny) &&
+              !this.mapObjects.some(o => o.x === nx && o.y === ny)) {
+            tx = nx; ty = ny; break outer;
+          }
+        }
+      }
+    }
+
+    this.mapObjects.push({ icon, label, x: tx, y: ty });
+    this._revealAround(tx, ty, 1);
+    this._dirty = true;
+  }
+
+  _enemyTypesForScene(scene) {
+    const pool = {
+      dungeon: [
+        { icon:'👺', hp:15, maxHp:15, type:'goblin',   glow:'rgba(100,160,40,'  },
+        { icon:'💀', hp:22, maxHp:22, type:'undead',   glow:'rgba(140,120,200,' },
+        { icon:'🗡',  hp:18, maxHp:18, type:'humanoid', glow:'rgba(180,100,40,'  },
+      ],
+      cave: [
+        { icon:'🕷', hp:12, maxHp:12, type:'beast',    glow:'rgba(80,40,130,'   },
+        { icon:'🐺', hp:20, maxHp:20, type:'beast',    glow:'rgba(100,150,40,'  },
+        { icon:'👹', hp:28, maxHp:28, type:'goblin',   glow:'rgba(160,80,20,'   },
+      ],
+      forest: [
+        { icon:'🐺', hp:18, maxHp:18, type:'beast',    glow:'rgba(100,160,40,'  },
+        { icon:'🕷', hp:10, maxHp:10, type:'beast',    glow:'rgba(80,40,130,'   },
+        { icon:'🧟', hp:20, maxHp:20, type:'undead',   glow:'rgba(40,150,80,'   },
+      ],
+      castle: [
+        { icon:'⚔',  hp:25, maxHp:25, type:'humanoid', glow:'rgba(180,160,80,'  },
+        { icon:'💀', hp:22, maxHp:22, type:'undead',   glow:'rgba(140,120,200,' },
+        { icon:'🧙', hp:20, maxHp:20, type:'humanoid', glow:'rgba(80,120,200,'  },
+      ],
+      combat: [
+        { icon:'⚔',  hp:20, maxHp:20, type:'humanoid', glow:'rgba(200,120,40,'  },
+        { icon:'🗡',  hp:16, maxHp:16, type:'humanoid', glow:'rgba(160,80,40,'   },
+        { icon:'🏹', hp:14, maxHp:14, type:'humanoid', glow:'rgba(120,160,60,'  },
+      ],
+      boss: [
+        { icon:'🐉', hp:80, maxHp:80, type:'dragon',   glow:'rgba(210,40,20,'   },
+      ],
+      ruins: [
+        { icon:'💀', hp:18, maxHp:18, type:'undead',   glow:'rgba(140,120,200,' },
+        { icon:'🧟', hp:22, maxHp:22, type:'undead',   glow:'rgba(40,150,80,'   },
+      ],
+      crypt: [
+        { icon:'💀', hp:20, maxHp:20, type:'undead',   glow:'rgba(140,120,200,' },
+        { icon:'🧟', hp:18, maxHp:18, type:'undead',   glow:'rgba(40,150,80,'   },
+        { icon:'🦇', hp:10, maxHp:10, type:'beast',    glow:'rgba(100,60,170,'  },
+      ],
+      manor: [
+        { icon:'🧟', hp:20, maxHp:20, type:'undead',   glow:'rgba(40,150,80,'   },
+        { icon:'🦇', hp:10, maxHp:10, type:'beast',    glow:'rgba(100,60,170,'  },
+      ],
+    };
+    return pool[scene] || [{ icon:'☠', hp:20, maxHp:20, type:'unknown', glow:'rgba(200,40,40,' }];
+  }
+
   _spawnEnemies(scene) {
     if (scene === 'rest' || scene === 'tavern' || scene === 'town') return [];
-    const count = scene === 'combat' ? 4 : scene === 'boss' ? 1 : 2;
-    const enms  = [];
+    const count     = scene === 'combat' ? 4 : scene === 'boss' ? 1 : 2;
+    const templates = this._enemyTypesForScene(scene);
+    const enms      = [];
     for (let i = 0; i < count; i++) {
       let ex, ey, tries = 0;
       do {
@@ -590,7 +872,8 @@ class MapSystem {
         tries++;
       } while (tries < 50 && (this._isSolid(ex, ey) || (Math.abs(ex - this.playerX) + Math.abs(ey - this.playerY)) < 4));
       if (tries < 50) {
-        enms.push({ x:ex, y:ey, hp:scene === 'boss' ? 80 : 20, maxHp: scene === 'boss' ? 80 : 20, icon: scene === 'boss' ? '🐉' : '☠' });
+        const tmpl = templates[i % templates.length];
+        enms.push({ x: ex, y: ey, hp: tmpl.hp, maxHp: tmpl.maxHp, icon: tmpl.icon, type: tmpl.type, glow: tmpl.glow });
       }
     }
     return enms;
@@ -625,6 +908,8 @@ class MapSystem {
   _draw() {
     const { canvas, ctx, map, fog, time, currentScene } = this;
     if (!canvas || !ctx) return;
+    
+    // If no scene is set yet, use a neutral default for rendering
     const pal   = PALETTES[currentScene] || PALETTES.dungeon;
     const rows  = map.length;
     const cols  = map[0]?.length || 0;
@@ -658,7 +943,7 @@ class MapSystem {
         }
 
         const tile = map[y][x];
-        this._drawTile(ctx, px, py, ts, tile, pal, time);
+        this._drawTile(ctx, px, py, ts, tile, pal, time, x, y);
       }
     }
 
@@ -697,16 +982,99 @@ class MapSystem {
       if (this.fogEnabled && fog[e.y]?.[e.x] !== false) return;
       const px = offX + e.x * ts + ts / 2;
       const py = offY + e.y * ts + ts / 2;
-      // Glow ring
-      ctx.fillStyle = 'rgba(200,40,40,0.2)';
+      const isBoss = e.maxHp >= 60;
+      // Glow ring (type-colored; boss pulses)
+      const glowBase  = e.glow || 'rgba(200,40,40,';
+      const glowPulse = isBoss ? 0.08 * Math.sin(time * 0.07) : 0;
+      const glowAlpha = (isBoss ? 0.32 : 0.22) + glowPulse;
+      const glowR     = ts * (isBoss ? 0.88 + glowPulse : 0.68);
+      ctx.fillStyle = glowBase + glowAlpha + ')';
       ctx.beginPath();
-      ctx.arc(px, py, ts * 0.65, 0, Math.PI * 2);
+      ctx.arc(px, py, glowR, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#e05050';
-      ctx.font = `${Math.max(10, ts - 4)}px serif`;
+      // Icon (slightly larger for boss)
+      ctx.font = `${Math.max(10, ts - (isBoss ? 1 : 4))}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('☠', px, py + 1);
+      ctx.fillText(e.icon || '☠', px, py + 1);
+      // Name label (first word only)
+      if (e.name) {
+        const label = e.name.split(' ')[0];
+        ctx.font = `bold ${Math.max(6, Math.round(ts * 0.42))}px Cinzel, serif`;
+        ctx.fillStyle = 'rgba(230,110,110,0.95)';
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0,0,0,0.9)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(label, px, py + ts * 0.52);
+        ctx.shadowBlur = 0;
+      }
+      // HP bar
+      if (e.maxHp > 0) {
+        const hpRatio = Math.max(0, Math.min(1, e.hp / e.maxHp));
+        const barW    = ts * 0.82;
+        const barH    = Math.max(2, Math.round(ts * 0.11));
+        const barX    = px - barW / 2;
+        const barY    = py + ts * 0.76;
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+        const hpColor = hpRatio > 0.6 ? '#44bb44' : hpRatio > 0.3 ? '#bbbb22' : '#cc3030';
+        ctx.fillStyle = hpColor;
+        ctx.fillRect(barX, barY, barW * hpRatio, barH);
+      }
+    });
+
+    // NPCs (narrative characters)
+    this.npcs.forEach(npc => {
+      if (this.fogEnabled && fog[npc.y]?.[npc.x] !== false) return;
+      const px = offX + npc.x * ts + ts / 2;
+      const py = offY + npc.y * ts + ts / 2;
+      const glow = this._attitudeGlow(npc.attitude);
+      // Attitude glow
+      const gr = ts * (1.1 + 0.15 * Math.sin(time * 0.05 + npc.x + npc.y));
+      const grd = ctx.createRadialGradient(px, py, 0, px, py, gr);
+      grd.addColorStop(0, glow + '0.35)');
+      grd.addColorStop(1, 'transparent');
+      ctx.fillStyle = grd;
+      ctx.fillRect(px - gr, py - gr, gr * 2, gr * 2);
+      // Icon
+      ctx.font = `${Math.max(10, ts - 5)}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this._npcIcon(npc.role), px, py + 1);
+      // Name label (first word)
+      const label = npc.name.split(' ')[0];
+      ctx.font = `bold ${Math.max(6, Math.round(ts * 0.42))}px Cinzel, serif`;
+      ctx.fillStyle = 'rgba(230,210,160,0.95)';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(label, px, py + ts * 0.52);
+      ctx.shadowBlur = 0;
+    });
+
+    // Map objects (inferred from narrative)
+    this.mapObjects.forEach(obj => {
+      if (this.fogEnabled && fog[obj.y]?.[obj.x] !== false) return;
+      const px = offX + obj.x * ts + ts / 2;
+      const py = offY + obj.y * ts + ts / 2;
+      // Subtle floor highlight
+      ctx.fillStyle = 'rgba(200,180,100,0.10)';
+      ctx.beginPath();
+      ctx.arc(px, py, ts * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      // Icon
+      ctx.font = `${Math.max(9, ts - 6)}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(obj.icon, px, py + 1);
+      // Label
+      ctx.font = `${Math.max(5, Math.round(ts * 0.38))}px Cinzel, serif`;
+      ctx.fillStyle = 'rgba(210,195,150,0.80)';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = 3;
+      ctx.fillText(obj.label, px, py + ts * 0.48);
+      ctx.shadowBlur = 0;
     });
 
     // Landmark POI beacons
@@ -777,6 +1145,26 @@ class MapSystem {
       ctx.arc(ppx, ppy, ts * 0.22, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // Floating damage / heal texts
+    this._floatingTexts = this._floatingTexts.filter(ft => ft.life > 0);
+    this._floatingTexts.forEach(ft => {
+      ft.life--;
+      const progress = 1 - ft.life / ft.maxLife;
+      const alpha    = ft.life < ft.maxLife * 0.35 ? ft.life / (ft.maxLife * 0.35) : 1;
+      const screenX  = offX + ft.wx * ts + ts / 2;
+      const screenY  = offY + ft.wy * ts - progress * ts * 2.2;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font        = `bold ${Math.max(9, Math.round(ts * 0.68))}px Cinzel, serif`;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle   = ft.color;
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur  = 5;
+      ctx.fillText(ft.text, screenX, screenY);
+      ctx.restore();
+    });
   }
 
   // ── Set sprite appearance from character data ────────────────
@@ -920,7 +1308,10 @@ class MapSystem {
     return `rgb(${r},${g},${b})`;
   }
 
-  _drawTile(ctx, px, py, ts, tile, pal, time) {
+  _drawTile(ctx, px, py, ts, tile, pal, time, gx = 0, gy = 0) {
+    // Deterministic RNG seeded by grid position
+    const _rng = s => (Math.abs(Math.sin(s * 127.1 + 311.7) * 43758.5453) % 1);
+
     switch(tile) {
       case T.WALL: {
         ctx.fillStyle = pal.wall;
@@ -933,6 +1324,25 @@ class MapSystem {
         ctx.moveTo(px, py + ts * 0.5);
         ctx.lineTo(px + ts * 0.5, py + ts * 0.5);
         ctx.stroke();
+        // Occasional cracks (deterministic by grid position)
+        const seed = gx * 13 + gy * 7;
+        if (_rng(seed) < 0.18 && ts >= 10) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+          ctx.lineWidth   = 0.5;
+          ctx.beginPath();
+          const cx1 = px + _rng(seed + 1) * ts * 0.7 + ts * 0.1;
+          const cy1 = py + _rng(seed + 2) * ts * 0.7 + ts * 0.1;
+          ctx.moveTo(cx1, cy1);
+          ctx.lineTo(cx1 + (_rng(seed + 3) - 0.5) * ts * 0.4, cy1 + (_rng(seed + 4) - 0.5) * ts * 0.4);
+          ctx.stroke();
+          // Branch crack ~30% of the time
+          if (_rng(seed + 5) < 0.3) {
+            ctx.beginPath();
+            ctx.moveTo(cx1, cy1);
+            ctx.lineTo(cx1 + (_rng(seed + 6) - 0.5) * ts * 0.25, cy1 + (_rng(seed + 7) - 0.5) * ts * 0.25);
+            ctx.stroke();
+          }
+        }
         break;
       }
       case T.FLOOR: {
@@ -957,14 +1367,26 @@ class MapSystem {
         break;
       }
       case T.LAVA: {
-        const lp = time * 0.03;
-        const la = 0.8 + 0.2 * Math.sin(lp + px * 0.4);
+        const lp   = time * 0.03;
+        const la   = 0.8 + 0.2 * Math.sin(lp + gx * 0.4);
         ctx.fillStyle = `rgba(200,60,10,${la})`;
         ctx.fillRect(px, py, ts, ts);
-        ctx.fillStyle = `rgba(255,140,0,${0.4 + 0.4 * Math.sin(lp * 1.5 + py)})`;
-        ctx.beginPath();
-        ctx.ellipse(px + ts / 2, py + ts / 2, ts * 0.3, ts * 0.15, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Multiple animated bubble spots (positions seeded by grid)
+        const lseed = gx * 17 + gy * 31;
+        for (let b = 0; b < 3; b++) {
+          const bx    = px + _rng(lseed + b * 10)      * ts * 0.75 + ts * 0.1;
+          const by    = py + _rng(lseed + b * 10 + 1)  * ts * 0.75 + ts * 0.1;
+          const phase = lp * (1.2 + b * 0.4) + gy + b * 1.3;
+          const ba    = 0.25 + 0.35 * Math.sin(phase);
+          const bRot  = _rng(lseed + b + 2) * Math.PI;
+          ctx.fillStyle = `rgba(255,${110 + b * 25},0,${Math.max(0, ba)})`;
+          ctx.beginPath();
+          ctx.ellipse(bx, by, ts * 0.13, ts * 0.08, bRot, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Bright highlight flicker on the surface
+        ctx.fillStyle = `rgba(255,200,40,${0.08 + 0.07 * Math.sin(lp * 2.1 + gy)})`;
+        ctx.fillRect(px + 1, py + 1, ts - 2, ts - 2);
         break;
       }
       case T.TREE: {

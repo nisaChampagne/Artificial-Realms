@@ -27,10 +27,21 @@ class AISystem {
     this.demoMode    = false;
     this.isTyping      = false;
     this._requestCount = 0;
+    this._pendingQuestNotifications = []; // Defer quest notifications until after typing
     this.textSpeed     = 15;
     this._typeTimer  = null;
     this._demoState  = null;
     this.currentEnemy = null; // { name, currentHp, maxHp, ac }
+    this._demoMemory = { // Track player choices and consequences
+      approach: null,      // how player approached first encounter
+      sparedGoblin: false, // whether player showed mercy
+      tookLetter: false,   // whether player read the letter
+      talkedToBrom: false, // whether player got info from Brom
+      rescuedPrisoner: false, // whether player saved the prisoner
+      discoveredRitual: false, // whether player learned about ritual
+      playStyle: 'balanced', // aggressive, cautious, diplomatic, balanced
+      actionCount: { aggressive: 0, cautious: 0, diplomatic: 0 }
+    };
   }
 
   // ── Start Campaign ───────────────────────────────────────────
@@ -42,8 +53,22 @@ class AISystem {
     this.textSpeed = textSpeed;
     this.messages   = [];
     this._demoState  = null;
+    
+    // Reset demo memory for new campaign
+    this._demoMemory = {
+      approach: null,
+      sparedGoblin: false,
+      tookLetter: false,
+      talkedToBrom: false,
+      rescuedPrisoner: false,
+      discoveredRitual: false,
+      playStyle: 'balanced',
+      actionCount: { aggressive: 0, cautious: 0, diplomatic: 0 }
+    };
+    
     window.journalSystem?.reset();
     window.inventorySystem?.reset();
+    window.achievementSystem?.reset();
 
     const sysPrompt = this._buildSystemPrompt(character, campaignType, customDesc);
     this.messages.push({ role: 'system', content: sysPrompt });
@@ -59,36 +84,394 @@ class AISystem {
   }
 
   // ── Mock / Demo Responses (no API key) ───────────────────────
+  
+  // Enhanced natural language understanding for demo mode
   _parseDemoChoice(text) {
+    // Direct number choice
     const num = text.match(/^\s*(\d+)[.):\-\s]/);
     if (num) return num[1];
+    
     const t = text.toLowerCase();
-    if (/\b(attack|charge|fight|rush|kill|strike|assault)\b/.test(t))               return '3';
-    if (/\b(sneak|stealth|careful|quietly|observe|watch|listen|wait|peek)\b/.test(t)) return '2';
-    if (/\b(distract|throw|stone|noise|diversion)\b/.test(t))                       return '2';
-    if (/\b(circle|around|flank|back|alternate)\b/.test(t))                         return '4';
-    if (/\b(ask|tell me|talk|speak|brom|question|details)\b/.test(t))               return '1';
-    if (/\b(read|open|letter|parchment|seal|break)\b/.test(t))                      return '2';
-    if (/\b(deeper|press on|continue|tunnel|map|follow)\b/.test(t))                 return '2';
-    if (/\b(return|report|back|village|brom|town)\b/.test(t))                       return '1';
-    if (/\b(rest|sleep|heal|recover|camp)\b/.test(t))                               return '3';
-    if (/\b(snipe|shoot|arrow|ranged|bolt)\b/.test(t))                              return '1';
-    if (/\b(confront|reveal|announce|challenge|step out)\b/.test(t))                return '3';
-    if (/\b(trap|collapse|block|seal|cave.?in)\b/.test(t))                          return '4';
+    
+    // Contextual intent detection with priorities and expanded vocabulary
+    
+    // Combat/aggressive intents
+    if (/\b(attack|charge|fight|rush|kill|strike|assault|engage|battle|confront(?!.*talk)|aggressive|violence|weapon|sword|stab|slash|cleave|smite)\b/.test(t)) {
+      return '3';
+    }
+    
+    // Stealth/observation intents
+    if (/\b(sneak|stealth|stealthy|careful|cautious|quietly|quiet|observe|watch|scout|spy|listen|wait|peek|hide|shadow|creep|tiptoe|silent)\b/.test(t)) {
+      return '2';
+    }
+    
+    // Distraction/tactical intents  
+    if (/\b(distract|diversion|lure|trick|decoy|throw|stone|noise|misdirect|feint)\b/.test(t)) {
+      return '2';
+    }
+    
+    // Flanking/positional intents
+    if (/\b(circle|around|flank|behind|back(?!.*village|.*town)|alternate|side|maneuver|position|surround)\b/.test(t)) {
+      return '4';
+    }
+    
+    // Information gathering intents
+    if (/\b(ask|question|inquire|tell me|talk|speak|discuss|brom|interrogate|details|information|explain|what|who|why|how)\b/.test(t) && !/letter|parchment/.test(t)) {
+      return '1';
+    }
+    
+    // Reading/investigation intents
+    if (/\b(read|open|examine|inspect|letter|parchment|seal|break|study|look at|check)\b/.test(t)) {
+      return '2';
+    }
+    
+    // Forward movement intents
+    if (/\b(deeper|press on|continue|advance|forward|proceed|tunnel|map|follow|explore|venture)\b/.test(t)) {
+      return '2';
+    }
+    
+    // Return/retreat intents
+    if (/\b(return|report|go back|head back|retreat|back to|village|brom|town|leave(?!.*now))\b/.test(t)) {
+      return '1';
+    }
+    
+    // Rest/recovery intents
+    if (/\b(rest|sleep|heal|recover|camp|tend|take a break|pause|short rest|long rest)\b/.test(t)) {
+      return '3';
+    }
+    
+    // Ranged combat intents
+    if (/\b(snipe|shoot|arrow|bow|ranged|range|bolt|crossbow|distance|far)\b/.test(t)) {
+      return '1';
+    }
+    
+    // Challenging/confrontational intents (non-violent)
+    if (/\b(confront.*(?:talk|speak)|reveal|announce|challenge|parley|negotiate|step out|show)\b/.test(t)) {
+      return '3';
+    }
+    
+    // Environmental manipulation intents
+    if (/\b(trap|collapse|block|seal|cave.?in|trigger|use environment)\b/.test(t)) {
+      return '4';
+    }
+    
+    // Magic/spell intents
+    if (/\b(cast|spell|magic|enchant|charm|curse|invoke|ritual)\b/.test(t)) {
+      return '2';
+    }
+    
+    // Help/assist intents  
+    if (/\b(help|aid|assist|support|rescue|save|protect)\b/.test(t)) {
+      return '4';
+    }
+    
     return 'default';
+  }
+  
+  // Generate character-aware contextual variations
+  _getCharacterContext() {
+    const c = window.characterSystem?.character;
+    if (!c) return {};
+    
+    const stats = c.stats || {};
+    const mods = {};
+    ['str','dex','con','int','wis','cha'].forEach(ab => {
+      mods[ab] = Math.floor(((stats[ab] || 10) - 10) / 2);
+    });
+    
+    return {
+      name: c.name || 'Adventurer',
+      race: c.race || 'Human',
+      class: c.class || 'Fighter',
+      level: c.level || 1,
+      mods: mods,
+      // Stat checks for personalization
+      isStrong: mods.str >= 3,
+      isAgile: mods.dex >= 3,
+      isResilient: mods.con >= 3,
+      isSmart: mods.int >= 3,
+      isWise: mods.wis >= 3,
+      isCharismatic: mods.cha >= 3,
+      // Class archetypes
+      isMartial: /fighter|barbarian|monk|ranger|paladin|rogue/i.test(c.class),
+      isSpellcaster: /wizard|sorcerer|warlock|cleric|druid|bard/i.test(c.class),
+      isStealthy: /rogue|monk|ranger/i.test(c.class),
+      isTank: /fighter|barbarian|paladin/i.test(c.class),
+      // Race features
+      hasNightVision: /elf|dwarf|half-elf|tiefling|half-orc/i.test(c.race),
+      isSmallRace: /halfling|gnome/i.test(c.race)
+    };
+  }
+  
+  // Add dynamic response variations
+  _getResponseVariation(baseText, ctx) {
+    let text = baseText;
+    
+    // Replace placeholders with character-specific content
+    if (ctx.name && text.includes('${name}')) {
+      text = text.replace(/\$\{name\}/g, ctx.name);
+    }
+    
+    // Add class-specific flavor text
+    if (ctx.isMartial && Math.random() > 0.7) {
+      text = text.replace(/You /g, match => {
+        const variants = ['You ', 'Your training serves you well. You ', 'With practiced efficiency, you ', 'Your warrior instincts guide you as you '];
+        return variants[Math.floor(Math.random() * variants.length)];
+      });
+    }
+    
+    if (ctx.isSpellcaster && Math.random() > 0.7) {
+      text = text.replace(/You /g, match => {
+        const variants = ['You ', 'Arcane energy flows through you as you ', 'Your magical senses alert you. You ', 'With mystical awareness, you '];
+        return variants[Math.floor(Math.random() * variants.length)];
+      });
+    }
+    
+    // Add perception details based on race
+    if (ctx.hasNightVision && /dark|shadow|dim/i.test(text) && Math.random() > 0.6) {
+      text += ` Your darkvision pierces the gloom with ease.`;
+    }
+    
+    if (ctx.isSmallRace && Math.random() > 0.8) {
+      text = text.replace(/\bYou\b/, match => {
+        return Math.random() > 0.5 ? 'You (moving with the natural stealth of your small stature)' : 'You';
+      });
+    }
+    
+    return text;
+  }
+  
+  // Procedural enemy generation for dynamic encounters
+  _generateEnemy(baseType, ctx) {
+    const enemies = {
+      goblin_scout: {
+        names: ['Skraak', 'Gnish', 'Yokar', 'Rotgut', 'Sneek'],
+        baseHp: 7,
+        ac: 13,
+        hpVariance: 3,
+        descriptors: ['scarred', 'one-eyed', 'limping', 'snarling', 'wary']
+      },
+      goblin_leader: {
+        names: ['Griznak', 'Vorgath', 'Kragthar', 'Uglúk', 'Snazg'],
+        baseHp: 15,
+        ac: 14,
+        hpVariance: 5,
+        descriptors: ['pot-helmed', 'battle-scarred', 'veteran', 'cruel-eyed', 'commanding']
+      },
+      hobgoblin_shaman: {
+        names: ['Kazrath the Shadowed', 'Velkor Bonecaller', 'Thrakk Darkwhisper', 'Nazgrim the Vile', 'Urgash Skullstaff'],
+        baseHp: 45,
+        ac: 15,
+        hpVariance: 10,
+        descriptors: ['skull-adorned', 'ritual-scarred', 'shadow-wreathed', 'arcane-marked', 'bone-clad']
+      }
+    };
+    
+    const template = enemies[baseType];
+    if (!template) return { name: 'Enemy', hp: 10, maxHp: 10, ac: 12 };
+    
+    // Add difficulty scaling based on character level
+    const levelBonus = Math.floor((ctx.level - 1) * 1.5);
+    const variance = Math.floor(Math.random() * template.hpVariance) - Math.floor(template.hpVariance / 2);
+    const hp = template.baseHp + variance + levelBonus;
+    
+    return {
+      name: template.names[Math.floor(Math.random() * template.names.length)],
+      descriptor: template.descriptors[Math.floor(Math.random() * template.descriptors.length)],
+      hp: hp,
+      maxHp: hp,
+      ac: template.ac + (ctx.level > 3 ? 1 : 0)
+    };
+  }
+  
+  // Procedural loot generation
+  _generateLoot(encounterType, ctx) {
+    const loot = {
+      minor: [
+        { gold: [5, 15], items: ['Rusty Dagger', 'Tarnished Ring', 'Leather Pouch', 'Bone Dice'] },
+        { gold: [8, 20], items: ['Iron Key', 'Crude Map Fragment', 'Worn Medallion', 'Chipped Gemstone'] },
+        { gold: [3, 12], items: ['Strange Coin', 'Feather Token', 'Broken Compass', 'Glass Vial'] }
+      ],
+      moderate: [
+        { gold: [20, 50], items: ['Silver Ring', 'Potion of Healing', 'Fine Dagger', 'Ancient Coin'] },
+        { gold: [30, 60], items: ['Enchanted Amulet', 'Scroll of Light', 'Gemstone (50gp value)', 'Masterwork Tool'] },
+        { gold: [25, 45], items: ['Magic Scroll', 'Healing Salve', 'Fine Cloak', 'Mysterious Crystal'] }
+      ],
+      major: [
+        { gold: [80, 150], items: ['Magic Weapon (+1)', 'Rare Gemstone', 'Enchanted Armor Piece', 'Powerful Scroll'] },
+        { gold: [100, 200], items: ['Ring of Protection', 'Potion of Greater Healing', 'Ancient Artifact', 'Spellbook Fragment'] },
+        { gold: [90, 180], items: ['Wand of Power', 'Bracers of Defense', 'Cloak of Elvenkind', 'Bag of Holding'] }
+      ]
+    };
+    
+    const category = loot[encounterType] || loot.minor;
+    const selected = category[Math.floor(Math.random() * category.length)];
+    const goldAmount = Math.floor(Math.random() * (selected.gold[1] - selected.gold[0] + 1)) + selected.gold[0];
+    const itemIndex = Math.floor(Math.random() * selected.items.length);
+    
+    return {
+      gold: goldAmount,
+      item: selected.items[itemIndex]
+    };
+  }
+  
+  // Add dynamic environmental details based on character perception
+  _addEnvironmentalDetails(baseText, ctx) {
+    if (ctx.isWise && Math.random() > 0.6) {
+      const wisdomInsights = [
+        ' Something feels wrong about this place.',
+        ' Your instincts warn you of hidden danger.',
+        ' You sense you\'re not seeing the whole picture.',
+        ' A subtle wrongness in the air puts you on edge.'
+      ];
+      baseText += wisdomInsights[Math.floor(Math.random() * wisdomInsights.length)];
+    }
+    
+    if (ctx.isSmart && /ritual|magic|arcane|spell/i.test(baseText) && Math.random() > 0.7) {
+      const intelligenceInsights = [
+        ' Your knowledge of the arcane helps you understand the pattern.',
+        ' You recognize the ritual structure from your studies.',
+        ' The magical theory behind this is clear to you.',
+        ' Your understanding of magic reveals the mechanism at work.'
+      ];
+      baseText += intelligenceInsights[Math.floor(Math.random() * intelligenceInsights.length)];
+    }
+    
+    return baseText;
+  }
+  
+  // Track player actions to build playstyle profile
+  _trackPlayerAction(choice, state) {
+    const mem = this._demoMemory;
+    
+    // Classify action type based on choice and state
+    if (/charge|attack|confront|fight|rush/.test(choice)) {
+      mem.actionCount.aggressive++;
+    } else if (/sneak|careful|observe|wait|cautious/.test(choice)) {
+      mem.actionCount.cautious++;
+    } else if (/ask|talk|speak|question|diplomatic/.test(choice)) {
+      mem.actionCount.diplomatic++;
+    }
+    
+    // Update playstyle based on action counts
+    const total = mem.actionCount.aggressive + mem.actionCount.cautious + mem.actionCount.diplomatic;
+    if (total >= 3) {
+      const agg = mem.actionCount.aggressive / total;
+      const cau = mem.actionCount.cautious / total;
+      const dip = mem.actionCount.diplomatic / total;
+      
+      if (agg > 0.5) mem.playStyle = 'aggressive';
+      else if (cau > 0.5) mem.playStyle = 'cautious';
+      else if (dip > 0.4) mem.playStyle = 'diplomatic';
+      else mem.playStyle = 'balanced';
+    }
+    
+    // Track specific story flags
+    if (state === 'brom_info') mem.talkedToBrom = true;
+    if (state === 'read_letter') mem.tookLetter = true;
+    if (state === 'interrogate') mem.sparedGoblin = true;
+    if (state === 'post_combat' || state === 'return_brom') mem.rescuedPrisoner = true;
+    if (state === 'shaman_observe') mem.discoveredRitual = true;
+    if (choice === '2' && state === 'forest_road') mem.approach = 'tactical';
+    if (choice === '3' && state === 'forest_road') mem.approach = 'direct';
+  }
+  
+  // Add callbacks to past player decisions in new responses
+  _addContextualCallbacks(baseText, currentState, ctx) {
+    const mem = this._demoMemory;
+    let text = baseText;
+    
+    // Add playstyle-aware narration
+    if (currentState === 'deeper_dungeon' && mem.playStyle === 'cautious') {
+      text = text.replace('They haven\'t noticed you.', 'They haven\'t noticed you. Your careful approach has served you well so far.');
+    } else if (currentState === 'deeper_dungeon' && mem.playStyle === 'aggressive') {
+      text = text.replace('They haven\'t noticed you.', 'They haven\'t noticed you. But your blood still runs hot from earlier combat.');
+    }
+    
+    // Reference earlier mercy/cruelty
+    if (currentState === 'shaman_confront' && mem.sparedGoblin) {
+      text = text.replace('He said to tell you:', 'He said to tell you — and he knows you showed mercy to his scouts —');
+    }
+    
+    // Reference prisoner rescue
+    if (currentState === 'victory' && mem.rescuedPrisoner) {
+      text = text.replace('She looks at you with clear grey eyes:', 'She looks at you with clear grey eyes — the same gratitude you saw in the prisoner\'s face when you freed them:');
+    }
+    
+    // Reference knowledge gained from Brom
+    if (currentState === 'deeper_dungeon' && mem.talkedToBrom) {
+      text += ' Brom\'s words echo in your mind: "*If a shaman is operating, it\'s not a raid — it\'s an invasion.*"';
+    }
+    
+    // Reference if player read the letter early
+    if (currentState === 'victory' && mem.tookLetter) {
+      text = text.replace('The Merchant\'s Consortium\'s black sun seal.', 'The Merchant\'s Consortium\'s black sun seal — the same seal you saw in the tavern.');
+    }
+    
+    return text;
+  }
+  
+  // Add adaptive difficulty hints and random variations
+  _addAdaptiveElements(baseText, currentState, ctx) {
+    let text = baseText;
+    
+    // Add difficulty-aware hints for low-stat characters
+    if (currentState.includes('combat') && ctx.level === 1) {
+      if (ctx.mods.str <= 0 && ctx.mods.dex <= 0) {
+        // Low combat stats - suggest tactics
+        text += '\n\n*Sometimes the smartest warriors are those who choose their battles carefully.*';
+      }
+    }
+    
+    // Add encouraging notes for players using their strengths
+    if (currentState === 'shaman_observe' && ctx.isSmart) {
+      text = text.replace('This changes things.', 'This changes things. Your keen intellect has revealed a critical detail others might have missed.');
+    }
+    
+    if (currentState === 'combat_surp' && ctx.isAgile) {
+      text = text.replace('You have the advantage', 'Your agility gives you the advantage');
+    }
+    
+    if (currentState === 'cave_charge' && ctx.isStrong) {
+      text = text.replace('You go in fast and loud.', 'Your powerful frame crashes through — fast and loud.');
+    }
+    
+    // Add random encounter variations (about 30% of the time)
+    if (Math.random() > 0.7) {
+      if (currentState === 'forest_road' && ctx.hasNightVision) {
+        text += ' In the darkness beyond the firelight, your keen eyes catch movement — more of them than you first thought.';
+      }
+      
+      if (currentState === 'tavern' && ctx.isCharismatic) {
+        text = text.replace('Brom Ashkettle, the dwarf barkeep, slides a cup in front of you without being asked.', 
+          'Brom Ashkettle, the dwarf barkeep, slides a cup in front of you with an approving nod. Those he trusts get served quickly.');
+      }
+      
+      if (currentState.includes('dungeon') && ctx.isWise && Math.random() > 0.5) {
+        const ominousSigns = [
+          ' Ancient scratch marks on the walls suggest something larger once lived here.',
+          ' The air tastes wrong — metallic and old.',
+          ' You notice fresh blood mixed with the old stains.',
+          ' Footprints in the dust are recent. Very recent.'
+        ];
+        text += ominousSigns[Math.floor(Math.random() * ominousSigns.length)];
+      }
+    }
+    
+    // Add personality to NPC interactions based on player's charisma
+    if (currentState === 'brom_info' && ctx.isCharismatic) {
+      text = text.replace('Brom sets his cloth down and speaks quietly', 
+        'Brom sets his cloth down and leans in, speaking with unusual candor');
+    }
+    
+    return text;
   }
 
   _mockResponse() {
-    const c    = window.characterSystem?.character;
-    const name = c?.name || 'Adventurer';
-    const str  = Math.floor(((c?.stats?.str ?? 10) - 10) / 2);
-    const dex  = Math.floor(((c?.stats?.dex ?? 10) - 10) / 2);
-    const con  = Math.floor(((c?.stats?.con ?? 10) - 10) / 2);
-    const int_ = Math.floor(((c?.stats?.int ?? 10) - 10) / 2);
-    const wis  = Math.floor(((c?.stats?.wis ?? 10) - 10) / 2);
-    const cha  = Math.floor(((c?.stats?.cha ?? 10) - 10) / 2);
-    const fmt  = v => (v >= 0 ? `+${v}` : `${v}`);
-
+    // Get enhanced character context
+    const ctx = this._getCharacterContext();
+    const { name, mods } = ctx;
+    const fmt = v => (v >= 0 ? `+${v}` : `${v}`);
     const f = fmt;
 
     // ── Transition table: state → { choiceNum: nextState } ────
@@ -128,44 +511,44 @@ class AISystem {
     const R = {
 
       // tavern ── Opening
-      tavern: `[SCENE:tavern][MUSIC:tavern]The **Tarnished Flagon** is the kind of tavern that swallows secrets. Tallow candles gutter in iron sconces, casting the common room in trembling amber. Outside, a late-autumn storm lashes the shuttered windows.\n\nBrom Ashkettle, the dwarf barkeep, slides a cup in front of you without being asked. Then: *"Goblin raid last night. Took the mill. The miller went out to check — hasn't come back. Locals won't go near the Ashwood."* He drops a rolled parchment beside your cup. The seal is a black sun: the **Order of the Ashen Veil**. *"You've done harder things than goblins."*\n\n1. Ask Brom what he knows — get the full picture\n2. Break the seal and read the parchment first\n3. Stand up and head out — you don't need convincing\n4. Order another drink — a plan is worth five minutes`,
+      tavern: `[SCENE:tavern][MUSIC:tavern]The **Tarnished Flagon** is the kind of tavern that swallows secrets. Tallow candles gutter in iron sconces and a fire crackles in the hearth, casting the common room in trembling amber. Patrons hunch over their cups and keep their eyes down. Outside, a late-autumn storm lashes the shuttered windows. Barrels and kegs crowd the wall behind the bar.\n\nBrom Ashkettle, the dwarf barkeep, slides a cup in front of you without being asked. Then: *"Goblin raid last night. Took the mill. The miller went out to check — hasn't come back. Locals won't go near the Ashwood."* He drops a rolled parchment beside your cup. The seal is a black sun: the **Order of the Ashen Veil**. *"You've done harder things than goblins."*\n\n1. Ask Brom what he knows — get the full picture\n2. Break the seal and read the parchment first\n3. Stand up and head out — you don't need convincing\n4. Order another drink — a plan is worth five minutes`,
 
       // tavern branches → all lead to forest_road
-      brom_info: `[SCENE:tavern][MUSIC:tavern]Brom sets his cloth down and speaks quietly, eyes scanning the room.\n\n*"Three nights running. Coops, cold store, then the mill. The miller went out himself — his wife's at the shrine now."* He refills your cup. *"There's a hedge-witch, **Sister Vael**, keeps the Ashwood edge quiet. Hasn't been to market in a week."* A pause. *"If something's organising them, it'd be staging from **Greyvast Keep** — three miles north. Been empty sixty years."*\n\nYou have enough. The rain has softened to drizzle.\n\n1. Head for the mill road now\n2. Find Sister Vael's cottage first — she may know more\n3. Ask around town for other witnesses\n4. Leave at dusk — better to arrive in darkness`,
+      brom_info: `[SCENE:tavern][MUSIC:tavern]Brom sets his cloth down and speaks quietly, eyes scanning the room.\n\n*"Three nights running. Coops, cold store, then the mill. The miller went out himself — his wife's been praying all night."* He refills your cup. *"There's a hedge-witch, **Sister Vael**, keeps the Ashwood edge quiet. Hasn't been to market in a week."* A pause. *"If something's organising them, it'd be staging from **Greyvast Keep** — three miles north. Been empty sixty years."*\n\nYou have enough. The rain has softened to drizzle.\n\n1. Head for the mill road now\n2. Find Sister Vael's cottage first — she may know more\n3. Ask around town for other witnesses\n4. Leave at dusk — better to arrive in darkness`,
 
       read_letter: `[SCENE:tavern][MUSIC:tavern]The wax breaks with a soft crack. Inside: a rough map fragment and three lines of cramped handwriting.\n\n*A name* — **Aldric Vane**. *A date* — four days from now. *A phrase* in Old Common: *"the seal on the deep place must not be broken."*\n\nThe map shows the Ashwood with a path past the mill toward the hills northeast. At the end of the path: a jagged black sun, rendered in heavy ink. You've seen that symbol before — on a crypt wall, on an intercepted Consortium letter. You were never told what it meant. Someone knew about this and said nothing.\n\n1. Ask Brom if he recognises the name Aldric Vane\n2. Head for the mill road — you have a path now\n3. Study the map fragment for more details\n4. Pocket it and ask about Sister Vael`,
 
       head_out: `[SCENE:tavern][MUSIC:tavern]You stand and settle your kit. Brom grunts — the dwarf equivalent of *well done* — and passes you a worn lantern from behind the bar.\n\n*"Mill road's a quarter mile east. Turns to mud before the tree line. You'll know it by the crow totems."* He hesitates. *"One more thing. Three days ago a man passed through — Consortium rings, soft hands. Asked about a hedge-witch named Sister Vael by name. Paid in silver and left fast."*\n\nHe doesn't tell you what to do with that. He doesn't have to.\n\n1. Go straight for the mill — direct and fast\n2. Approach the Ashwood from the south\n3. Move like you're already being watched\n4. Take the road openly — let anyone trailing you think you haven't noticed`,
 
-      second_drink: `[SCENE:tavern][MUSIC:tavern]You make good use of the time. A farmer saw pale torchlight in the Ashwood two nights running — not goblin-fire orange but cold blue. A carter confirms the miller's tracks went in on the old logging road. The barmaid says Sister Vael bought double her usual reagents three weeks ago, as if preparing for something.\n\nAnd the man in the corner — pretending to sleep — has Consortium-guild calluses on his right hand and has been here since midday.\n\nWhatever is in the Ashwood has been building for weeks. Someone in this room may already know why.\n\n1. Confront the Consortium man before you leave\n2. Slip out quietly — let him think you noticed nothing\n3. Say Aldric Vane's name loudly and watch who reacts\n4. Head out now — the Ashwood is your answer`,
+      second_drink: `[SCENE:tavern][MUSIC:tavern]You make good use of the time. A farmer saw pale torchlight in the Ashwood two nights running — not goblin-fire orange but cold blue. A carter confirms the miller's tracks went in on the old logging road. The barmaid says Sister Vael bought double her usual reagents three weeks ago, as if preparing for something.\n\nAnd the cloaked stranger in the corner — pretending to sleep — has Consortium-guild calluses on his right hand and has been here since midday.\n\nWhatever is in the Ashwood has been building for weeks. Someone in this room may already know why.\n\n1. Confront the Consortium man before you leave\n2. Slip out quietly — let him think you noticed nothing\n3. Say Aldric Vane's name loudly and watch who reacts\n4. Head out now — the Ashwood is your answer`,
 
       // forest
-      forest_road: `[SCENE:forest][MUSIC:forest]The mill road turns to packed mud within a quarter mile of the last farmhouse. Ancient oaks press close overhead. Your lantern throws a twenty-foot circle that the forest swallows at its edges.\n\nThe ruined mill materialises out of the dark — waterwheel stopped, one wall caved in. Beyond it in the embankment: a cave mouth, gaping black. Two orange points of firelight dance inside. Voices, guttural, arguing in Goblin. At least three of them. They don't know you're here. [DICE:d20${f(wis)}:Wisdom:DC12]\n\n1. Move closer and peer inside — identify what you're dealing with\n2. Find a large stone and throw it past the cave to draw them out\n3. Walk in boldly — fast and loud\n4. Circle the mill — there may be another way in`,
+      forest_road: `[SCENE:forest][MUSIC:forest]The mill road turns to packed mud within a quarter mile of the last farmhouse. Ancient oaks press close overhead. Your lantern throws a twenty-foot circle that the forest swallows at its edges.\n\nThe ruined mill materialises out of the dark — waterwheel stopped, one wall caved in. Beyond it in the embankment: a cave mouth, gaping black. Two orange points of firelight dance inside. Voices, guttural, arguing in Goblin. At least three of them. [DICE:d20${f(mods.wis)}:Wisdom:DC12][SUCCESS:Your senses sharpen — you catch not just the argument but the postures: two nervous scouts and one pot-helmed leader who keeps glancing deeper into the tunnels. They're waiting for something. They don't know you're here.][FAILURE:You try to gauge their mood, but shifting shadows and echoing voices make it hard to get a clear picture. You can see firelight and movement, but the details escape you. Time to decide how to approach this.]\n\n1. Move closer and peer inside — identify what you're dealing with\n2. Find a large stone and throw it past the cave to draw them out\n3. Walk in boldly — fast and loud\n4. Circle the mill — there may be another way in`,
 
       // cave approaches
-      cave_careful: `[SCENE:dungeon][MUSIC:dungeon]You press against the embankment and slide to the cave mouth. Inside: three goblins around a small fire. Stolen grain sacks against the wall. The bones of something large in the corner. And tied to a post at the back: a bundle of rags that resolves, as your eyes adjust, into a *person*. Unconscious. Breathing.\n\nThe three are deep in an argument about division of spoils. None of them are looking your way. [DICE:d20${f(dex)}:Stealth:DC13]\n\n1. Hold still and listen — they may reveal something useful\n2. Strike now while surprise is fully yours\n3. Go for the prisoner first — get them behind you\n4. Target the leader to break their nerve`,
+      cave_careful: `[SCENE:dungeon][MUSIC:dungeon]You press against the embankment and slide to the cave mouth. Inside: three goblins around a small fire. Stolen grain sacks against the wall. A cracked barrel and the bones of something large in the corner. And tied to a post at the back: a bundle of rags that resolves, as your eyes adjust, into a *person*. Unconscious. Breathing.\n\nThe three are deep in an argument about division of spoils. [DICE:d20${f(mods.dex)}:Stealth:DC13][SUCCESS:You move like shadow itself. Not one goblin so much as glances your way. You're so close you can hear individual words in their guttural Goblin — and none of them have any idea they're being watched.][FAILURE:A loose stone shifts under your boot with the faintest scrape. One goblin's ear twitches. His hand moves toward his blade. The others tense. They haven't spotted you yet, but they know *something* is wrong. You have seconds.]\n\n1. Hold still and listen — they may reveal something useful\n2. Strike now while surprise is fully yours\n3. Go for the prisoner first — get them behind you\n4. Target the leader to break their nerve`,
 
-      cave_distract: `[SCENE:dungeon][MUSIC:dungeon]The stone arcs cleanly into the dark beyond the cave mouth with a satisfying *clatter*. Inside, three heads snap toward the sound simultaneously. [DICE:d20${f(dex)}:Dexterity:DC10]\n\nTwo smaller goblins scramble toward the noise. The leader — pot-helm, bigger — squints directly at the entrance. His hand moves toward his blade. One full heartbeat. Then he follows the others. You have four seconds.\n\n1. Rush all three from behind while they're bunched up\n2. Get inside and put your back to the wall\n3. Strike the leader first — one chance at his blind side\n4. Hold — wait for all three to fully turn`,
+      cave_distract: `[SCENE:dungeon][MUSIC:dungeon]The stone arcs cleanly into the dark beyond the cave mouth with a satisfying *clatter*. Inside, three heads snap toward the sound simultaneously. [DICE:d20${f(mods.dex)}:Dexterity:DC10]\n\nTwo smaller goblins scramble toward the noise. The leader — pot-helm, bigger — squints directly at the entrance. His hand moves toward his blade. One full heartbeat. Then he follows the others. You have four seconds.\n\n1. Rush all three from behind while they're bunched up\n2. Get inside and put your back to the wall\n3. Strike the leader first — one chance at his blind side\n4. Hold — wait for all three to fully turn`,
 
-      cave_charge: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]You go in fast and loud. The goblins have time to react — the leader's blade is already drawn when you reach him, the other two fan left and right with rusted spears. You take a hit before you close the distance. [HP:-4][DICE:d20${f(str)}:Attack:DC14]\n\nThrough the chaos you can see a person tied to a post at the back. Get through these three and you can reach them.\n\n1. Lock onto the leader — break their nerve, the others scatter\n2. Drive all three toward the cave mouth — better footing\n3. Go for the torch — fight them in the dark\n4. Fall back to the entrance — force a chokepoint`,
+      cave_charge: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]You go in fast and loud. The goblins have time to react — the leader's blade is already drawn when you reach him, the other two fan left and right with rusted spears. You take a hit before you close the distance. [HP:-4][DICE:d20${f(mods.str)}:Attack:DC14]\n\nThrough the chaos you can see a person tied to a post at the back. Get through these three and you can reach them.\n\n1. Lock onto the leader — break their nerve, the others scatter\n2. Drive all three toward the cave mouth — better footing\n3. Go for the torch — fight them in the dark\n4. Fall back to the entrance — force a chokepoint`,
 
-      cave_circle: `[SCENE:dungeon][MUSIC:dungeon]The back fissure is narrow enough that you turn sideways to squeeze through. It opens onto a natural ledge four feet above the main floor. Below: three goblins, a fire, stolen sacks — and a person tied to a post. Alive.\n\nYou have the high ground. The pot-helmed leader is directly below. [DICE:d20${f(str)}:Athletics:DC11]\n\n1. Drop onto the leader — end the chain of command immediately\n2. Shout to disorient all three at once, then drop\n3. Reach the prisoner first — untie them before engaging\n4. Hold your position and assess`,
+      cave_circle: `[SCENE:dungeon][MUSIC:dungeon]The back fissure is narrow enough that you turn sideways to squeeze through. It opens onto a natural ledge four feet above the main floor. Below: three goblins, a fire, stolen sacks — and a person tied to a post. Alive.\n\nYou have the high ground. The pot-helmed leader is directly below. [DICE:d20${f(mods.str)}:Athletics:DC11]\n\n1. Drop onto the leader — end the chain of command immediately\n2. Shout to disorient all three at once, then drop\n3. Reach the prisoner first — untie them before engaging\n4. Hold your position and assess`,
 
       // combat variations
       combat_listen: `[SCENE:dungeon][MUSIC:dungeon]You control your breath and listen. Their Goblin is rough but workable.\n\nThe two smaller ones resent being stationed here while the others take positions in *"the keep."* The leader keeps telling them to wait for the signal. *"Three nights. Signal comes in three nights and we move. Until then we hold the entrance and keep the Witch quiet."*\n\n*The Witch.* Sister Vael — she's here, somewhere in these tunnels, still alive. You've learned enough. Now you act.\n\n1. Strike the leader first — most dangerous, most informed\n2. Take the two smaller ones simultaneously\n3. Slip back and find another way deeper without fighting\n4. Throw a stone to scatter them, then pick your moment`,
 
-      combat_surp: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Scout:7:7]You have the advantage and use it cleanly. The first strike drops the leader — pot-helm clangs off the soil floor. [ENEMY:Goblin Scout:0:7][DICE:d20${f(dex)}:Initiative:DC12]\n\nThe remaining two freeze. One bolts deeper into the tunnels. The other drops its spear and sits down hard, hands on its head, with the resigned posture of a creature that has been on the losing side before. [HP:-2][ENEMY:clear]\n\nThe cave goes quiet. The prisoner at the post is alive — pulse steady, deep bruise along the jaw, unconscious but not in danger.\n\n1. Let the fleeing one go — search the cave thoroughly\n2. Question the surrendered goblin before it composes itself\n3. Chase the fleeing one — it's going somewhere important\n4. Tend to the prisoner first`,
+      combat_surp: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Scout:7:7]You have the advantage and use it cleanly. The first strike drops the leader — pot-helm clangs off the soil floor. [ENEMY:Goblin Scout:0:7][DICE:d20${f(mods.dex)}:Initiative:DC12]\n\nThe remaining two freeze. One bolts deeper into the tunnels. The other drops its spear and sits down hard, hands on its head, with the resigned posture of a creature that has been on the losing side before. [HP:-2][ENEMY:clear]\n\nThe cave goes quiet. The prisoner at the post is alive — pulse steady, deep bruise along the jaw, unconscious but not in danger.\n\n1. Let the fleeing one go — search the cave thoroughly\n2. Question the surrendered goblin before it composes itself\n3. Chase the fleeing one — it's going somewhere important\n4. Tend to the prisoner first`,
 
-      combat_high: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]The drop is clean. You land on the leader with enough force to end his participation immediately. [ENEMY:Goblin Leader:0:15][DICE:d20${f(str)}:Attack:DC11] The other two find you already between them and the exit.\n\nThe fight is short. The cave is too small for their numbers. The second goes down. The third throws its spear — misses — and runs deeper, shrieking. [HP:-1][ENEMY:clear]\n\nSilence. The prisoner at the post is stirring. In a corner: a crude bark map and three stolen coin purses.\n\n1. Check on the prisoner immediately\n2. Study the bark map before anything else\n3. Pursue the fleeing goblin — it's going somewhere\n4. Secure the cave entrance in case reinforcements come`,
+      combat_high: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]The drop is clean. You land on the leader with enough force to end his participation immediately. [ENEMY:Goblin Leader:0:15][DICE:d20${f(mods.str)}:Attack:DC11] The other two find you already between them and the exit.\n\nThe fight is short. The cave is too small for their numbers. The second goes down. The third throws its spear — misses — and runs deeper, shrieking. [HP:-1][ENEMY:clear]\n\nSilence. The prisoner at the post is stirring. In a corner: a crude bark map and three stolen coin purses.\n\n1. Check on the prisoner immediately\n2. Study the bark map before anything else\n3. Pursue the fleeing goblin — it's going somewhere\n4. Secure the cave entrance in case reinforcements come`,
 
-      combat_hot: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]The fight is ugly. Three-on-one in a confined space against goblins who've had time to plant their feet. The pot-helmed one has done this before. You take more hits than you'd like. [ENEMY:Goblin Leader:8:15][HP:-7][DICE:d20${f(dex)}:Attack:DC15]\n\nIt comes down to stamina. The leader goes down. The second folds when his weapon arm fails. The third runs, shouting back into the tunnels — *"INTRUDER! SHAMAN-HELP!"*\n\nBad. That warning got out. But the prisoner is still alive. [ENEMY:clear]\n\n1. Pursue immediately — stop the alarm spreading\n2. Bind your wounds before pressing on [HP:+2]\n3. Search the cave fast — take only what's essential\n4. Free the prisoner — see if they can fight`,
+      combat_hot: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Leader:15:15]The fight is ugly. Three-on-one in a confined space against goblins who've had time to plant their feet. The pot-helmed one has done this before. You take more hits than you'd like. [ENEMY:Goblin Leader:8:15][HP:-7][DICE:d20${f(mods.dex)}:Attack:DC15]\n\nIt comes down to stamina. The leader goes down. The second folds when his weapon arm fails. The third runs, shouting back into the tunnels — *"INTRUDER! SHAMAN-HELP!"*\n\nBad. That warning got out. But the prisoner is still alive. [ENEMY:clear]\n\n1. Pursue immediately — stop the alarm spreading\n2. Bind your wounds before pressing on [HP:+2]\n3. Search the cave fast — take only what's essential\n4. Free the prisoner — see if they can fight`,
 
-      combat_dark: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Scout:7:7]The torch goes down. Darkness.\n\nFor three seconds: pure chaos. You can hear them but not see them — and they cannot see you. [ENEMY:Goblin Scout:3:7][DICE:d20${f(dex)}:Stealth:DC13] You put the fire position behind you, silhouetting them against the fading embers.\n\nIt's over faster in the dark. Two goblins go down by sound and training. The third scrambles deeper into the tunnel, fear carrying it. When the fire re-lights, the cave is yours. [HP:-3][ENEMY:clear]\n\nThe prisoner is alive and beginning to stir.\n\n1. Free the prisoner — find out who they are\n2. Follow the fleeing goblin now\n3. Search the cave for supplies and maps\n4. Bar the entrance and take stock`,
+      combat_dark: `[SCENE:combat][MUSIC:combat][ENEMY:Goblin Scout:7:7]The torch goes down. Darkness.\n\nFor three seconds: pure chaos. You can hear them but not see them — and they cannot see you. [ENEMY:Goblin Scout:3:7][DICE:d20${f(mods.dex)}:Stealth:DC13] You put the fire position behind you, silhouetting them against the fading embers.\n\nIt's over faster in the dark. Two goblins go down by sound and training. The third scrambles deeper into the tunnel, fear carrying it. When the fire re-lights, the cave is yours. [HP:-3][ENEMY:clear]\n\nThe prisoner is alive and beginning to stir.\n\n1. Free the prisoner — find out who they are\n2. Follow the fleeing goblin now\n3. Search the cave for supplies and maps\n4. Bar the entrance and take stock`,
 
       interrogate: `[SCENE:dungeon][MUSIC:dungeon]The surrendered goblin watches you with calculating eyes pretending to look stupid.\n\nIt tells you: three passages deeper in. One leads to *"the old rock place with the humming"* — the ritual space. One leads to the surface near the mill's foundation. The third leads to *"the Shaman's quiet place"* where *"the witch-woman sleeps and does not wake."*\n\nSister Vael. Still alive. You let the goblin go. It bolts with impressive speed. [XP:+30]\n\n1. Head for the ritual space — find Sister Vael\n2. Check the bark map on the cave wall first\n3. The surface exit may be important — note it\n4. Press deeper immediately`,
 
       // post-combat
-      post_combat: `[SCENE:dungeon][MUSIC:dungeon]The silence after a finished fight lands differently every time. This one lands heavy.\n\nYou check the fallen and find the prisoner — a grey-haired woman, someone's grandmother by the look of her hands — and search the cave. Behind a loose stone: a bark map showing tunnels and a chamber at the end marked with the jagged black sun. A tally on the wall: numbers, dates, something like a patrol schedule. This has been organised carefully.\n\nThe prisoner's pulse is steady. You can't carry her and go deeper safely. [XP:+120]\n\n1. Bring the prisoner back to the village — report to Brom\n2. Leave her here safely and press deeper with the bark map\n3. Rest here, tend your wounds, decide [HP:+3]\n4. Send the bark map back with a note — press on alone`,
+      post_combat: `[SCENE:dungeon][MUSIC:dungeon]The silence after a finished fight lands differently every time. This one lands heavy.\n\nYou check the fallen — two goblin corpses near the entrance — and find the prisoner: a grey-haired woman, someone's grandmother by the look of her hands — and search the cave. Behind a loose stone: a bark map showing tunnels and a chamber at the end marked with the jagged black sun. A tally on the wall: numbers, dates, something like a patrol schedule. This has been organised carefully.\n\nThe prisoner's pulse is steady. You can't carry her and go deeper safely. [XP:+120]\n\n1. Bring the prisoner back to the village — report to Brom\n2. Leave her here safely and press deeper with the bark map\n3. Rest here, tend your wounds, decide [HP:+3]\n4. Send the bark map back with a note — press on alone`,
 
       // return & reward branches
       return_brom: `[SCENE:town][MUSIC:tavern]The walk back is long and wet. You make it before midnight, the prisoner over your shoulder.\n\nBrom doesn't ask questions. He has a cot and broth ready before you finish explaining. The prisoner — the miller's wife — stirs enough by morning to say three things: *"the Shaman,"* *"they took Vael,"* and *"Greyvast."*\n\nBrom says it three times. *"If a shaman is staging an operation from Greyvast... that's not a raid. That's an invasion."* He drops a coin purse on the table. *"Finish this."* [XP:+60]\n\n1. Head north for Greyvast before dawn\n2. Rest until first light\n3. Get Greyvast's layout from Brom first\n4. Go back via the cave tunnels — the bark map shows an underground route`,
@@ -175,20 +558,20 @@ class AISystem {
       rest_scene: `[SCENE:rest][MUSIC:rest]You find a defensible corner of the mill cottage — stone walls, chimney that draws, door that bolts from inside. Three hours.\n\nThe fire catches. The storm continues outside, muffled by old stone. You bind what needs binding and let the adrenaline go. [HP:+6]\n\nYou wake to silence — the storm finally spent — and something else. A sound from below the floor. Rhythmic. Low. Like a heartbeat built from stone and malice.\n\n**Drumming.**\n\nSomething is conducting a ritual beneath this building.\n\n1. Find the trapdoor — go down immediately\n2. Wait — assess the rhythm before acting\n3. Get outside first and orient yourself\n4. Check the bark map — mark where you think this is`,
 
       // shaman chamber
-      deeper_dungeon: `[SCENE:cave][MUSIC:dungeon]The passage descends by degrees — earthen, then limestone, then something older. The drumming is everywhere, coming through the stone itself.\n\nThe passage opens into a vast natural chamber lit by iron-sconce torches. In the centre, surrounded by kneeling goblin soldiers, stands a **Hobgoblin Shaman** — tall, robed, skull-staff raised. Before him on a stone altar: a crystal of green-black mineral pulsing in time with the drums.\n\nAnd to the right, against the wall, in a faintly glowing chalk circle: **Sister Vael**. Cross-legged. Breathing. Eyes open on something invisible. [DICE:d20${f(wis)}:Perception:DC14]\n\nThey haven't noticed you.\n\n1. Target the crystal — a ranged strike to shatter it\n2. Watch and listen — learn the ritual before acting\n3. Step into the torchlight and announce yourself\n4. Find the chamber supports — a controlled collapse traps them`,
+      deeper_dungeon: `[SCENE:cave][MUSIC:dungeon]The passage descends by degrees — earthen, then limestone, then something older. The drumming is everywhere, coming through the stone itself.\n\nThe passage opens into a vast natural chamber lit by iron-sconce torches. In the centre, surrounded by kneeling goblin soldiers, stands a **Hobgoblin Shaman** — tall, robed, skull-staff raised. A ritual tome lies open on a stone lectern to one side. Before him on a stone altar: a crystal of green-black mineral pulsing in time with the drums.\n\nAnd to the right, against the wall, in a faintly glowing chalk circle: **Sister Vael**. Cross-legged. Breathing. [DICE:d20${f(mods.wis)}:Perception:DC14][SUCCESS:Her eyes are open on something invisible — and they're tracking. Not vacant. *Fighting*. You notice the shaman's hand trembling slightly on the staff. The ritual isn't complete. It's being *resisted*. She's still in there, still holding something back. The goblins are nervous, shifting weight, watching the shaman more than the crystal. They haven't noticed you.][FAILURE:Her eyes are open but unseeing. The shaman looks confident, the ritual circle glowing steadily. The goblins kneel in perfect formation. You can't read the subtle signs — is this ritual succeeding or failing? Is Vael conscious or enthralled? The details escape you in the dim torchlight. They haven't noticed you.]\n\n1. Target the crystal — a ranged strike to shatter it\n2. Watch and listen — learn the ritual before acting\n3. Step into the torchlight and announce yourself\n4. Find the chamber supports — a controlled collapse traps them`,
 
-      shaman_snipe: `[SCENE:combat][MUSIC:combat][ENEMY:Hobgoblin Shaman:45:45]The shot connects. The crystal *cracks* — green fire sprays outward, sending the kneeling goblins scrambling. The shaman staggers. [ENEMY:Hobgoblin Shaman:38:45][DICE:d20${f(dex)}:Attack:DC16]\n\nThen he rights himself. The crystal — cracked, not destroyed — still pulses. Slower. Weaker. But the connection holds. He finds you with the calm of someone who sensed you before you moved.\n\n*"You have weakened it. You have not stopped it. And now I know exactly who you are, ${name}."* [HP:-3]\n\n1. Press your advantage before he recovers\n2. Target the cracked crystal again — finish it\n3. Fall back to the passage — better defensive ground\n4. Go for Sister Vael — free her while the chaos holds`,
+      shaman_snipe: `[SCENE:combat][MUSIC:combat][ENEMY:Hobgoblin Shaman:45:45]The shot connects. The crystal *cracks* — green fire sprays outward, sending the kneeling goblins scrambling. The shaman staggers. [ENEMY:Hobgoblin Shaman:38:45][DICE:d20${f(mods.dex)}:Attack:DC16]\n\nThen he rights himself. The crystal — cracked, not destroyed — still pulses. Slower. Weaker. But the connection holds. He finds you with the calm of someone who sensed you before you moved.\n\n*"You have weakened it. You have not stopped it. And now I know exactly who you are, ${name}."* [HP:-3]\n\n1. Press your advantage before he recovers\n2. Target the cracked crystal again — finish it\n3. Fall back to the passage — better defensive ground\n4. Go for Sister Vael — free her while the chaos holds`,
 
-      shaman_observe: `[SCENE:cave][MUSIC:dungeon]You hold still and watch. The drumming has a pattern — a *binding* rhythm, the kind used to maintain a connection to an unwilling vessel. Sister Vael isn't captured. She's a **lock**. Whatever is trying to come through the crystal is stopped by her resistance. The shaman needs her alive and conscious. [DICE:d20${f(int_)}:Arcana:DC15]\n\nThis changes things. Kill the shaman carelessly — or shatter the crystal — and whatever she's containing walks free. You need to free her *cleanly*, not just fast.\n\n1. Step into the light — draw the shaman to you, away from Vael\n2. Target the crystal — break the shaman's leverage\n3. Go for Vael directly — the binding looks physical\n4. Throw something into the ritual circle — interrupt the rhythm`,
+      shaman_observe: `[SCENE:cave][MUSIC:dungeon]You hold still and watch. The drumming has a pattern — a *binding* rhythm, the kind used to maintain a connection to an unwilling vessel. Sister Vael isn't captured. She's a **lock**. [DICE:d20${f(mods.int)}:Arcana:DC15][SUCCESS:Your knowledge of ritual magic crystallizes the truth: whatever is trying to come through the crystal is stopped by her resistance. The shaman needs her alive and conscious. Kill the shaman carelessly — or shatter the crystal — and whatever she's containing walks free. The chalk circle around her has deliberate gaps — escape routes she could use if freed correctly. You need to free her *cleanly*, not just fast.][FAILURE:Your instincts tell you this is a binding ritual, but the precise mechanics elude you. Is she powering it? Resisting it? Both? You can see the shaman needs her alive, but not why. The crystal pulses ominously. You'll have to act without a full understanding of the risks.]\n\n1. Step into the light — draw the shaman to you, away from Vael\n2. Target the crystal — break the shaman's leverage\n3. Go for Vael directly — the binding looks physical\n4. Throw something into the ritual circle — interrupt the rhythm`,
 
-      shaman_confront: `[SCENE:combat][MUSIC:combat][ENEMY:Hobgoblin Shaman:45:45]You step into the torchlight. The drumming skips one beat.\n\n*"The thread-puller arrives,"* the shaman says in accented Common, almost impressed. *"Aldric said one would come. He said to tell you: you are three moves behind."*\n\nThen he strikes. [ENEMY:Hobgoblin Shaman:40:45][HP:-5][DICE:d20${f(con)}:Constitution:DC14]\n\nThe goblins scatter, clearing the floor. This is between you and the shaman now. Sister Vael's eyes — still unfocused — track toward your voice as if she can hear you through whatever holds her.\n\n1. Keep moving — deny him a static target\n2. Drive him toward the altar — his crystal link is a liability\n3. Call Vael's name loudly and repeatedly\n4. Hit hard and fast — overwhelming force before he settles`,
+      shaman_confront: `[SCENE:combat][MUSIC:combat][ENEMY:Hobgoblin Shaman:45:45]You step into the torchlight. The drumming skips one beat.\n\n*"The thread-puller arrives,"* the shaman says in accented Common, almost impressed. *"Aldric said one would come. He said to tell you: you are three moves behind."*\n\nThen he strikes. [ENEMY:Hobgoblin Shaman:40:45][HP:-5][DICE:d20${f(mods.con)}:Constitution:DC14]\n\nThe goblins scatter, clearing the floor. This is between you and the shaman now. Sister Vael's eyes — still unfocused — track toward your voice as if she can hear you through whatever holds her.\n\n1. Keep moving — deny him a static target\n2. Drive him toward the altar — his crystal link is a liability\n3. Call Vael's name loudly and repeatedly\n4. Hit hard and fast — overwhelming force before he settles`,
 
-      shaman_trap: `[SCENE:cave][MUSIC:dungeon]The supports are old — limestone and dried timber. Two strikes in the right places bring the entry tunnel down in a controlled collapse. [DICE:d20${f(int_)}:Investigation:DC13]\n\nDust rolls through the chamber. When it clears, the goblins are gone — bolted through the far passages — leaving only the shaman, Sister Vael, and you.\n\n*"Clever,"* the shaman says quietly, turning from the altar. *"Aldric will be disappointed it ended here."* [HP:-2]\n\n1. End this now — attack while he's recalibrating\n2. Ask about Aldric — you're trapped here anyway\n3. Go for Sister Vael while his attention is on you\n4. Use the dust still in the air — reposition under cover`,
+      shaman_trap: `[SCENE:cave][MUSIC:dungeon]The supports are old — limestone and dried timber. Two strikes in the right places bring the entry tunnel down in a controlled collapse. [DICE:d20${f(mods.int)}:Investigation:DC13]\n\nDust rolls through the chamber. When it clears, the goblins are gone — bolted through the far passages — leaving only the shaman, Sister Vael, and you.\n\n*"Clever,"* the shaman says quietly, turning from the altar. *"Aldric will be disappointed it ended here."* [HP:-2]\n\n1. End this now — attack while he's recalibrating\n2. Ask about Aldric — you're trapped here anyway\n3. Go for Sister Vael while his attention is on you\n4. Use the dust still in the air — reposition under cover`,
 
       // boss
-      boss_fight: `[SCENE:boss][MUSIC:boss][ENEMY:Hobgoblin Shaman:45:45]The fight with the shaman is the hardest thing you have done in a long time.\n\nHe is not relying on the staff alone — there is genuine martial skill in his footwork. Twice he anticipates your angle before you commit. The crystal pulses irregular green bursts. Sister Vael, in her circle, begins to shake. [ENEMY:Hobgoblin Shaman:29:45][HP:-8][DICE:d20${f(dex)}:Attack:DC17]\n\nYou are getting through his guard. Slowly. Expensively. The ritual destabilises without his full focus. The crystal cracks down its centre. Vael gasps. [ENEMY:Hobgoblin Shaman:14:45][DICE:d20${f(str)}:Attack:DC16]\n\nOne clean opening. That's all you need.\n\n1. Everything you have — overwhelm the opening now\n2. Drive him into the cracking crystal — use it against him\n3. Call Vael's name — let whatever she's holding go\n4. Fall back and make him come to you`,
+      boss_fight: `[SCENE:boss][MUSIC:boss][ENEMY:Hobgoblin Shaman:45:45]The fight with the shaman is the hardest thing you have done in a long time.\n\nHe is not relying on the staff alone — there is genuine martial skill in his footwork. Twice he anticipates your angle before you commit. The crystal pulses irregular green bursts. Sister Vael, in her circle, begins to shake. [ENEMY:Hobgoblin Shaman:29:45][HP:-8][DICE:d20${f(mods.dex)}:Attack:DC17]\n\nYou are getting through his guard. Slowly. Expensively. The ritual destabilises without his full focus. The crystal cracks down its centre. Vael gasps. [ENEMY:Hobgoblin Shaman:14:45][DICE:d20${f(mods.str)}:Attack:DC16]\n\nOne clean opening. That's all you need.\n\n1. Everything you have — overwhelm the opening now\n2. Drive him into the cracking crystal — use it against him\n3. Call Vael's name — let whatever she's holding go\n4. Fall back and make him come to you`,
 
-      boss_hard: `[SCENE:boss][MUSIC:boss][ENEMY:Hobgoblin Shaman:14:45]You fall back and make him pursue — patient discipline or a miscalculation; the shaman closes faster than expected. [ENEMY:Hobgoblin Shaman:9:45][HP:-5][DICE:d20${f(con)}:Constitution:DC15]\n\nBut his focus on you pulls it from the crystal entirely. Behind him the crystal fractures with a sound like splitting glass. Vael's eyes clear — fully, completely — and she rises from the circle with the deliberateness of someone who has been waiting for exactly this moment.\n\n*"${name},"* she says, and her voice fills the chamber without effort. *"Step back."*\n\nYou step back.\n\n1. Let Vael act — trust her completely\n2. Cover her — keep the shaman's attention on you\n3. Strike the shaman one final time\n4. Destroy the crystal shards — don't leave them intact`,
+      boss_hard: `[SCENE:boss][MUSIC:boss][ENEMY:Hobgoblin Shaman:14:45]You fall back and make him pursue — patient discipline or a miscalculation; the shaman closes faster than expected. [ENEMY:Hobgoblin Shaman:9:45][HP:-5][DICE:d20${f(mods.con)}:Constitution:DC15]\n\nBut his focus on you pulls it from the crystal entirely. Behind him the crystal fractures with a sound like splitting glass. Vael's eyes clear — fully, completely — and she rises from the circle with the deliberateness of someone who has been waiting for exactly this moment.\n\n*"${name},"* she says, and her voice fills the chamber without effort. *"Step back."*\n\nYou step back.\n\n1. Let Vael act — trust her completely\n2. Cover her — keep the shaman's attention on you\n3. Strike the shaman one final time\n4. Destroy the crystal shards — don't leave them intact`,
 
       // victory + loop
       victory: `[SCENE:rest][MUSIC:rest][ENEMY:clear]The shaman collapses. The green light goes out.\n\nSister Vael lowers her hands and exhales a breath she seems to have been holding for three days. She looks at you with clear grey eyes: *"Thank you."*\n\nIn the shaman's robes: a sealed letter. The Merchant's Consortium's black sun seal. Inside: a name, a route, a payment record. **Aldric Vane** paid for all of this — the goblins, the ritual, Vael's capture — four months ago. This was planned, thoroughly, by someone who knew exactly what she was protecting.\n\nGreyvast Keep still has lights in its windows. [HP:+8][XP:+500][WIN]\n\n1. Rest here before anything else\n2. Ask Vael what she was protecting — what was behind the seal\n3. Head for Greyvast immediately — catch Aldric before news arrives\n4. Get back to Brom with the letter — this is evidence`,
@@ -199,27 +582,34 @@ class AISystem {
     // ── Journal tags appended to key demo states ──────────────
     const TAGS = {
       tavern:         '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:The Order of the Ashen Veil uses a jagged black sun as their seal]',
-      brom_info:      '[NPC:Brom Ashkettle:innkeeper:Friendly][NPC:Sister Vael:hedge-witch:Unknown][LORE:Greyvast Keep lies abandoned three miles north of the village]',
-      read_letter:    '[NPC:Aldric Vane:Consortium agent:Hostile][LORE:A phrase in Old Common warns the seal on the deep place must not be broken]',
-      head_out:       '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:A Consortium agent was asking about Sister Vael by name shortly before the goblin raids]',
-      second_drink:   '[NPC:Sister Vael:hedge-witch:Unknown][LORE:Cold blue goblin-fire was seen in the Ashwood two nights running]',
-      forest_road:    '[LORE:A cave beneath the ruined mill appears to be the goblin staging point]',
+      brom_info:      '[NPC:Brom Ashkettle:innkeeper:Friendly][NPC:Sister Vael:hedge-witch:Unknown][LORE:Greyvast Keep lies abandoned three miles north of the village][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
+      read_letter:    '[NPC:Aldric Vane:Consortium agent:Hostile][LORE:A phrase in Old Common warns the seal on the deep place must not be broken][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
+      head_out:       '[NPC:Brom Ashkettle:innkeeper:Friendly][LORE:A Consortium agent was asking about Sister Vael by name shortly before the goblin raids][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
+      second_drink:   '[NPC:Sister Vael:hedge-witch:Unknown][LORE:Cold blue goblin-fire was seen in the Ashwood two nights running][QUEST:Investigate the Goblin Raids:Discover who is behind the goblin raids on the village]',
+      forest_road:    '[LORE:A cave beneath the ruined mill appears to be the goblin staging point][QUEST:Find Sister Vael:Locate the missing hedge-witch Sister Vael near the Ashwood]',
+      cave_charge:    '[COMBAT:START]',
       combat_listen:  '[NPC:Sister Vael:hedge-witch:Captured][LORE:Goblins are waiting three nights for a signal from deeper in the tunnels]',
+      combat_surp:    '[COMBAT:START]',
+      combat_high:    '[COMBAT:START]',
+      combat_hot:     '[COMBAT:START]',
+      combat_dark:    '[COMBAT:START]',
       interrogate:    '[LORE:Three passages lead deeper under the Ashwood — one to a ritual space, one back to the surface, one to Sister Vael]',
-      post_combat:    '[DECISION:Player cleared goblin scouts from the cave entrance and found a bark map showing the tunnel layout]',
-      return_brom:    '[NPC:Brom Ashkettle:innkeeper:Friendly][DECISION:Player rescued the miller\'s wife and returned her to the village][LORE:The miller\'s wife confirmed a Shaman is operating from Greyvast Keep]',
+      post_combat:    '[COMBAT:END][DECISION:Player cleared goblin scouts from the cave entrance and found a bark map showing the tunnel layout]',
+      return_brom:    '[NPC:Brom Ashkettle:innkeeper:Friendly][DECISION:Player rescued the miller\'s wife and returned her to the village][LORE:The miller\'s wife confirmed a Shaman is operating from Greyvast Keep][QUEST:Stop the Ritual at Greyvast:Confront the Hobgoblin Shaman before the ritual is completed at Greyvast Keep]',
       brom_reward:    '[NPC:Aldric Vane:Consortium agent:Hostile][LORE:Aldric Vane ran Consortium intelligence work and people who looked too hard at him went quiet]',
       deeper_dungeon: '[NPC:Hobgoblin Shaman:ritual leader:Hostile][NPC:Sister Vael:hedge-witch:Captive][LORE:Sister Vael is being used as a binding lock on a pulsing green-black crystal]',
       shaman_observe: '[DECISION:Player observed the ritual and learned Sister Vael must be freed cleanly — killing the shaman carelessly could release what she is containing]',
       shaman_confront:'[DECISION:Player stepped into the torchlight and confronted the Hobgoblin Shaman directly][LORE:Aldric Vane warned the shaman that an adventurer would come and said they were three moves behind]',
-      victory:        '[DECISION:Player defeated the Hobgoblin Shaman and broke the ritual binding][NPC:Sister Vael:hedge-witch:Friendly][NPC:Aldric Vane:Consortium mastermind:Hostile][LORE:Aldric Vane paid the Consortium to orchestrate the goblin raids and capture Sister Vael four months ago]',
-      epilogue:       '[LORE:Sister Vael warned that whatever she was containing will seek a new anchor within the year]',
+      boss_fight:     '[COMBAT:START]',
+      victory:        '[COMBAT:END][DECISION:Player defeated the Hobgoblin Shaman and broke the ritual binding][NPC:Sister Vael:hedge-witch:Friendly][NPC:Aldric Vane:Consortium mastermind:Hostile][LORE:Aldric Vane paid the Consortium to orchestrate the goblin raids and capture Sister Vael four months ago][QUEST_DONE:Find Sister Vael][QUEST_DONE:Investigate the Goblin Raids][QUEST_DONE:Stop the Ritual at Greyvast]',
+      epilogue:       '[LORE:Sister Vael warned that whatever she was containing will seek a new anchor within the year][QUEST:Track Down Aldric Vane:Aldric Vane orchestrated the attacks and is still at large — follow the evidence trail]',
     };
 
     // ── Opening call ───────────────────────────────────────────
     if (!this._demoState) {
       this._demoState = 'tavern';
-      return new Promise(r => setTimeout(() => r(R.tavern + ' ' + (TAGS.tavern || '')), 800));
+      const openingText = this._getResponseVariation(R.tavern, ctx) + ' ' + (TAGS.tavern || '');
+      return new Promise(r => setTimeout(() => r(openingText), 800));
     }
 
     // ── Parse player's choice and transition ──────────────────
@@ -227,9 +617,27 @@ class AISystem {
     const choice  = this._parseDemoChoice(lastMsg);
     const node    = T[this._demoState] || {};
     const nextId  = node[choice] || node.default || 'epilogue';
+    
+    // Track this action for playstyle profiling
+    this._trackPlayerAction(lastMsg, nextId);
+    
     this._demoState = nextId;
 
-    const responseText = (R[nextId] || R.epilogue) + ' ' + (TAGS[nextId] || '');
+    let baseResponse = R[nextId] || R.epilogue;
+    
+    // Apply character-aware variations
+    baseResponse = this._getResponseVariation(baseResponse, ctx);
+    
+    // Add environmental details based on character perception
+    baseResponse = this._addEnvironmentalDetails(baseResponse, ctx);
+    
+    // Add callbacks to past decisions
+    baseResponse = this._addContextualCallbacks(baseResponse, nextId, ctx);
+    
+    // Add adaptive difficulty hints and random variations
+    baseResponse = this._addAdaptiveElements(baseResponse, nextId, ctx);
+    
+    const responseText = baseResponse + ' ' + (TAGS[nextId] || '');
     return new Promise(r => setTimeout(() => r(responseText), 800));
   }
 
@@ -273,7 +681,8 @@ class AISystem {
     );
     const modStr = (v) => (v >= 0 ? `+${v}` : `${v}`);
 
-    const memoryBlock = window.journalSystem?.buildMemoryBlock();
+    const memoryBlock  = window.journalSystem?.buildMemoryBlock();
+    const worldContext = window.worldState?.buildContextString();
     
     // Build spell list string
     let spellInfo = '';
@@ -308,16 +717,24 @@ AC:         ${c.ac}    Speed: ${c.speed}ft    Proficiency: +${c.profBonus}
 STR ${c.stats.str}(${modStr(mods.str)})  DEX ${c.stats.dex}(${modStr(mods.dex)})  CON ${c.stats.con}(${modStr(mods.con)})
 INT ${c.stats.int}(${modStr(mods.int)})  WIS ${c.stats.wis}(${modStr(mods.wis)})  CHA ${c.stats.cha}(${modStr(mods.cha)})
 Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}${spellInfo}
-${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
+${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 ═══ DM INSTRUCTIONS ═══
 • Narrate in vivid, atmospheric prose (2–4 paragraphs per turn).
 • Present 3–4 **numbered choices** at the end of most turns for the player to pick from. Honor free-text input too.
-• When a skill check is needed, STOP THE NARRATIVE at the point where the player must roll. Include the roll tag: [DICE:d20+X:AbilityName:DCValue]
+• When a skill check is needed, STOP THE NARRATIVE at the point where the player must roll. Include the roll tag: [DICE:d20+X:AbilityName:DCValue:mode]
   - X is the character's modifier for that ability
   - AbilityName is the ability being tested (Wisdom, Dexterity, Strength, etc.)
   - DCValue is the difficulty (DC10-25)
+  - mode (optional) is 'advantage' or 'disadvantage' based on the situation (hidden movement = advantage on Stealth, restrained = disadvantage on DEX checks, etc.)
   - Example: "You attempt to sneak past the guard. [DICE:d20+2:Stealth:DC14]"
+  - Example with advantage: "You have the perfect cover. [DICE:d20+2:Stealth:DC14:advantage]"
+  - Example with disadvantage: "You're injured and exhausted. [DICE:d20-1:Athletics:DC12:disadvantage]"
   - Do NOT describe the outcome yet - the player will roll and their next message will tell you the result
+  - CRITICAL: When you receive the roll result (e.g., "I rolled a 17 for Stealth Check — ✓ Success (DC 14)"), you MUST acknowledge and narrate the outcome:
+    * If the message says "✓ Success" — the character SUCCEEDED. Narrate positive consequences, progress, or advantage gained.
+    * If the message says "✗ Failed" — the character FAILED. Narrate setbacks, complications, danger, or negative consequences.
+    * The roll total and DC are definitive — respect them completely. A success means things go well for the player, a failure means things go poorly.
+    * Do not hedge or equivocate - make the success clearly successful and the failure clearly problematic.
 • When the player makes an ATTACK, use the attack tag: [ATTACK:d20+X:WeaponName:DamageDice+Mod:DamageType]
   - X is the character's attack modifier (STR/DEX mod + proficiency bonus)
   - WeaponName is the weapon being used
@@ -325,7 +742,11 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
   - DamageType is slashing/piercing/bludgeoning/etc
   - Example: "You swing your longsword at the goblin. [ATTACK:d20+5:Longsword:1d8+3:slashing]"
   - The system will check vs enemy AC, prompt for damage on hit, double dice on crit
-  - After the attack roll result, narrate based on hit/miss and damage dealt
+  - CRITICAL: After the player reports their attack roll result (e.g., "I rolled 18 to hit with Longsword — HIT. I rolled 7 slashing damage."), you MUST narrate accordingly:
+    * If the result says "HIT" or "CRITICAL HIT" — the attack CONNECTED. Narrate the weapon striking true, describe the impact, enemy's reaction to being wounded.
+    * If the result says "MISS" — the attack FAILED completely. Narrate the enemy dodging, deflecting, or the attack going wide. No damage is dealt.
+    * On a CRITICAL HIT, make it feel epic - describe devastating impact, enemy staggering, armor cracking, etc.
+    * On damage dealt, reflect it narratively - high damage should feel brutal, low damage should feel glancing.
 • When the player casts a spell that uses a spell slot, include: [CAST:SpellName:Level:C]
   - Example: "You invoke mystic words. [CAST:Magic Missile:1]"
   - For concentration spells, add :C at the end: [CAST:Bless:1:C]
@@ -345,6 +766,10 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
   - Abilities: Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma
   - Effect: FullDamage (default) or HalfOnSuccess
   - Player rolls their save modifier vs DC
+  - CRITICAL: When you receive the saving throw result (e.g., "I rolled 14 for Dexterity Save — ✓ Success (DC 15)"), narrate accordingly:
+    * If "✓ Success" — the character avoided or resisted the effect. They dodge out of the way, shake off the spell, resist the poison, etc.
+    * If "✗ Failed" — the character takes the full effect. The spell hits them, they're caught in the blast, the poison takes hold, etc.
+    * For "HalfOnSuccess" effects, success means reduced damage/duration, failure means full effect.
 • At the start of combat, include: [COMBAT:START] to roll initiative
 • When combat ends, include: [COMBAT:END]
 • EVERY response MUST begin with [SCENE:X] matching the current location and environment. X must be one of:
@@ -378,7 +803,7 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
   Award XP at the natural end of an encounter or scene, not mid-action. Scale rewards to the character's current level.
 • If the character gains a status condition (Poisoned, Blinded, Frightened, etc.), include [CONDITION:name].
 • If the character finds, is given, or picks up ANY notable object — magic items, maps, documents, keys, gemstones, strange stones, relics, tokens, letters, fetishes, or other curiosities — include [ITEM:exact name]. Use the object's specific name, not a generic label.
-• When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]). For smaller rewards use [SILVER:+N] (silver pieces) or [BRASS:+N] (brass pieces). 10 sp = 1 gp, 10 bp = 1 sp. Use silver for tavern tips, small jobs, minor loot. Use brass for trivial finds (beggar's coin, table scraps). Use gold for meaningful treasure.
+• When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]). For smaller rewards use [SILVER:+N] (silver pieces) or [COPPER:+N] (copper pieces). 10 sp = 1 gp, 10 cp = 1 sp. Use silver for tavern tips, small jobs, minor loot. Use copper for trivial finds (beggar's coin, table scraps). Use gold for meaningful treasure.
 • If the character dies, include [DEAD].
 • When the adventure concludes successfully, include [WIN].
 • Keep implied D&D 5e rules: proficiency, saving throws, spell slots, etc.
@@ -387,7 +812,26 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 • MEMORY TAGS (include these silently in every response as applicable; they are parsed by the game engine):
   - When you introduce or reference a named NPC, include [NPC:Name:Role:Attitude] — e.g. [NPC:Brom Ashkettle:innkeeper:Friendly]
   - When the story reveals a significant fact or piece of lore, include [LORE:one-sentence fact]
-  - When the player makes a key story decision that shapes the narrative, include [DECISION:one-sentence summary]`;
+  - When the player makes a key story decision that shapes the narrative, include [DECISION:one-sentence summary]
+• QUEST TAGS:
+  - When a new quest or objective is discovered AND the player explicitly accepts it, include [QUEST:Short Title:One-sentence description]
+    e.g. [QUEST:Rescue the Miller:Find the missing miller taken by bandits to the eastern ruins]
+  - IMPORTANT: Only add [QUEST:...] AFTER the player has committed to the quest through dialogue or action choices
+  - When an NPC offers a quest, present it in dialogue first. Include the [QUEST:...] tag only in the response AFTER the player chooses to accept
+  - If the player declines, do not add the quest tag. The NPC may react to the refusal naturally
+  - When a quest is successfully completed, include [QUEST_DONE:Exact Title]
+  - When a quest fails or is no longer achievable, include [QUEST_FAIL:Exact Title]
+  - Only add a quest when there is a clear, actionable goal. Don't add quests for trivial actions.
+  - Example flow:
+    * Turn 1 (NPC offers): "Will you help me find my missing daughter?" [No quest tag yet]
+    * Turn 2 (player accepts): Choose "I'll help you find her"
+    * Turn 2 (DM confirms): "Thank you! She was last seen..." [QUEST:Find the Missing Daughter:Locate the innkeeper's daughter who vanished near the old mill]
+• WORLD STATE TAGS (update when time passes or conditions change):
+  - [TIME:period] — one of: dawn, morning, afternoon, dusk, evening, night
+  - [WEATHER:condition] — one of: clear, cloudy, rain, storm, fog, snow
+  - Update TIME when significant time passes (travel, long rests, scene transitions)
+  - Update WEATHER when weather shifts or a new outdoor scene begins
+  - Rain/storm: disadvantage on ranged Perception · Fog: heavily obscured beyond 60ft · Snow: difficult terrain outdoors`;
   }
 
   // ── Send Player Message ──────────────────────────────────────
@@ -424,11 +868,13 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     }
 
     window.journalSystem?.incTurn();
+    window.achievementSystem?.track('turn');
 
     // Disable input and action buttons
     document.getElementById('player-input').disabled = true;
     document.getElementById('btn-send').disabled     = true;
     document.querySelectorAll('.quick-btn, .hint-chip').forEach(b => { b.disabled = true; });
+    this._showThinking();
 
     // Trim context to last 20 messages + system, updating memory in system prompt
     const sysMsg  = { ...this.messages[0] };
@@ -465,7 +911,10 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     } catch (err) {
       this._addErrorEntry(err);
     } finally {
+      this._hideThinking();
       this.isTyping = false;
+      // Clear any pending notifications on error
+      this._pendingQuestNotifications = [];
       document.getElementById('player-input').disabled = false;
       document.getElementById('btn-send').disabled     = false;
       document.querySelectorAll('.quick-btn, .hint-chip').forEach(b => { b.disabled = false; });
@@ -530,19 +979,27 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
       // Process the part before the dice roll
       await this._processResponsePart(beforeDice, true);
       
-      // Extract DICE tag info
+      // Extract DICE tag info: [DICE:d20+3:Wisdom:DC12:advantage]
       const diceTagContent = diceTagMatch[0].replace('[DICE:', '').replace(']', '');
       const parts = diceTagContent.split(':');
       const spec = parts[0]?.trim().toLowerCase() || 'd20';
       const ability = parts[1]?.trim() || 'Ability';
       const dcStr = parts[2]?.trim() || '';
       const dc = dcStr ? parseInt(dcStr.replace(/\D/g, '')) : null;
+      const forcedMode = parts[3]?.trim().toLowerCase() || 'normal'; // advantage, disadvantage, or normal
+      
+      // Validate mode
+      const rollMode = ['advantage', 'disadvantage'].includes(forcedMode) ? forcedMode : 'normal';
       
       // Trigger dice roll and wait for result
       window.diceSystem.requestRoll(spec, `${ability} Check`, dc, async (result) => {
         // Format the roll result message
         const modifier = spec.match(/[+-]\d+/)?.[0] || '+0';
-        let checkText = `I rolled a ${result.total} (${spec}: ${result.rolls.join('+')}${modifier}) for ${ability} Check`;
+        let checkText = `I rolled a ${result.total} (${spec}: ${result.rolls.join('+')}${modifier})`;
+        if (rollMode !== 'normal') {
+          checkText += ` with ${rollMode}`;
+        }
+        checkText += ` for ${ability} Check`;
         if (result.dc) {
           checkText += ` — ${result.success ? '✓ Success' : '✗ Failed'} (DC ${result.dc})`;
         }
@@ -553,13 +1010,22 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
           // Show the roll result
           this._addPlayerEntry(checkText);
           this.messages.push({ role: 'user', content: checkText });
-          // Then show the pre-written continuation
-          await this._processResponsePart(afterDice, false);
+          
+          // Check if afterDice has success/failure branches
+          const successMatch = afterDice.match(/\[SUCCESS:([\s\S]*?)\]\[FAILURE:([\s\S]*?)\]/);
+          if (successMatch) {
+            // Demo has branching - use success or failure based on roll result
+            const continuation = result.success ? successMatch[1].trim() : successMatch[2].trim();
+            await this._processResponsePart(continuation, false);
+          } else {
+            // No branching - show the continuation as-is
+            await this._processResponsePart(afterDice, false);
+          }
         } else {
           // Real AI mode - send the roll result to get AI's response
           this.sendMessage(checkText);
         }
-      });
+      }, rollMode); // Pass the advantage/disadvantage mode
     } else {
       // No dice roll needed, process normally
       await this._processResponsePart(raw, false);
@@ -626,32 +1092,39 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
           }
           break;
         }
-        case 'BRASS': {
+        case 'COPPER': {
           const bDelta = parseInt(val);
           if (!isNaN(bDelta)) {
-            window.inventorySystem?.addBrass(bDelta);
+            window.inventorySystem?.addCopper(bDelta);
             const charName = window.characterSystem?.character?.name || 'You';
             const sign = bDelta >= 0 ? '+' : '';
-            this._addSystemEntry(`🟤 ${charName} ${bDelta >= 0 ? 'finds' : 'loses'} <strong>${sign}${bDelta} bp</strong>.`);
+            this._addSystemEntry(`🟤 ${charName} ${bDelta >= 0 ? 'finds' : 'loses'} <strong>${sign}${bDelta} cp</strong>.`);
           }
           break;
         }
         case 'ENEMY': {
           if (val.toLowerCase() === 'clear') {
+            if (this.currentEnemy) {
+              window.achievementSystem?.track('enemy_defeated');
+              if (window.mapSystem?.currentScene === 'boss') {
+                window.achievementSystem?.track('boss_defeated');
+              }
+            }
             document.getElementById('enemy-hp-pill').style.display = 'none';
             document.getElementById('enemy-hud-sep').style.display = 'none';
+            document.getElementById('monster-stat-panel')?.classList.add('hidden');
             this.currentEnemy = null;
           } else {
             const ep = val.split(':');
             const eName = ep[0]?.trim() || 'Enemy';
             const eCur  = Math.max(0, parseInt(ep[1]) || 0);
             const eMax  = Math.max(1, parseInt(ep[2]) || eCur || 1);
-            const eAC   = parseInt(ep[3]) || 12; // Default AC 12 if not provided
+            const eAC   = parseInt(ep[3]) || 12;
             const ePct  = Math.min(100, Math.round((eCur / eMax) * 100));
-            
-            // Store current enemy state
+
             this.currentEnemy = { name: eName, currentHp: eCur, maxHp: eMax, ac: eAC };
-            
+            window.mapSystem?.nameEnemy(eName, eCur, eMax);
+
             document.getElementById('enemy-hud-name').textContent = `${eName} (AC ${eAC})`;
             document.getElementById('enemy-hud-hp').textContent = eCur;
             document.getElementById('enemy-hud-hp-max').textContent = eMax;
@@ -660,12 +1133,29 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
             bar.style.background = ePct > 50 ? 'var(--red-lt)' : ePct > 25 ? 'var(--gold)' : 'var(--red)';
             document.getElementById('enemy-hp-pill').style.display = 'flex';
             document.getElementById('enemy-hud-sep').style.display = '';
+
+            // Fetch monster stat block from Open5e (first appearance only)
+            if (eCur === eMax) {
+              window.open5e?.searchMonster(eName).then(m => {
+                if (m) this._showMonsterStatBlock(m);
+              }).catch(() => {});
+            }
           }
           break;
         }
+        case 'TIME':    window.worldState?.setTime(val.trim().toLowerCase()); break;
+        case 'WEATHER': window.worldState?.setWeather(val.trim().toLowerCase()); break;
         case 'DEAD':     this._handleDeath(); break;
         case 'WIN':      this._handleVictory(); break;
-        case 'CONDITION': this._showConditionCard(val); break;
+        case 'CONDITION': {
+          const parts = val.split(':');
+          const condName = parts[0]?.trim() || val.trim();
+          const duration = parseInt(parts[1]) || 3;
+          const description = parts[2]?.trim() || '';
+          this._showConditionCard(condName);
+          window.characterSystem?.addCondition(condName, duration, description);
+          break;
+        }
         case 'ITEM':      this._fetchAndShowItem(val); break;
         // ── Memory tags ───────────────────────────────────────
         case 'NPC': {
@@ -673,11 +1163,39 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
           const npcName = parts[0]?.trim();
           const npcRole = parts[1]?.trim() || '';
           const npcAtt  = parts[2]?.trim() || '';
-          if (npcName) window.journalSystem?.addNPC(npcName, npcRole, npcAtt);
+          if (npcName) {
+            window.journalSystem?.addNPC(npcName, npcRole, npcAtt);
+            window.mapSystem?.addNPC(npcName, npcRole, npcAtt);
+          }
           break;
         }
         case 'LORE':     window.journalSystem?.addLore(val); break;
         case 'DECISION': window.journalSystem?.addDecision(val); break;
+        case 'QUEST': {
+          const parts = val.split(':');
+          const qTitle = parts[0]?.trim();
+          const qDesc  = parts[1]?.trim() || '';
+          if (qTitle) {
+            window.journalSystem?.addQuest(qTitle, qDesc);
+            // Defer visual notification until after typing completes
+            this._pendingQuestNotifications.push({ title: qTitle, description: qDesc });
+          }
+          break;
+        }
+        case 'QUEST_DONE': {
+          if (val.trim()) {
+            window.journalSystem?.completeQuest(val.trim());
+            this._addSystemEntry(`✅ Quest completed: <strong>${this._escapeHtml(val.trim())}</strong>`);
+          }
+          break;
+        }
+        case 'QUEST_FAIL': {
+          if (val.trim()) {
+            window.journalSystem?.failQuest(val.trim());
+            this._addSystemEntry(`❌ Quest failed: <strong>${this._escapeHtml(val.trim())}</strong>`);
+          }
+          break;
+        }
         case 'CAST': {
           const parts = val.split(':');
           const spellName = parts[0]?.trim() || 'Spell';
@@ -688,14 +1206,6 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
             const concText = requiresConcentration ? ' (Concentration)' : '';
             this._addSystemEntry(`✨ ${charName} casts ${spellName}${concText}`);
           }
-          break;
-        }
-        case 'CONDITION': {
-          const parts = val.split(':');
-          const condName = parts[0]?.trim() || 'Unknown';
-          const duration = parseInt(parts[1]) || 3;
-          const description = parts[2]?.trim() || '';
-          window.characterSystem?.addCondition(condName, duration, description);
           break;
         }
         case 'INSPIRATION': {
@@ -756,16 +1266,11 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
       }
     });
 
-    // ── Fallback: if the AI omitted SCENE/MUSIC tags, infer from the response text ──
-    if (!sceneSet) {
-      const inferred = this._inferScene(raw);
-      if (inferred) {
-        try { window.mapSystem?.setScene(inferred); } catch (e) { console.warn('Scene infer error:', e); }
-        if (!musicSet) {
-          try { window.audioSystem?.setScene(inferred); } catch (e) { console.warn('Music infer error:', e); }
-        }
-      }
-    }
+    // No longer auto-infer scenes - only change when AI explicitly provides [SCENE:...] tag
+    // This keeps the player on the current scene while it remains relevant
+
+    // Infer NPCs and objects from narrative prose and place them on the map
+    window.mapSystem?.inferFromText(text);
 
     // Parse numbered choices out of response text
     const { prose, choices } = this._parseText(text);
@@ -1023,6 +1528,25 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
     log.scrollTop = log.scrollHeight;
   }
 
+  _addQuestNotification(title, description) {
+    const log   = document.getElementById('story-log');
+    const entry = document.createElement('div');
+    entry.className = 'story-entry quest-notification';
+    const safeTitle = this._escapeHtml(title);
+    const safeDesc = this._escapeHtml(description);
+    entry.innerHTML = `
+      <div class="quest-notif-card">
+        <div class="quest-notif-icon">📋</div>
+        <div class="quest-notif-content">
+          <div class="quest-notif-header">New Quest</div>
+          <div class="quest-notif-title">${safeTitle}</div>
+          ${safeDesc ? `<div class="quest-notif-desc">${safeDesc}</div>` : ''}
+        </div>
+      </div>`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
   async _callWithRetry(fn, maxRetries = 2, baseDelay = 3000) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -1063,6 +1587,79 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 
   addSystemMessage(text) { this._addSystemEntry(text); }
 
+  _showThinking() {
+    if (document.getElementById('dm-thinking-entry')) return;
+    const log = document.getElementById('story-log');
+    const el  = document.createElement('div');
+    el.id = 'dm-thinking-entry';
+    el.className = 'story-entry dm thinking-entry';
+    el.innerHTML = `<div class="entry-label">⚔ Dungeon Master</div>
+      <div class="thinking-dots"><span></span><span></span><span></span></div>`;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  _hideThinking() {
+    document.getElementById('dm-thinking-entry')?.remove();
+  }
+
+  // ── Monster Stat Block ───────────────────────────────────────
+  _showMonsterStatBlock(m) {
+    const panel = document.getElementById('monster-stat-panel');
+    if (!panel) return;
+
+    const mod = v => { const n = Math.floor((v - 10) / 2); return (n >= 0 ? '+' : '') + n; };
+    const spd = typeof m.speed === 'object'
+      ? Object.entries(m.speed).filter(([,v]) => v).map(([k,v]) => k === 'walk' ? v : `${k} ${v}`).join(', ')
+      : (m.speed || '30 ft.');
+
+    const saves = ['str','dex','con','int','wis','cha']
+      .map(ab => { const v = m[`${ab === 'str' ? 'strength' : ab === 'dex' ? 'dexterity' : ab === 'con' ? 'constitution' : ab === 'int' ? 'intelligence' : ab === 'wis' ? 'wisdom' : 'charisma'}_save`]; return v != null ? `${ab.toUpperCase()} ${v >= 0 ? '+' : ''}${v}` : null; })
+      .filter(Boolean).join(', ');
+
+    const resistLine = [
+      m.damage_immunities   ? `<span class="msb-tag msb-immune">Immune: ${m.damage_immunities}</span>` : '',
+      m.damage_resistances  ? `<span class="msb-tag msb-resist">Resist: ${m.damage_resistances}</span>` : '',
+      m.condition_immunities? `<span class="msb-tag msb-cond-imm">Cond. Immune: ${m.condition_immunities}</span>` : '',
+    ].filter(Boolean).join('');
+
+    const actions = (m.actions || []).slice(0, 4).map(a => {
+      let line = `<div class="msb-action"><span class="msb-action-name">${a.name}.</span> `;
+      if (a.attack_bonus != null) line += `<span class="msb-atk">${a.attack_bonus >= 0 ? '+' : ''}${a.attack_bonus} to hit</span>`;
+      if (a.damage_dice)          line += `, <span class="msb-dmg">${a.damage_dice}${a.damage_bonus ? (a.damage_bonus >= 0 ? ' +' : ' ') + a.damage_bonus : ''}</span>`;
+      line += `</div>`;
+      return line;
+    }).join('');
+
+    const specials = (m.special_abilities || []).slice(0, 2).map(s =>
+      `<div class="msb-action"><span class="msb-action-name">${s.name}.</span> ${s.desc?.slice(0,120)}${s.desc?.length > 120 ? '…' : ''}</div>`
+    ).join('');
+
+    document.getElementById('msb-title').textContent = m.name;
+    document.getElementById('msb-cr').textContent    = `CR ${m.challenge_rating ?? '?'} · ${m.size || ''} ${m.type || ''}`;
+
+    document.getElementById('msb-content').innerHTML = `
+      <div class="msb-row">
+        <span><b>AC</b> ${m.armor_class}${m.armor_desc ? ` (${m.armor_desc})` : ''}</span>
+        <span><b>HP</b> ${m.hit_points}${m.hit_dice ? ` (${m.hit_dice})` : ''}</span>
+        <span><b>Speed</b> ${spd}</span>
+      </div>
+      <div class="msb-stats">
+        ${['STR','DEX','CON','INT','WIS','CHA'].map((ab,i) => {
+          const v = [m.strength,m.dexterity,m.constitution,m.intelligence,m.wisdom,m.charisma][i];
+          return `<div class="msb-stat"><div class="msb-stat-name">${ab}</div><div class="msb-stat-val">${v ?? '—'}</div><div class="msb-stat-mod">(${mod(v ?? 10)})</div></div>`;
+        }).join('')}
+      </div>
+      ${saves    ? `<div class="msb-line"><b>Saves</b> ${saves}</div>` : ''}
+      ${m.senses ? `<div class="msb-line"><b>Senses</b> ${m.senses}</div>` : ''}
+      ${resistLine ? `<div class="msb-tags">${resistLine}</div>` : ''}
+      ${specials ? `<div class="msb-section-title">Traits</div>${specials}` : ''}
+      ${actions  ? `<div class="msb-section-title">Actions</div>${actions}` : ''}
+    `;
+
+    panel.classList.remove('hidden');
+  }
+
   async _typewriterEntry(prose, choices) {
     const log   = document.getElementById('story-log');
     const entry = document.createElement('div');
@@ -1079,6 +1676,14 @@ ${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 
     // Remove cursor and add choices
     textEl.classList.remove('typing-cursor');
+
+    // Show any pending quest notifications now that typing is complete
+    if (this._pendingQuestNotifications.length > 0) {
+      this._pendingQuestNotifications.forEach(quest => {
+        this._addQuestNotification(quest.title, quest.description);
+      });
+      this._pendingQuestNotifications = [];
+    }
 
     if (choices.length > 0) {
       const choiceBox = document.createElement('div');

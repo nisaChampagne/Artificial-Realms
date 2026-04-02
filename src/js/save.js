@@ -12,13 +12,15 @@ class SaveSystem {
     return {
       character:        window.characterSystem?.character           || null,
       messages:         window.aiSystem?.messages                   || [],
-      currentScene:     window.mapSystem?.currentScene              || 'dungeon',
-      currentMusic:     window.audioSystem?.currentScene            || 'dungeon',
+      currentScene:     window.mapSystem?.currentScene              || null,
+      currentMusic:     window.audioSystem?.currentScene            || null,
       perceptionCache:  window.mapSystem?._perceptionCache          || {},
       campaignType:     window.app?.gameState?.campaignType         || 'standard',
       customDesc:       window.app?.gameState?.customDesc           || '',
       journal:          window.journalSystem?.serialize()           || null,
       inventory:        window.inventorySystem?.serialize()         || null,
+      worldState:       window.worldState?.serialize()              || null,
+      achievements:     window.achievementSystem?.serialize()       || null,
       savedAt:          new Date().toLocaleString(),
     };
   }
@@ -46,6 +48,16 @@ class SaveSystem {
       // Restore character
       window.characterSystem.character = data.character;
 
+      // Normalize fields added in later versions (safe for older saves)
+      const ch = window.characterSystem.character;
+      if (ch) {
+        ch.conditions    = ch.conditions    ?? [];
+        ch.inspiration   = ch.inspiration   ?? false;
+        ch.initiative    = ch.initiative    ?? { active: false, order: [], currentIndex: 0, playerRoll: 0 };
+        ch.concentration = ch.concentration ?? null;
+        ch.tempHp        = ch.tempHp        ?? 0;
+      }
+
       // Restore AI conversation
       window.aiSystem.messages  = data.messages || [];
       window.aiSystem.apiKey    = window.app._getActiveApiKey();
@@ -60,6 +72,12 @@ class SaveSystem {
       // Restore inventory
       window.inventorySystem?.restore(data.inventory || null);
 
+      // Restore world state
+      window.worldState?.restore(data.worldState || null);
+
+      // Restore achievements
+      window.achievementSystem?.load(data.achievements || null);
+
       // Restore scene — must show screen first so canvas has dimensions
       window.app.showScreen('game');
       window.app.gameState.campaignType = data.campaignType;
@@ -67,12 +85,16 @@ class SaveSystem {
 
       // Init subsystems (in case this is the first time entering game screen)
       window.audioSystem.init();
-      window.audioSystem.setScene(data.currentMusic || 'dungeon');
+      if (data.currentMusic) {
+        window.audioSystem.setScene(data.currentMusic);
+      }
       window.audioSystem.setVolume((parseInt(window.app.settings.volume) || 70) / 100);
 
       window.mapSystem.init();
       window.mapSystem._perceptionCache = data.perceptionCache || {};
-      window.mapSystem.setScene(data.currentScene || 'dungeon');
+      if (data.currentScene) {
+        window.mapSystem.setScene(data.currentScene);
+      }
       window.mapSystem.updateSprite(window.characterSystem.character?.appearance || {});
 
       window.characterSystem.updateHUD();
@@ -193,11 +215,199 @@ class SaveSystem {
     });
   }
 
+  // ── Settings Panel ───────────────────────────────────────────
+  async renderManagementSlots() {
+    const container = document.getElementById('settings-save-slots');
+    if (!container) return;
+    container.innerHTML = '<div class="sms-loading">Loading saves…</div>';
+
+    const [saves, savesDir] = await Promise.all([
+      window.electronAPI.listSaves(),
+      window.electronAPI.getSavesDir(),
+    ]);
+    const slotMap = {};
+    saves.forEach(s => { slotMap[s.slot] = s; });
+
+    container.innerHTML = '';
+
+    // ── Path bar ──────────────────────────────────────────────
+    const pathBar = document.createElement('div');
+    pathBar.className = 'sms-path-bar';
+    pathBar.innerHTML = `
+      <span class="sms-path-label">Save location:</span>
+      <span class="sms-path-value" title="${savesDir}">${savesDir}</span>
+      <button class="btn btn-outline btn-sm sms-open-folder" id="btn-open-saves-folder">Open Folder ↗</button>`;
+    pathBar.querySelector('#btn-open-saves-folder').onclick = () => window.electronAPI.openSavesFolder();
+    container.appendChild(pathBar);
+
+    // ── Slot rows ─────────────────────────────────────────────
+    const slots = ['1', '2', '3', 'auto'];
+    slots.forEach(slot => {
+      const info = slotMap[slot];
+      const label = slot === 'auto' ? 'Auto-Save' : `Slot ${slot}`;
+      const el = document.createElement('div');
+      el.className = 'sms-row' + (info ? '' : ' sms-row-empty');
+
+      if (info) {
+        el.innerHTML = `
+          <div class="sms-slot-badge">${slot === 'auto' ? '⟳' : slot}</div>
+          <div class="sms-info">
+            <div class="sms-name">${info.character} <span class="sms-class">— ${info.race || ''} ${info.class || ''} Lv.${info.level}</span></div>
+            <div class="sms-meta">📍 ${info.scene} &nbsp;·&nbsp; 🕐 ${info.savedAt}</div>
+          </div>
+          <div class="sms-actions"></div>`;
+
+        const actions = el.querySelector('.sms-actions');
+
+        const loadBtn = document.createElement('button');
+        loadBtn.className = 'btn btn-primary btn-sm';
+        loadBtn.textContent = 'Load';
+        loadBtn.title = `Load ${label}`;
+        loadBtn.onclick = () => window.saveSystem.load(slot);
+        actions.appendChild(loadBtn);
+
+        const expBtn = document.createElement('button');
+        expBtn.className = 'btn btn-outline btn-sm';
+        expBtn.textContent = 'Export';
+        expBtn.title = `Export ${label} as JSON`;
+        expBtn.onclick = async () => {
+          expBtn.disabled = true;
+          expBtn.textContent = '…';
+          try {
+            const result = await window.electronAPI.exportSave(slot);
+            if (result.success) window.app?.showToast(`Exported ${label}`, 'success');
+          } catch (err) {
+            window.app?.showToast('Export failed: ' + err.message, 'error');
+          } finally {
+            expBtn.disabled = false;
+            expBtn.textContent = 'Export';
+          }
+        };
+        actions.appendChild(expBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-outline btn-sm sms-del';
+        delBtn.textContent = '✕';
+        delBtn.title = `Delete ${label}`;
+        delBtn.onclick = async () => {
+          if (confirm(`Delete ${label}? This cannot be undone.`)) {
+            await window.saveSystem.deleteSave(slot);
+            this.renderManagementSlots();
+          }
+        };
+        actions.appendChild(delBtn);
+      } else {
+        el.innerHTML = `
+          <div class="sms-slot-badge sms-slot-empty">${slot === 'auto' ? '⟳' : slot}</div>
+          <div class="sms-info">
+            <div class="sms-name sms-empty-label">${label}</div>
+            <div class="sms-meta">Empty</div>
+          </div>`;
+      }
+
+      container.appendChild(el);
+    });
+  }
+
+  // ── Character Import / Export ────────────────────────────────
+  async exportCharacter() {
+    const character = window.characterSystem?.character;
+    if (!character || !character.name) {
+      window.app?.showToast('No character to export', 'error');
+      return;
+    }
+    try {
+      const result = await window.electronAPI.exportCharacter(character);
+      if (result.success) {
+        window.app?.showToast('Character exported successfully', 'success');
+      }
+    } catch (err) {
+      window.app?.showToast('Export failed: ' + err.message, 'error');
+    }
+  }
+
+  async importCharacter() {
+    try {
+      const result = await window.electronAPI.importCharacter();
+      if (!result.success) {
+        if (result.error) window.app?.showToast('Import failed: ' + result.error, 'error');
+        return;
+      }
+      
+      // Validate and normalize character data
+      const char = result.character;
+      if (!char.name || !char.class || !char.race) {
+        window.app?.showToast('Invalid character file', 'error');
+        return;
+      }
+
+      // Normalize fields for compatibility
+      char.conditions    = char.conditions    ?? [];
+      char.inspiration   = char.inspiration   ?? false;
+      char.initiative    = char.initiative    ?? { active: false, order: [], currentIndex: 0, playerRoll: 0 };
+      char.concentration = char.concentration ?? null;
+      char.tempHp        = char.tempHp        ?? 0;
+
+      // Set the character
+      window.characterSystem.character = char;
+      
+      // Update UI if we're in the game screen
+      if (document.getElementById('screen-game').classList.contains('active')) {
+        window.characterSystem.updateHUD();
+        window.mapSystem?.updateSprite(char.appearance || {});
+        window.app?.showToast(`Loaded ${char.name}`, 'success');
+      } else {
+        window.app?.showToast(`Imported ${char.name}. Start a new campaign to play.`, 'success');
+      }
+      
+      this.close();
+    } catch (err) {
+      window.app?.showToast('Import failed: ' + err.message, 'error');
+    }
+  }
+
+  async importSave() {
+    try {
+      const result = await window.electronAPI.importSave();
+      if (!result.success) {
+        if (result.error) window.app?.showToast('Import failed: ' + result.error, 'error');
+        return;
+      }
+
+      // Use the existing load logic with imported data
+      const data = result.data;
+      if (!data || !data.character) {
+        window.app?.showToast('Invalid save file', 'error');
+        return;
+      }
+
+      // Ask user which slot to import to
+      const slot = prompt('Import to which slot? (1, 2, or 3)', '1');
+      if (!slot || !['1', '2', '3'].includes(slot)) {
+        window.app?.showToast('Import cancelled', 'error');
+        return;
+      }
+
+      // Save the imported data
+      await window.electronAPI.saveGame(slot, data);
+      window.app?.showToast(`Imported to Slot ${slot}`, 'success');
+      this.renderSlots();
+      if (window.app?.currentScreen === 'settings') {
+        this.renderManagementSlots();
+      }
+    } catch (err) {
+      window.app?.showToast('Import failed: ' + err.message, 'error');
+    }
+  }
+
   init() {
     document.getElementById('close-modal-save').onclick = () => this.close();
     document.getElementById('tab-save-btn').onclick = () => this.setMode('save');
     document.getElementById('tab-load-btn').onclick = () => this.setMode('load');
     document.getElementById('btn-game-save').onclick = () => this.open();
+    document.getElementById('btn-export-character').onclick = () => this.exportCharacter();
+    document.getElementById('btn-import-character').onclick = () => this.importCharacter();
+    document.getElementById('btn-import-save').onclick = () => this.importSave();
   }
 }
 

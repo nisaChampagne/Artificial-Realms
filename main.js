@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, globalShortcut, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, globalShortcut, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -305,6 +305,85 @@ ipcMain.handle('save:delete', (_e, slot) => {
   const fp = path.join(savesDir(), `save_${slot}.json`);
   if (fs.existsSync(fp)) fs.unlinkSync(fp);
   return { success: true };
+});
+
+ipcMain.handle('save:export', async (_e, slot) => {
+  if (!isValidSlot(slot)) throw new Error('Invalid save slot');
+  const src = path.join(savesDir(), `save_${slot}.json`);
+  if (!fs.existsSync(src)) throw new Error('Save not found');
+  const label = slot === 'auto' ? 'autosave' : `slot${slot}`;
+  const result = await dialog.showSaveDialog({
+    title: 'Export Save File',
+    defaultPath: `artificial-realms-${label}.json`,
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (!result.canceled && result.filePath) {
+    fs.copyFileSync(src, result.filePath);
+    return { success: true, filePath: result.filePath };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('save:open-folder', () => {
+  const dir = savesDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  shell.openPath(dir);
+});
+
+ipcMain.handle('save:dir', () => savesDir());
+
+ipcMain.handle('save:import', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Import Save File',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || !result.filePaths.length) return { success: false };
+  try {
+    const data = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8'));
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('character:export', async (_e, character) => {
+  if (!character || !character.name) throw new Error('Invalid character data');
+  const sanitized = character.name.replace(/[^a-zA-Z0-9-_]/g, '_');
+  const result = await dialog.showSaveDialog({
+    title: 'Export Character',
+    defaultPath: `${sanitized}.json`,
+    filters: [{ name: 'Character File', extensions: ['json'] }],
+  });
+  if (!result.canceled && result.filePath) {
+    const exportData = {
+      version: app.getVersion(),
+      exportedAt: new Date().toISOString(),
+      character: character,
+    };
+    fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2));
+    return { success: true, filePath: result.filePath };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('character:import', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Import Character',
+    filters: [{ name: 'Character File', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || !result.filePaths.length) return { success: false };
+  try {
+    const data = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8'));
+    // Validate it has character data
+    if (!data.character || !data.character.name) {
+      return { success: false, error: 'Invalid character file format' };
+    }
+    return { success: true, character: data.character };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 // ── Settings ──────────────────────────────────────────────────────────────────

@@ -24,7 +24,7 @@ class InventorySystem {
   constructor() {
     this.items    = [];   // [{ id, name, type, slot, rarity, desc, reqAtune, equipped, qty }]
     this._uid     = 1;
-    this.currency = 0;   // total in brass pieces (1 gp = 100 bp, 1 sp = 10 bp)
+    this.currency = 0;   // total in copper pieces (1 gp = 100 cp, 1 sp = 10 cp)
     this._shopStock = null; // Track shop inventory
     this._marketSortBy = 'default'; // 'default', 'price-asc', 'price-desc'
   }
@@ -95,6 +95,12 @@ class InventorySystem {
       if (this.items.some(i => i.name.toLowerCase() === name.toLowerCase())) return;
     }
 
+    const rarity = open5eData?.rarity || '';
+    // Track magic item acquisition
+    if (rarity && !['common', ''].includes(rarity.toLowerCase())) {
+      window.achievementSystem?.track('magic_item_obtained');
+    }
+
     const item = {
       id:        this._uid++,
       name:      name.trim(),
@@ -144,6 +150,9 @@ class InventorySystem {
       window.aiSystem?._addSystemEntry(`🧪 ${charName} uses <strong>${item.name}</strong>.`);
     }
 
+    // Track consumable usage for achievements
+    window.achievementSystem?.track('consumable_used');
+
     // Decrement qty; remove if spent
     item.qty = (item.qty || 1) - 1;
     if (item.qty <= 0) {
@@ -170,36 +179,51 @@ class InventorySystem {
   }
 
   // ── Currency ─────────────────────────────────────────────────
-  addGold(amount)   { this.currency = Math.max(0, this.currency + Math.round(amount * 100));  this._renderCurrency(); }
-  addSilver(amount) { this.currency = Math.max(0, this.currency + Math.round(amount * 10));   this._renderCurrency(); }
-  addBrass(amount)  { this.currency = Math.max(0, this.currency + Math.round(amount));        this._renderCurrency(); }
+  addGold(amount)   { 
+    this.currency = Math.max(0, this.currency + Math.round(amount * 100));  
+    if (amount > 0) window.achievementSystem?.track('gold_earned', amount);
+    window.achievementSystem?.track('gold_total', this.currency);
+    this._renderCurrency(); 
+  }
+  addSilver(amount) { 
+    this.currency = Math.max(0, this.currency + Math.round(amount * 10));   
+    if (amount > 0) window.achievementSystem?.track('gold_earned', amount / 10);
+    window.achievementSystem?.track('gold_total', this.currency);
+    this._renderCurrency(); 
+  }
+  addCopper(amount)  { 
+    this.currency = Math.max(0, this.currency + Math.round(amount));        
+    if (amount > 0) window.achievementSystem?.track('gold_earned', amount / 100);
+    window.achievementSystem?.track('gold_total', this.currency);
+    this._renderCurrency(); 
+  }
 
   _renderCurrency() {
     const total = Math.max(0, Math.round(this.currency));
     const gp    = Math.floor(total / 100);
     const sp    = Math.floor((total % 100) / 10);
-    const bp    = total % 10;
+    const cp    = total % 10;
     const gEl = document.getElementById('inv-gold-amount');
     const sEl = document.getElementById('inv-silver-amount');
-    const bEl = document.getElementById('inv-brass-amount');
+    const bEl = document.getElementById('inv-copper-amount');
     if (gEl) gEl.textContent = gp.toLocaleString();
     if (sEl) sEl.textContent = sp;
-    if (bEl) bEl.textContent = bp;
+    if (bEl) bEl.textContent = cp;
     // Show/hide market button based on current scene
     const scene     = window.mapSystem?.currentScene || '';
     const marketBtn = document.getElementById('btn-open-market');
     if (marketBtn) marketBtn.classList.toggle('hidden', !['town', 'tavern'].includes(scene));
   }
 
-  _formatCurrency(brass) {
-    const gp = Math.floor(brass / 100);
-    const sp = Math.floor((brass % 100) / 10);
-    const bp = brass % 10;
+  _formatCurrency(copper) {
+    const gp = Math.floor(copper / 100);
+    const sp = Math.floor((copper % 100) / 10);
+    const cp = copper % 10;
     const parts = [];
     if (gp) parts.push(`${gp} gp`);
     if (sp) parts.push(`${sp} sp`);
-    if (bp) parts.push(`${bp} bp`);
-    return parts.length ? parts.join(' ') : '0 bp';
+    if (cp) parts.push(`${cp} cp`);
+    return parts.length ? parts.join(' ') : '0 cp';
   }
 
   // ── Equip / Unequip ─────────────────────────────────────────
@@ -214,6 +238,10 @@ class InventorySystem {
     }
     this._applyEquipEffects();
     this._render();
+    
+    // Track equipped slots for achievements
+    const equippedSlots = new Set(this.items.filter(i => i.equipped).map(i => i.slot));
+    window.achievementSystem?.track('equipped_slots', equippedSlots.size);
   }
 
   // Recalculate AC from equipped armor / shield
@@ -410,19 +438,82 @@ class InventorySystem {
 
   // ── Market ──────────────────────────────────────────────────
   _itemValue(item) {
-    // Base sell price in brass (50% of typical market value)
-    const base = {
-      'common':    100,    // 1 gp base  → sell 50 bp
-      'uncommon':  1000,   // 10 gp base → sell 5 gp
-      'rare':      5000,   // 50 gp base → sell 25 gp
-      'very rare': 20000,  // 200 gp     → sell 100 gp
-      'legendary': 100000, // 1000 gp    → sell 500 gp
+    // If item has rarity, use rarity-based pricing (sell price = 50% of market value)
+    const rarityPrice = {
+      'common':    100,    // sell 1 gp
+      'uncommon':  1000,   // sell 10 gp
+      'rare':      5000,   // sell 50 gp
+      'very rare': 20000,  // sell 200 gp
+      'legendary': 100000, // sell 1000 gp
       'artifact':  0,      // priceless — not sellable
-    }[(item.rarity || '').toLowerCase()] ?? 50; // default ~5 sp
-    return Math.floor(base / 2);
+    }[(item.rarity || '').toLowerCase()];
+    
+    if (rarityPrice !== undefined) return rarityPrice;
+    
+    // For items without rarity, price by type and name patterns
+    const name = item.name.toLowerCase();
+    
+    // Weapons - price based on weapon type
+    if (item.type === 'Weapon') {
+      if (/\b(club|dagger|sickle|quarterstaff)\b/.test(name)) return 10; // simple weapons (1 sp)
+      if (/\b(handaxe|javelin|spear|mace)\b/.test(name)) return 25; // simple/common (2.5 sp)
+      if (/\b(shortsword|scimitar|rapier)\b/.test(name)) return 50; // martial light (5 sp)
+      if (/\b(longsword|battleaxe|warhammer)\b/.test(name)) return 75; // martial one-handed (7.5 sp)
+      if (/\b(greatsword|greataxe|maul)\b/.test(name)) return 150; // martial two-handed (15 sp)
+      if (/\b(shortbow|light crossbow)\b/.test(name)) return 125; // simple ranged (12.5 sp)
+      if (/\b(longbow|heavy crossbow)\b/.test(name)) return 250; // martial ranged (25 sp)
+      return 50; // default weapon
+    }
+    
+    // Armor - price based on armor type
+    if (item.type === 'Armor') {
+      if (/\b(padded|leather)\b/.test(name)) return 50; // light armor (5 sp)
+      if (/\b(studded)\b/.test(name)) return 225; // studded leather (22.5 sp)
+      if (/\b(hide|chain shirt)\b/.test(name)) return 50; // medium armor (5-25 sp)
+      if (/\b(scale|breastplate)\b/.test(name)) return 200; // better medium (20-200 sp)
+      if (/\b(half.?plate)\b/.test(name)) return 3750; // half plate (375 sp)
+      if (/\b(ring|chain mail)\b/.test(name)) return 150; // heavy armor (15-375 sp)
+      if (/\b(splint)\b/.test(name)) return 1000; // splint (100 sp)
+      if (/\b(plate)\b/.test(name)) return 7500; // plate (750 sp)
+      return 100; // default armor
+    }
+    
+    if (item.type === 'Shield') return 50; // 5 sp
+    
+    // Clothing/Wearables
+    if (item.type === 'Cloak') return 25; // 2.5 sp
+    if (item.type === 'Head') return 25;
+    if (item.type === 'Feet') return 20;
+    if (item.type === 'Hands') return 20;
+    if (item.type === 'Ring') return 50;
+    if (item.type === 'Amulet') return 50;
+    
+    // Consumables - estimate by name
+    if (item.type === 'Consumable') {
+      if (/\bhealing\b/.test(name) && !/greater|superior|supreme/.test(name)) return 250; // basic healing potion (25 sp)
+      if (/\bgreater.*healing\b/.test(name)) return 1000; // greater healing (100 sp)
+      if (/\bsuperior.*healing\b/.test(name)) return 5000; // superior healing (500 sp)
+      if (/\bsupreme.*healing\b/.test(name)) return 25000; // supreme healing (2500 sp)
+      if (/\b(antitoxin|holy water)\b/.test(name)) return 150; // utility potions (15 sp)
+      return 100; // default potion (10 sp)
+    }
+    
+    if (item.type === 'Scroll') return 150; // 15 sp for common scrolls
+    
+    // Valuables
+    if (item.type === 'Gem') return 500; // 50 sp default gem
+    if (item.type === 'Map') return 50;
+    if (item.type === 'Key') return 10;
+    if (item.type === 'Document') return 25;
+    
+    // Wondrous items and misc
+    if (/\b(pack|kit)\b/.test(name)) return 25; // explorer's pack, etc. (2.5 sp)
+    if (/\b(rope|bedroll|torch|ration)\b/.test(name)) return 5; // basic gear (0.5 sp)
+    
+    return 50; // default fallback (5 sp)
   }
 
-  // Shop catalog with items for purchase (prices in brass pieces)
+  // Shop catalog with items for purchase (prices in copper pieces)
   _shopCatalog() {
     return [
       // Consumables
@@ -481,12 +572,12 @@ class InventorySystem {
       const total = Math.max(0, Math.round(this.currency));
       const gp = Math.floor(total / 100);
       const sp = Math.floor((total % 100) / 10);
-      const bp = total % 10;
+      const cp = total % 10;
       wallet.innerHTML =
         `<span class="market-purse-label">Your Purse</span>` +
         `<span class="market-purse-coins"><span class="market-coin market-coin-gp">🪙 ${gp.toLocaleString()} gp</span>` +
         `<span class="market-coin market-coin-sp">🥈 ${sp} sp</span>` +
-        `<span class="market-coin market-coin-bp">🟤 ${bp} bp</span></span>`;
+        `<span class="market-coin market-coin-cp">🟤 ${cp} cp</span></span>`;
     }
 
     // Render tabs and sort controls
@@ -607,6 +698,11 @@ class InventorySystem {
     // Deduct currency, reduce stock, and add item
     this.currency = Math.max(0, this.currency - shopItem.price);
     shopItem.stock = Math.max(0, shopItem.stock - 1);
+    
+    // Track spending for achievements
+    window.achievementSystem?.track('gold_spent', shopItem.price);
+    window.achievementSystem?.track('gold_total', this.currency);
+    
     this.addItem(shopItem.name, { desc: shopItem.desc });
 
     const charName = window.characterSystem?.character?.name || 'You';
@@ -628,6 +724,11 @@ class InventorySystem {
     const total = price * qty;
     this.currency = Math.max(0, this.currency + total);
     this.items.splice(this.items.indexOf(item), 1);
+    
+    // Track item sales for achievements
+    window.achievementSystem?.track('item_sold');
+    window.achievementSystem?.track('gold_total', this.currency);
+    
     const charName = window.characterSystem?.character?.name || 'You';
     window.aiSystem?._addSystemEntry(
       `🏪 ${charName} sold <strong>${item.name}${qty>1?` ×${qty}`:''}</strong> for <strong>${this._formatCurrency(total)}</strong>.`

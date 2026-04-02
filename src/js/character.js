@@ -140,6 +140,136 @@ const CLASS_FEATURES = {
   barbarian: [{ name:'Rage', desc:'Bonus action rage for advantage on STR checks, +2 damage, resistance to physical damage.' }, { name:'Unarmored Defense', desc:'AC = 10 + DEX mod + CON mod when wearing no armor.' }, { name:'Reckless Attack', desc:'Advantage on first ATK roll of your turn; enemies also have advantage until next turn.' }],
 };
 
+// Key class features unlocked at each level (2–5 per class)
+const CLASS_LEVEL_FEATURES = {
+  fighter: {
+    2: [{ name:'Action Surge', desc:'Once per short rest, take one additional action on your turn.' }],
+    3: [{ name:'Martial Archetype', desc:'Choose your martial subclass.', choices: [
+      { label:'Champion',        desc:'Improved Critical — crit on a 19 or 20. Remarkable Athlete for physical checks.',       effect:{} },
+      { label:'Battle Master',   desc:'Superiority Dice (d8s) fuel tactical maneuvers like Trip, Disarm, and Precision Attack.', effect:{ addResource:{ name:'Superiority Dice', max:4 } } },
+      { label:'Eldritch Knight', desc:'Spellcasting from the wizard list. Bond with weapons to teleport them back to your hand.', effect:{} },
+    ]}],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
+  },
+  wizard: {
+    2: [{ name:'Arcane Tradition', desc:'Choose a school of magic.', choices: [
+      { label:'Evocation',     desc:'Sculpt Spells — exclude allies from blast effects. Potent Cantrip for half-damage on saves.', effect:{} },
+      { label:'Illusion',      desc:'Improved Minor Illusion. Malleable Illusions — change active illusions as a bonus action.',   effect:{} },
+      { label:'Abjuration',    desc:'Arcane Ward — absorb damage with a magical shield fuelled by abjuration spells cast.',        effect:{} },
+      { label:'Divination',    desc:'Portent — roll two d20s at dawn; replace any attack roll or save with a Portent die.',        effect:{} },
+      { label:'Necromancy',    desc:'Grim Harvest — regain HP when you kill with a spell (2× slot level, 3× for necrotic).',       effect:{} },
+      { label:'Transmutation', desc:'Minor Alchemy — temporarily reshape one material into another for 1 hour.',                   effect:{} },
+    ]}],
+    3: [{ name:'3rd-Level Spells', desc:'Access to powerful 3rd-level spells. Your Arcane Recovery grows stronger.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'3rd-Level Spell Slots', desc:'Gain two 3rd-level spell slots. Your wizard power reaches a new tier.' }],
+  },
+  rogue: {
+    2: [{ name:'Cunning Action', desc:'As a bonus action: Dash, Disengage, or Hide.' }],
+    3: [{ name:'Roguish Archetype', desc:'Choose your rogue subclass.', choices: [
+      { label:'Thief',           desc:'Fast Hands — bonus action Use Object. Second-Story Work for climbing and jump distance.',   effect:{} },
+      { label:'Assassin',        desc:'Assassinate — auto-crit surprised targets; advantage vs. any creature that hasn\'t acted.', effect:{} },
+      { label:'Arcane Trickster', desc:'Spellcasting from the wizard list. Mage Hand Legerdemain to manipulate objects unseen.',  effect:{} },
+    ]}, { name:'Sneak Attack +1d6', desc:'Sneak Attack now deals 2d6 extra damage on a qualifying hit.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Uncanny Dodge', desc:'When hit by an attack you can see, use your reaction to halve the damage.' }],
+  },
+  cleric: {
+    2: [{ name:'Channel Divinity (2/rest)', desc:'Use Channel Divinity twice per short rest. Options depend on your Divine Domain.' }],
+    3: [{ name:'3rd-Level Spells', desc:'Access to 3rd-level divine spells. Your holy power deepens.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Destroy Undead', desc:'When Turn Undead succeeds, undead of CR 1/2 or lower are instantly destroyed.' }],
+  },
+  ranger: {
+    2: [{ name:'Fighting Style', desc:'Choose a fighting style.', choices: [
+      { label:'Archery',            desc:'+2 bonus to attack rolls made with ranged weapons.',                                    effect:{ rangedAttackBonus:2 } },
+      { label:'Defense',            desc:'+1 bonus to AC while wearing armor.',                                                  effect:{ ac:1 } },
+      { label:'Two-Weapon Fighting', desc:'Add your ability modifier to the damage of your off-hand attack.',                   effect:{} },
+    ]}, { name:'Spellcasting', desc:'Cast ranger spells using WIS as your spellcasting ability.' }],
+    3: [{ name:'Primeval Awareness', desc:'Expend a spell slot to sense creatures of certain types within 1 mile (6 in favored terrain).' }, { name:'Ranger Conclave', desc:'Choose your ranger subclass.', choices: [
+      { label:'Hunter',       desc:'Hunter\'s Prey — choose Colossus Slayer, Giant Killer, or Horde Breaker for combat bonuses.', effect:{} },
+      { label:'Beast Master', desc:'Ranger\'s Companion — bond with a beast that fights alongside you and obeys your commands.',  effect:{} },
+      { label:'Gloom Stalker', desc:'Dread Ambusher — extra attack on first turn; invisible to Darkvision; bonus to Initiative.',  effect:{} },
+    ]}],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
+  },
+  paladin: {
+    2: [{ name:'Divine Smite', desc:'Expend a spell slot on a melee hit to add 2d8 radiant damage (+1d8 per slot level above 1st).' }, { name:'Fighting Style', desc:'Choose a fighting style.', choices: [
+      { label:'Defense',              desc:'+1 bonus to AC while wearing armor.',                                                   effect:{ ac:1 } },
+      { label:'Dueling',              desc:'+2 damage bonus when wielding a one-handed weapon and no other weapon.',                effect:{} },
+      { label:'Great Weapon Fighting', desc:'Reroll 1s and 2s on damage dice when using a two-handed or versatile weapon.',        effect:{} },
+      { label:'Protection',           desc:'When a nearby creature is attacked, use your reaction to impose disadvantage.',         effect:{} },
+    ]}, { name:'Spellcasting', desc:'Cast paladin spells using CHA as your spellcasting ability.' }],
+    3: [{ name:'Divine Health', desc:'You are immune to disease.' }, { name:'Sacred Oath', desc:'Swear your sacred oath.', choices: [
+      { label:'Oath of Devotion', desc:'Holy Warrior — Turn the Unholy, Sacred Weapon. Aura of Devotion at level 7.',               effect:{} },
+      { label:'Oath of the Ancients', desc:'Nature\'s Wrath, Turn the Faithless. Aura of Warding at level 7.',                    effect:{} },
+      { label:'Oath of Vengeance', desc:'Abjure Enemy, Vow of Enmity (advantage vs. one target). Relentless Avenger at level 7.', effect:{} },
+    ]}],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
+  },
+  druid: {
+    2: [{ name:'Wild Shape', desc:'Transform into a Beast of CR 1/4 or lower twice per short rest. Lasts 1 hour per druid level.' }, { name:'Druid Circle', desc:'Choose your druid circle.', choices: [
+      { label:'Circle of the Land', desc:'Natural Recovery — regain expended spell slots on a short rest. Bonus circle spells by terrain.', effect:{} },
+      { label:'Circle of the Moon', desc:'Combat Wild Shape — bonus action transform; CR 1 beasts at level 2, CR 3 at level 6.',           effect:{} },
+    ]}],
+    3: [{ name:'3rd-Level Spells', desc:'Access to 3rd-level nature spells.' }],
+    4: [{ name:'Wild Shape Improvement', desc:'Wild Shape now allows CR 1/2 beasts without flying speed.' }, { name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Wild Shape (CR 1)', desc:'Wild Shape allows CR 1 beasts with a swimming speed.' }],
+  },
+  bard: {
+    2: [{ name:'Jack of All Trades', desc:'Add half your proficiency bonus to any skill check you are not proficient in.' }, { name:'Song of Rest', desc:'Allies spending Hit Dice on a short rest regain 1d6 extra HP.' }],
+    3: [{ name:'Bard College', desc:'Choose your bard college.', choices: [
+      { label:'College of Lore',  desc:'Cutting Words — use Bardic Inspiration to subtract from an enemy\'s roll. 3 bonus skill proficiencies.', effect:{} },
+      { label:'College of Valor', desc:'Combat Inspiration — grant an ally a die to add to weapon damage or AC. Medium armor & shields.',        effect:{} },
+    ]}, { name:'Expertise', desc:'Double your proficiency bonus for two skills of your choice.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Bardic Inspiration d8', desc:'Your Bardic Inspiration die becomes a d8. Font of Inspiration: regain uses on short rest.' }],
+  },
+  warlock: {
+    2: [{ name:'Eldritch Invocations', desc:'Choose 2 Eldritch Invocations: Agonizing Blast, Devil\'s Sight, Mask of Many Faces, Misty Visions, etc.' }],
+    3: [{ name:'Pact Boon', desc:'Choose your pact boon.', choices: [
+      { label:'Pact of the Chain', desc:'Familiar of unusual type (imp, pseudodragon, quasit, or sprite). Can attack in your stead.',       effect:{} },
+      { label:'Pact of the Blade', desc:'Summon a pact weapon of any type as a bonus action. It counts as magical for overcoming resistance.', effect:{} },
+      { label:'Pact of the Tome', desc:'Book of Shadows: gain 3 cantrips from any class list plus ritual casting of two 1st-level spells.',   effect:{} },
+    ]}],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'3rd-Level Pact Slots', desc:'Your pact magic slots are now 3rd level. Gain a 3rd Eldritch Invocation.' }],
+  },
+  sorcerer: {
+    2: [{ name:'Font of Magic', desc:'Gain Sorcery Points equal to your sorcerer level. Convert slots to points (1:1) or points to slots (2 pts → 1st level, etc.).' }],
+    3: [{ name:'Metamagic', desc:'Choose 2 Metamagic options: Careful, Distant, Empowered, Extended, Heightened, Quickened, Subtle, or Twinned Spell.' }],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'3rd-Level Spells', desc:'Gain two 3rd-level spell slots. Sorcery Points increase to 5.' }],
+  },
+  monk: {
+    2: [{ name:'Ki', desc:'Gain 2 Ki Points. Use for Flurry of Blows (2 bonus unarmed strikes), Patient Defense (Dodge), or Step of the Wind (Dash/Disengage).' }, { name:'Unarmored Movement', desc:'Speed increases by 10 ft while not wearing armor.' }],
+    3: [{ name:'Monastic Tradition', desc:'Choose your monastic tradition.', choices: [
+      { label:'Way of the Open Hand', desc:'Open Hand Technique — impose conditions (prone, shove, no reactions) with Flurry of Blows.', effect:{} },
+      { label:'Way of Shadow',        desc:'Shadow Arts — cast minor illusion, darkness, silence, and pass without trace with Ki.',     effect:{} },
+      { label:'Way of the Four Elements', desc:'Elemental Disciplines — spend Ki to cast spells like Burning Hands or Water Whip.',   effect:{} },
+    ]}, { name:'Deflect Missiles', desc:'Reaction: reduce ranged damage by 1d10 + DEX + monk level. At 0, catch and throw it back.' }],
+    4: [{ name:'Slow Fall', desc:'Reaction: reduce falling damage by 5× monk level.' }, { name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice when you take the Attack action.' }, { name:'Stunning Strike', desc:'After hitting, spend 1 Ki: target must pass CON save (DC = 8 + WIS + prof) or be Stunned until your next turn.' }],
+  },
+  barbarian: {
+    2: [{ name:'Reckless Attack', desc:'Advantage on STR attack rolls this turn — but enemies also have advantage against you until next turn.' }, { name:'Danger Sense', desc:'Advantage on DEX saves against visible effects (traps, spells). Must not be blinded, deafened, or incapacitated.' }],
+    3: [{ name:'Primal Path', desc:'Choose your primal path.', choices: [
+      { label:'Path of the Berserker',       desc:'Frenzy — bonus action attack every turn of rage; one level of exhaustion on rage end.', effect:{} },
+      { label:'Path of the Totem Warrior',   desc:'Totem Spirit — choose Bear (resistance), Eagle (Dash as bonus), or Wolf (knock prone).', effect:{} },
+      { label:'Path of the Ancestral Guardian', desc:'Ancestral Protections — spectral warriors give enemies disadvantage and grant allies resistance.', effect:{} },
+    ]}],
+    4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
+    5: [{ name:'Extra Attack', desc:'Attack twice when you take the Attack action.' }, { name:'Fast Movement', desc:'Speed increases by 10 ft when not wearing heavy armor.' }],
+  },
+};
+
+function getLevelFeatures(classId, level) {
+  return CLASS_LEVEL_FEATURES[classId]?.[level] || [];
+}
+
 const CLASS_EQUIPMENT = {
   fighter:   ['Longsword','Shield','Chain Mail','5× Javelin',"Explorer's Pack"],
   wizard:    ['Quarterstaff','Spellbook','Arcane Focus','Scholar\'s Pack','Dagger'],
@@ -153,6 +283,22 @@ const CLASS_EQUIPMENT = {
   sorcerer:  ['Arcane Focus','Dungeoneer\'s Pack','2× Daggers'],
   monk:      ['Shortsword','Dungeoneer\'s Pack','10× Darts'],
   barbarian: ['Greataxe','2× Handaxes','Explorer\'s Pack','4× Javelins'],
+};
+
+// Starting currency by class (in copper pieces: 1gp = 100cp, 1sp = 10cp, 1cp = 1cp)
+const CLASS_STARTING_WEALTH = {
+  barbarian: 725,   // 5gp + 20sp + 25cp = modest tribal wealth
+  bard:      1540,  // 12gp + 30sp + 40cp = performer's earnings
+  cleric:    1825,  // 15gp + 30sp + 25cp = temple stipend
+  druid:     530,   // 3gp + 20sp + 30cp = minimal possessions
+  fighter:   1840,  // 15gp + 35sp + 40cp = mercenary pay
+  monk:      235,   // 2gp + 15sp + 10cp = vow of poverty
+  paladin:   2035,  // 18gp + 20sp + 35cp = order's equipment fund
+  ranger:    1225,  // 10gp + 20sp + 25cp = wilderness tracker
+  rogue:     1265,  // 10gp + 25sp + 40cp = stolen goods
+  sorcerer:  835,   // 6gp + 25sp + 10cp = discovered powers
+  warlock:   1030,  // 8gp + 25sp + 30cp = pact reward
+  wizard:    1250,  // 10gp + 20sp + 50cp = apprentice stipend
 };
 
 const CLASS_SKILLS = {
@@ -420,6 +566,10 @@ class CharacterSystem {
       document.getElementById('modal-condition').classList.add('hidden');
     document.getElementById('close-modal-item').onclick = () =>
       document.getElementById('modal-item').classList.add('hidden');
+
+    // Combat HUD buttons
+    document.getElementById('btn-combat-next-turn')?.addEventListener('click', () => this.nextTurn());
+    document.getElementById('btn-combat-end')?.addEventListener('click', () => this.endInitiative());
   }
 
   reset() {
@@ -1203,6 +1353,7 @@ class CharacterSystem {
       bgSkills:       [...(r.background?.skills || []), ...(r.skills || [])],
       notes:          '',
       languages:      r.languages || r.race?.lang || 'Common',
+      startingWealth: r.startingWealth || CLASS_STARTING_WEALTH[cls?.id] || 500, // Use premade wealth or class default (in cp)
       initBonus:      r.initOverride != null ? r.initOverride : this._mod(stats.dex),
       extraSkillProf: [],
       skillBonuses:   r.skillBonuses || {},
@@ -1212,13 +1363,20 @@ class CharacterSystem {
       concentration:  null, // { spell: 'Bless', dc: null }
       conditions:     [], // [{ name: 'Poisoned', duration: 3, description: '...' }]
       inspiration:    false,
-      initiative:     { active: false, order: [], currentIndex: 0, playerRoll: 0 },
+      initiative:     { active: false, order: [], currentIndex: 0, playerRoll: 0, round: 1 },
       tempHp:         0, // Temporary HP - takes damage first, doesn't stack
       spellSaveDC:    this._calculateSpellSaveDC(cls?.id, stats, 2) // 8 + prof + spellcasting mod
     };
 
+    // Track initial max HP for achievements
+    window.achievementSystem?.track('max_hp', Math.max(1, maxHp));
+
     // Push appearance to map sprite
     window.mapSystem?.updateSprite(this.character.appearance);
+    
+    // Starting wealth will be added to inventory after aiSystem.start() resets it
+    // (see app.js startCampaign function)
+    
     // Campaign type and difficulty were chosen before character creation
     // (inventory seeding happens in app.js after aiSystem.start() resets inventory)
     window.app.startCampaign(
@@ -1240,6 +1398,7 @@ class CharacterSystem {
     const bar = document.getElementById('hud-hp-bar');
     bar.style.width      = `${pct * 100}%`;
     bar.style.background = pct > 0.6 ? 'var(--hp-high)' : pct > 0.3 ? 'var(--hp-mid)' : 'var(--hp-low)';
+    if (c.currentHp > 0 && c.currentHp <= 3) window.achievementSystem?.track('low_hp');
     // Toolbar mini HP bar
     const tbFill = document.getElementById('toolbar-hp-mini-fill');
     const tbCur  = document.getElementById('toolbar-hp-cur');
@@ -1388,7 +1547,7 @@ class CharacterSystem {
           } else {
             slot.current = idx + 1;
           }
-          this.openSheet(); // Refresh
+          this.refreshSheet(); // Refresh
         });
       });
     } else {
@@ -1442,7 +1601,7 @@ class CharacterSystem {
           } else {
             resource.current = idx + 1;
           }
-          this.openSheet(); // Refresh
+          this.refreshSheet(); // Refresh
         });
       });
 
@@ -1461,7 +1620,7 @@ class CharacterSystem {
           } else if (action === 'reset') {
             resource.current = resource.max;
           }
-          this.openSheet(); // Refresh
+          this.refreshSheet(); // Refresh
         });
       });
     } else {
@@ -1478,7 +1637,7 @@ class CharacterSystem {
       document.getElementById('concentration-spell').textContent = c.concentration.spell;
       document.getElementById('btn-drop-concentration').onclick = () => {
         c.concentration = null;
-        this.openSheet();
+        this.refreshSheet();
         window.app?.showToast('Dropped concentration', 'info');
       };
     } else {
@@ -1515,7 +1674,7 @@ class CharacterSystem {
     // Initiative
     const initiativeBlock = document.getElementById('initiative-block');
     const initiativeGrid = document.getElementById('initiative-grid');
-    if (c.initiative.active) {
+    if (c.initiative?.active) {
       initiativeBlock.style.display = '';
       initiativeGrid.innerHTML = c.initiative.order.map((entry, idx) => {
         const isCurrent = idx === c.initiative.currentIndex;
@@ -1601,6 +1760,19 @@ class CharacterSystem {
     el.innerHTML = (c.equipment || []).map(e =>
       `<div class="equip-item"><span class="equip-icon">⚔</span>${e}</div>`
     ).join('');
+    
+    // Currency breakdown - pull from inventory system (source of truth)
+    const totalCurrency = window.inventorySystem?.currency || 0;
+    const gp = Math.floor(totalCurrency / 100);
+    const sp = Math.floor((totalCurrency % 100) / 10);
+    const cp = totalCurrency % 10;
+    
+    const goldEl = document.getElementById('s-gold');
+    const silverEl = document.getElementById('s-silver');
+    const copperEl = document.getElementById('s-copper');
+    if (goldEl) goldEl.textContent = gp;
+    if (silverEl) silverEl.textContent = sp;
+    if (copperEl) copperEl.textContent = cp;
 
     document.getElementById('char-notes').value = c.notes || '';
     // Wire contenteditable fields: select-all on focus, Enter = blur
@@ -1625,6 +1797,10 @@ class CharacterSystem {
         if (!isNaN(val) && val > 0) {
           c.maxHp = val;
           if (c.currentHp > c.maxHp) c.currentHp = c.maxHp;
+          
+          // Track max HP for achievement
+          window.achievementSystem?.track('max_hp', c.maxHp);
+          
           document.getElementById('s-hp').textContent = c.currentHp;
           const pct2  = Math.max(0, c.currentHp / c.maxHp);
           const hpBar = document.getElementById('s-hp-bar');
@@ -1636,7 +1812,21 @@ class CharacterSystem {
     }
     // Ensure Stats tab is shown when sheet opens
     this._switchSheetTab('stats');
-    document.getElementById('modal-char').classList.remove('hidden');
+    // Only show modal if it's not already visible
+    const modal = document.getElementById('modal-char');
+    if (modal.classList.contains('hidden')) {
+      modal.classList.remove('hidden');
+    }
+  }
+
+  refreshSheet() {
+    // Update sheet content without changing visibility
+    const modal = document.getElementById('modal-char');
+    const wasHidden = modal.classList.contains('hidden');
+    this.openSheet();
+    if (wasHidden) {
+      modal.classList.add('hidden');
+    }
   }
 
   closeSheet() {
@@ -1722,7 +1912,7 @@ class CharacterSystem {
       this.useAction(resource.actionType);
     }
     
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
     window.app?.showToast(`Used ${resource.name}!`, 'success');
     return true;
   }
@@ -1752,7 +1942,7 @@ class CharacterSystem {
       c.concentration = { spell: spellName, dc: null };
     }
     
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
     return true;
   }
 
@@ -1771,7 +1961,7 @@ class CharacterSystem {
       window.app?.showToast(`Afflicted with ${name} for ${duration} rounds!`, 'error');
     }
     
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
   }
 
   removeCondition(name) {
@@ -1780,7 +1970,7 @@ class CharacterSystem {
     
     c.conditions = c.conditions.filter(cond => cond.name !== name);
     window.app?.showToast(`${name} removed!`, 'success');
-    this.openSheet(); // Refresh UI
+    this.refreshSheet(); // Refresh UI
   }
 
   decrementConditions() {
@@ -1799,7 +1989,7 @@ class CharacterSystem {
     
     if (expired.length > 0) {
       window.app?.showToast(`Conditions expired: ${expired.join(', ')}`, 'info');
-      this.openSheet(); // Refresh UI
+      this.refreshSheet(); // Refresh UI
     }
   }
 
@@ -1813,7 +2003,7 @@ class CharacterSystem {
     } else {
       c.inspiration = true;
       window.app?.showToast('⭐ Inspiration awarded!', 'success');
-      this.openSheet(); // Refresh UI
+      this.refreshSheet(); // Refresh UI
     }
   }
 
@@ -1824,7 +2014,8 @@ class CharacterSystem {
     
     c.inspiration = false;
     window.app?.showToast('⭐ Inspiration spent for advantage!', 'info');
-    this.openSheet(); // Refresh UI
+    window.achievementSystem?.track('inspiration_used');
+    this.refreshSheet(); // Refresh UI
     return true;
   }
 
@@ -1842,44 +2033,84 @@ class CharacterSystem {
       active: true,
       order,
       currentIndex: 0,
-      playerRoll
+      playerRoll,
+      round: 1
     };
-    
+
     const currentName = order[0].name;
     window.app?.showToast(`Initiative! ${currentName} goes first.`, 'success');
-    
+
     // If player goes first, they already have actions
     if (order[0].isPlayer) {
       this.resetActions();
     }
-    
-    this.openSheet(); // Refresh UI
+
+    this._updateCombatHUD();
+    this.refreshSheet(); // Refresh UI without opening
   }
 
   nextTurn() {
     const c = this.character;
-    if (!c || !c.initiative.active) return;
+    if (!c || !c.initiative?.active) return;
     
-    c.initiative.currentIndex = (c.initiative.currentIndex + 1) % c.initiative.order.length;
+    const prevIndex = c.initiative.currentIndex;
+    c.initiative.currentIndex = (prevIndex + 1) % c.initiative.order.length;
+
+    // Increment round counter when the order wraps back to the first combatant
+    if (c.initiative.currentIndex === 0) {
+      c.initiative.round = (c.initiative.round || 1) + 1;
+    }
+
     const current = c.initiative.order[c.initiative.currentIndex];
-    
+
     // If it's the player's turn, reset actions and decrement conditions
     if (current.isPlayer) {
       this.resetActions();
       this.decrementConditions();
     }
-    
+
     window.app?.showToast(`${current.name}'s turn`, 'info');
-    this.openSheet(); // Refresh UI
+    this._updateCombatHUD();
+    this.refreshSheet(); // Refresh UI without opening
   }
 
   endInitiative() {
     const c = this.character;
     if (!c) return;
     
-    c.initiative = { active: false, order: [], currentIndex: 0, playerRoll: 0 };
+    c.initiative = { active: false, order: [], currentIndex: 0, playerRoll: 0, round: 1 };
     window.app?.showToast('Combat ended', 'success');
-    this.openSheet(); // Refresh UI
+    this._updateCombatHUD();
+    this.refreshSheet(); // Refresh UI without opening
+  }
+
+  _updateCombatHUD() {
+    const hud = document.getElementById('combat-hud');
+    if (!hud) return;
+    const c = this.character;
+    const init = c?.initiative;
+
+    if (!init?.active) {
+      hud.classList.add('hidden');
+      return;
+    }
+
+    hud.classList.remove('hidden');
+    document.getElementById('combat-round').textContent = init.round || 1;
+
+    const current = init.order[init.currentIndex];
+    document.getElementById('combat-current-name').textContent = current?.name || '—';
+
+    // Action economy pips — only meaningful on player's turn
+    const ae = c.actionEconomy || {};
+    const isPlayerTurn = current?.isPlayer;
+    ['action', 'bonus', 'reaction'].forEach((key, i) => {
+      const pip = document.getElementById(['chud-action','chud-bonus','chud-reaction'][i]);
+      if (!pip) return;
+      const aeKey = key === 'bonus' ? 'bonusAction' : key;
+      const used = isPlayerTurn ? !ae[aeKey] : false;
+      pip.classList.toggle('used', used);
+    });
   }
 
   // ── Sheet Tabs ───────────────────────────────────────────────
@@ -2019,7 +2250,7 @@ class CharacterSystem {
     const amt   = parseInt(document.getElementById('sh-hp-amt').value) || 1;
     const change = delta > 0 ? amt : -amt;
     this.character.currentHp = Math.max(0, Math.min(this.character.maxHp, this.character.currentHp + change));
-    this.openSheet();
+    this.refreshSheet();
     this.updateHUD();
     if (this.character.currentHp === 0) {
       window.app.showToast('⚠ You have fallen! You are at 0 HP.', 'error');
@@ -2044,7 +2275,7 @@ class CharacterSystem {
           c.tempHp -= damage;
           window.app?.showToast(`Temp HP absorbed ${damage} damage (${c.tempHp} temp HP remaining)`, 'info');
           this.updateHUD();
-          this.openSheet();
+          this.refreshSheet();
           return; // No damage to real HP
         } else {
           const remaining = damage - c.tempHp;
@@ -2056,6 +2287,12 @@ class CharacterSystem {
     }
     
     c.currentHp = Math.max(0, Math.min(c.maxHp, c.currentHp + delta));
+    
+    // Track low HP for achievements
+    if (c.currentHp > 0 && c.currentHp <= 3) {
+      window.achievementSystem?.track('low_hp', c.currentHp);
+    }
+    
     this.updateHUD();
     if (c.currentHp === 0) {
       this._openDeathSaves();
@@ -2074,7 +2311,7 @@ class CharacterSystem {
       window.app?.showToast(`Already have ${c.tempHp} temp HP (kept higher value)`, 'info');
     }
     this.updateHUD();
-    this.openSheet();
+    this.refreshSheet();
   }
 
   _checkConcentration(damage) {
@@ -2091,7 +2328,7 @@ class CharacterSystem {
       } else {
         window.app?.showToast(`Lost concentration on ${c.concentration.spell}!`, 'error');
         c.concentration = null;
-        this.openSheet(); // Refresh UI
+        this.refreshSheet(); // Refresh UI
       }
     });
   }
@@ -2205,6 +2442,10 @@ class CharacterSystem {
     this.updateHUD();
     window.app.showToast(`Long rest: fully restored!`, 'success');
     window.aiSystem?.addSystemMessage(`🌟 ${c.name} takes a long rest and wakes fully restored.`);
+    window.achievementSystem?.track('long_rest');
+    window.audioSystem?.setScene('rest');
+    window.worldState?.setTime('morning');
+    window.worldState?.advanceDay();
   }
 
   // ── Death Saves ──────────────────────────────────────────────
@@ -2256,6 +2497,7 @@ class CharacterSystem {
       this._deathSuccesses++;
       el.textContent = `Rolled ${roll} — Success!`;
       el.style.color = 'var(--green-lt)';
+      window.achievementSystem?.track('death_save_success');
     } else {
       this._deathFailures++;
       el.textContent = `Rolled ${roll} — Failure`;
@@ -2373,8 +2615,15 @@ class CharacterSystem {
       
       // Update class resources for new level
       this.character.classResources = getClassResources(this.character.classId, newLevel, this.character.stats);
-      
-      this._openLevelUpModal(newLevel);
+
+      // Add new class features unlocked at this level
+      const newFeatures = getLevelFeatures(this.character.classId, newLevel);
+      if (newFeatures.length > 0) {
+        this.character.features = [...(this.character.features || []), ...newFeatures];
+      }
+
+      window.achievementSystem?.track('level_up', newLevel);
+      this._openLevelUpModal(newLevel, newFeatures);
     } else {
       const nextThr = thr[Math.min(this.character.level + 1, 20)];
       const remaining = nextThr ? nextThr - this.character.xp : 0;
@@ -2386,7 +2635,7 @@ class CharacterSystem {
     this.updateHUD();
   }
 
-  _openLevelUpModal(newLevel) {
+  _openLevelUpModal(newLevel, newFeatures = []) {
     const c = this.character;
     const hpDie  = c.features ? (CLASSES.find(cl => cl.id === c.classId)?.hpDie || 8) : 8;
     const conMod = this._mod(c.stats.con);
@@ -2398,10 +2647,12 @@ class CharacterSystem {
       `Roll a d${hpDie}${conMod >= 0 ? ' +' : ' '}${conMod} CON`;
     document.getElementById('levelup-avg-hint').textContent =
       `(${avg} HP guaranteed)`;
+
+    // ── HP state ──────────────────────────────────────────────────
     document.getElementById('levelup-hp-result').textContent = '';
     document.getElementById('levelup-hp-result').className  = 'levelup-hp-result hidden';
 
-    const rollBtn   = document.getElementById('btn-levelup-roll');
+    const rollBtn = document.getElementById('btn-levelup-roll');
     rollBtn.disabled    = false;
     rollBtn.textContent = '🎲 Roll HP';
     rollBtn._rollCount  = 0;
@@ -2410,18 +2661,66 @@ class CharacterSystem {
     confirmBtn.disabled = true;
     let hpGain = 0;
 
+    // ── Choice tracking ───────────────────────────────────────────
+    const choicesMade     = {}; // featureIndex → chosen option object
+    const requiredChoices = newFeatures.filter(f => f.choices?.length > 0).length;
+
+    const updateConfirmState = () => {
+      const choicesDone = Object.keys(choicesMade).length >= requiredChoices;
+      confirmBtn.disabled = hpGain === 0 || !choicesDone;
+    };
+
     const applyGain = (gain) => {
       hpGain = Math.max(1, gain);
       const el = document.getElementById('levelup-hp-result');
       el.textContent = `+${hpGain} HP`;
       el.className   = 'levelup-hp-result';
-      confirmBtn.disabled = false;
+      updateConfirmState();
     };
 
-    document.getElementById('btn-levelup-roll').onclick = () => {
-      const rollBtn = document.getElementById('btn-levelup-roll');
-      const rolls   = (rollBtn._rollCount = (rollBtn._rollCount || 0) + 1);
-      const roll    = Math.floor(Math.random() * hpDie) + 1;
+    // ── Feature display ───────────────────────────────────────────
+    const featuresEl = document.getElementById('levelup-features');
+    if (featuresEl) {
+      if (newFeatures.length > 0) {
+        featuresEl.innerHTML = '<div class="levelup-features-title">New Abilities</div>' +
+          newFeatures.map((f, idx) => {
+            let html = `<div class="levelup-feature-item">
+              <div class="levelup-feature-name">${f.name}</div>
+              <div class="levelup-feature-desc">${f.desc}</div>`;
+            if (f.choices?.length > 0) {
+              html += `<div class="levelup-choice-grid" data-feature="${idx}">` +
+                f.choices.map((opt, oi) =>
+                  `<button class="levelup-choice-btn" data-feature="${idx}" data-option="${oi}">
+                    <div class="levelup-choice-label">${opt.label}</div>
+                    <div class="levelup-choice-desc">${opt.desc}</div>
+                  </button>`
+                ).join('') + '</div>';
+            }
+            return html + '</div>';
+          }).join('');
+        featuresEl.classList.remove('hidden');
+
+        // Wire choice buttons
+        featuresEl.querySelectorAll('.levelup-choice-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const fi = btn.dataset.feature;
+            const oi = parseInt(btn.dataset.option);
+            featuresEl.querySelectorAll(`.levelup-choice-btn[data-feature="${fi}"]`)
+              .forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            choicesMade[fi] = newFeatures[parseInt(fi)].choices[oi];
+            updateConfirmState();
+          });
+        });
+      } else {
+        featuresEl.classList.add('hidden');
+      }
+    }
+
+    // ── Roll / avg handlers ───────────────────────────────────────
+    rollBtn.onclick = () => {
+      const rolls = (rollBtn._rollCount = (rollBtn._rollCount || 0) + 1);
+      const roll  = Math.floor(Math.random() * hpDie) + 1;
       applyGain(roll + conMod);
       if (rolls >= 2) {
         rollBtn.disabled    = true;
@@ -2429,17 +2728,34 @@ class CharacterSystem {
       }
     };
 
-    document.getElementById('btn-levelup-avg').onclick = () => {
-      applyGain(avg);
-    };
+    document.getElementById('btn-levelup-avg').onclick = () => applyGain(avg);
 
+    // ── Confirm ───────────────────────────────────────────────────
     confirmBtn.onclick = () => {
       c.maxHp     += hpGain;
       c.currentHp += hpGain;
+      window.achievementSystem?.track('max_hp', c.maxHp);
+
+      // Apply choices: update feature description and any direct stat effects
+      const choiceMessages = [];
+      Object.entries(choicesMade).forEach(([fi, opt]) => {
+        const feature = newFeatures[parseInt(fi)];
+        const stored  = c.features?.find(f => f.name === feature.name);
+        if (stored) stored.desc = `${opt.label} — ${opt.desc}`;
+        if (opt.effect?.ac)                c.ac               = (c.ac || 10) + opt.effect.ac;
+        if (opt.effect?.rangedAttackBonus) c.rangedAttackBonus = (c.rangedAttackBonus || 0) + opt.effect.rangedAttackBonus;
+        if (opt.effect?.addResource && c.classResources) {
+          const key = opt.effect.addResource.name.replace(/\s+/g, '_').toLowerCase();
+          c.classResources[key] = { name: opt.effect.addResource.name, current: opt.effect.addResource.max, max: opt.effect.addResource.max };
+        }
+        choiceMessages.push(`${feature.name}: ${opt.label}`);
+      });
+
       document.getElementById('modal-levelup').classList.add('hidden');
       this.updateHUD();
+      const choiceStr = choiceMessages.length ? ` (${choiceMessages.join(', ')})` : '';
       window.app.showToast(`🎉 Level ${newLevel}! +${hpGain} HP`, 'success');
-      window.aiSystem?.addSystemMessage(`🎉 ${c.name} reached Level ${newLevel} and gained ${hpGain} HP!`);
+      window.aiSystem?.addSystemMessage(`🎉 ${c.name} reached Level ${newLevel} and gained ${hpGain} HP!${choiceStr}`);
     };
 
     document.getElementById('modal-levelup').classList.remove('hidden');
@@ -2466,6 +2782,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Longsword (1d8 slashing)','Handaxe (1d6 slashing)','Heavy Crossbow (1d10 piercing)'],
     extraItems: ['Shield','Chain Mail','Dungeoneer\'s Pack'],
     languages: 'Common, Dwarvish',
+    wealth: 1840, // 15gp + 35sp + 40cp in copper
     appearance: { bodyType:'muscular', skinTone:'#9a9a9c', hairStyle:'short', hairColor:'#3d2008', eyeColor:'#7a5828', mark:'Battle scar across left cheek' },
   },
   {
@@ -2482,6 +2799,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Mace (1d6 bludgeoning)','Sacred Flame — cantrip (1d8 radiant)','Toll the Dead — cantrip (1d8/1d12 necrotic)'],
     extraItems: ['Holy Water ×2','Prayer Beads','Healing Kit'],
     languages: 'Common, Celestial',
+    wealth: 1825, // 15gp + 30sp + 25cp in copper
     appearance: { bodyType:'slight', skinTone:'#f0dfc4', hairStyle:'long', hairColor:'#ece8e0', eyeColor:'#a0b0c0', mark:'Faint golden glow at brow' },
   },
   {
@@ -2498,6 +2816,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Eldritch Blast — cantrip (1d10 force)','Hex (extra 1d6 necrotic)','Dagger (1d4 piercing)'],
     extraItems: ['Arcane Focus (orb)','Dark Robes','Eldritch Tome'],
     languages: 'Common, Infernal',
+    wealth: 1030, // 8gp + 25sp + 30cp in copper
     appearance: { bodyType:'slight', skinTone:'#6b3f20', hairStyle:'wild', hairColor:'#1a1848', eyeColor:'#6848a0', mark:'Curved horns, arrow-tipped tail' },
   },
   {
@@ -2514,6 +2833,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Shortsword (1d6 piercing)','Sneak Attack (extra 1d6 piercing)','Hand Crossbow (1d6 piercing)'],
     extraItems: ['Thieves\' Tools','Dark Cloak','Caltrops'],
     languages: 'Common, Elvish',
+    wealth: 1265, // 10gp + 25sp + 40cp in copper
     appearance: { bodyType:'slight', skinTone:'#e3c49a', hairStyle:'long', hairColor:'#1a1848', eyeColor:'#4878b0', mark:'Delicate silver ear-cuff with a tiny blade charm' },
   },
   {
@@ -2530,6 +2850,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Greataxe (1d12 slashing)','Reckless Attack','Handaxe (1d6 slashing)'],
     extraItems: ['Bear Pelt Cloak','Healing Potion','Trophy Necklace'],
     languages: 'Common, Orc',
+    wealth: 725, // 5gp + 20sp + 25cp in copper
     appearance: { bodyType:'muscular', skinTone:'#4a2010', hairStyle:'wild', hairColor:'#1a1008', eyeColor:'#3d2008', mark:'Clan brands on both arms' },
   },
   {
@@ -2546,6 +2867,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Rapier (1d8 piercing)','Vicious Mockery — cantrip (1d4 psychic)','Dagger (1d4 piercing)'],
     extraItems: ['Lute','Fine Wine ×2','Disguise Kit'],
     languages: 'Common, Halfling',
+    wealth: 1540, // 12gp + 30sp + 40cp in copper
     appearance: { bodyType:'slight', skinTone:'#c8906a', hairStyle:'curly', hairColor:'#7a4420', eyeColor:'#c89030', mark:'Permanent ink stains on fingers' },
   },
   {
@@ -2562,6 +2884,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Fire Bolt — cantrip (1d10 fire)','Ray of Frost — cantrip (1d8 cold)','Magic Missile (3× 1d4+1 force)'],
     extraItems: ['Crystal Ball','Arcane Tome','Wand of Magic Missiles'],
     languages: 'Common, Elvish, Dwarvish',
+    wealth: 1250, // 10gp + 20sp + 50cp in copper
     appearance: { bodyType:'slight', skinTone:'#e3c49a', hairStyle:'medium', hairColor:'#b0b8c0', eyeColor:'#788090', mark:'Arcane sigil tattooed on right palm' },
   },
   {
@@ -2578,6 +2901,7 @@ const PREMADE_CHARACTERS = [
     attacks: ['Longbow (1d8 piercing)','Shortsword (1d6 piercing)','Hunter\'s Mark (extra 1d6)'],
     extraItems: ['Hunting Trap','Camouflage Cloak','Compass'],
     languages: 'Common, Elvish, Sylvan',
+    wealth: 1225, // 10gp + 20sp + 25cp in copper
     appearance: { bodyType:'athletic', skinTone:'#c8906a', hairStyle:'braided', hairColor:'#d4a640', eyeColor:'#3a7840', mark:'Green ivy tattoo winding up left forearm' },
   },
 ];
@@ -2603,6 +2927,7 @@ CharacterSystem.prototype.loadPremade = function(premadeId) {
     skills:     [...premade.skills],
     skillBonuses: {},
     languages:  premade.languages || (race?.lang ?? 'Common'),
+    startingWealth: premade.wealth || CLASS_STARTING_WEALTH[premade.classId] || 500,
     acOverride:   null,
     initOverride: null,
     attacks:    [...premade.attacks],
