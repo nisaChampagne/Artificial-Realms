@@ -3116,6 +3116,45 @@ input[type=range]::-webkit-slider-thumb {
 }
 .levelup-feature-desc { font-size: 11px; color: var(--text-mid); line-height: 1.5; }
 
+/* ── Level-Up Choice Cards ───────────────────────────────────────────────── */
+.levelup-choice-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+}
+.levelup-choice-btn {
+  width: 100%;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(201,162,39,0.18);
+  border-radius: 6px;
+  padding: 7px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.levelup-choice-btn:hover {
+  border-color: rgba(201,162,39,0.45);
+  background: rgba(201,162,39,0.07);
+}
+.levelup-choice-btn.selected {
+  border-color: var(--gold);
+  background: rgba(201,162,39,0.14);
+  box-shadow: 0 0 0 1px rgba(201,162,39,0.3);
+}
+.levelup-choice-label {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+.levelup-choice-desc {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
 /* ── Rest Modal ───────────────────────────────────────────────────────────── */
 .rest-option {
   display: flex; align-items: center; gap: 14px;

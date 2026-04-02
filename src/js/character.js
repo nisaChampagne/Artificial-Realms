@@ -144,19 +144,34 @@ const CLASS_FEATURES = {
 const CLASS_LEVEL_FEATURES = {
   fighter: {
     2: [{ name:'Action Surge', desc:'Once per short rest, take one additional action on your turn.' }],
-    3: [{ name:'Martial Archetype', desc:'Choose a subclass: Champion, Battle Master, or Eldritch Knight. Each grants unique techniques.' }],
+    3: [{ name:'Martial Archetype', desc:'Choose your martial subclass.', choices: [
+      { label:'Champion',        desc:'Improved Critical — crit on a 19 or 20. Remarkable Athlete for physical checks.',       effect:{} },
+      { label:'Battle Master',   desc:'Superiority Dice (d8s) fuel tactical maneuvers like Trip, Disarm, and Precision Attack.', effect:{ addResource:{ name:'Superiority Dice', max:4 } } },
+      { label:'Eldritch Knight', desc:'Spellcasting from the wizard list. Bond with weapons to teleport them back to your hand.', effect:{} },
+    ]}],
     4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
   },
   wizard: {
-    2: [{ name:'Arcane Tradition', desc:'Choose a school of magic: Evocation, Illusion, Abjuration, Divination, Necromancy, or Transmutation.' }],
+    2: [{ name:'Arcane Tradition', desc:'Choose a school of magic.', choices: [
+      { label:'Evocation',     desc:'Sculpt Spells — exclude allies from blast effects. Potent Cantrip for half-damage on saves.', effect:{} },
+      { label:'Illusion',      desc:'Improved Minor Illusion. Malleable Illusions — change active illusions as a bonus action.',   effect:{} },
+      { label:'Abjuration',    desc:'Arcane Ward — absorb damage with a magical shield fuelled by abjuration spells cast.',        effect:{} },
+      { label:'Divination',    desc:'Portent — roll two d20s at dawn; replace any attack roll or save with a Portent die.',        effect:{} },
+      { label:'Necromancy',    desc:'Grim Harvest — regain HP when you kill with a spell (2× slot level, 3× for necrotic).',       effect:{} },
+      { label:'Transmutation', desc:'Minor Alchemy — temporarily reshape one material into another for 1 hour.',                   effect:{} },
+    ]}],
     3: [{ name:'3rd-Level Spells', desc:'Access to powerful 3rd-level spells. Your Arcane Recovery grows stronger.' }],
     4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'3rd-Level Spell Slots', desc:'Gain two 3rd-level spell slots. Your wizard power reaches a new tier.' }],
   },
   rogue: {
     2: [{ name:'Cunning Action', desc:'As a bonus action: Dash, Disengage, or Hide.' }],
-    3: [{ name:'Roguish Archetype', desc:'Choose a subclass: Thief, Assassin, or Arcane Trickster.' }, { name:'Sneak Attack +1d6', desc:'Sneak Attack now deals 2d6 extra damage on a qualifying hit.' }],
+    3: [{ name:'Roguish Archetype', desc:'Choose your rogue subclass.', choices: [
+      { label:'Thief',           desc:'Fast Hands — bonus action Use Object. Second-Story Work for climbing and jump distance.',   effect:{} },
+      { label:'Assassin',        desc:'Assassinate — auto-crit surprised targets; advantage vs. any creature that hasn\'t acted.', effect:{} },
+      { label:'Arcane Trickster', desc:'Spellcasting from the wizard list. Mage Hand Legerdemain to manipulate objects unseen.',  effect:{} },
+    ]}, { name:'Sneak Attack +1d6', desc:'Sneak Attack now deals 2d6 extra damage on a qualifying hit.' }],
     4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'Uncanny Dodge', desc:'When hit by an attack you can see, use your reaction to halve the damage.' }],
   },
@@ -167,32 +182,59 @@ const CLASS_LEVEL_FEATURES = {
     5: [{ name:'Destroy Undead', desc:'When Turn Undead succeeds, undead of CR 1/2 or lower are instantly destroyed.' }],
   },
   ranger: {
-    2: [{ name:'Fighting Style', desc:'Choose a fighting style: Archery (+2 ranged), Defense (+1 AC), or Two-Weapon Fighting.' }, { name:'Spellcasting', desc:'Cast ranger spells using WIS as your spellcasting ability.' }],
-    3: [{ name:'Primeval Awareness', desc:'Expend a spell slot to sense creatures of certain types within 1 mile (6 in favored terrain).' }, { name:'Ranger Conclave', desc:'Choose a subclass: Hunter, Beast Master, or Gloom Stalker.' }],
+    2: [{ name:'Fighting Style', desc:'Choose a fighting style.', choices: [
+      { label:'Archery',            desc:'+2 bonus to attack rolls made with ranged weapons.',                                    effect:{ rangedAttackBonus:2 } },
+      { label:'Defense',            desc:'+1 bonus to AC while wearing armor.',                                                  effect:{ ac:1 } },
+      { label:'Two-Weapon Fighting', desc:'Add your ability modifier to the damage of your off-hand attack.',                   effect:{} },
+    ]}, { name:'Spellcasting', desc:'Cast ranger spells using WIS as your spellcasting ability.' }],
+    3: [{ name:'Primeval Awareness', desc:'Expend a spell slot to sense creatures of certain types within 1 mile (6 in favored terrain).' }, { name:'Ranger Conclave', desc:'Choose your ranger subclass.', choices: [
+      { label:'Hunter',       desc:'Hunter\'s Prey — choose Colossus Slayer, Giant Killer, or Horde Breaker for combat bonuses.', effect:{} },
+      { label:'Beast Master', desc:'Ranger\'s Companion — bond with a beast that fights alongside you and obeys your commands.',  effect:{} },
+      { label:'Gloom Stalker', desc:'Dread Ambusher — extra attack on first turn; invisible to Darkvision; bonus to Initiative.',  effect:{} },
+    ]}],
     4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
   },
   paladin: {
-    2: [{ name:'Divine Smite', desc:'Expend a spell slot on a melee hit to add 2d8 radiant damage (+1d8 per slot level above 1st).' }, { name:'Fighting Style', desc:'Choose a style: Defense, Dueling, or Great Weapon Fighting.' }, { name:'Spellcasting', desc:'Cast paladin spells using CHA as your spellcasting ability.' }],
-    3: [{ name:'Divine Health', desc:'You are immune to disease.' }, { name:'Sacred Oath', desc:'Choose your oath: Devotion, the Ancients, or Vengeance. Gain oath spells and Channel Divinity options.' }],
+    2: [{ name:'Divine Smite', desc:'Expend a spell slot on a melee hit to add 2d8 radiant damage (+1d8 per slot level above 1st).' }, { name:'Fighting Style', desc:'Choose a fighting style.', choices: [
+      { label:'Defense',              desc:'+1 bonus to AC while wearing armor.',                                                   effect:{ ac:1 } },
+      { label:'Dueling',              desc:'+2 damage bonus when wielding a one-handed weapon and no other weapon.',                effect:{} },
+      { label:'Great Weapon Fighting', desc:'Reroll 1s and 2s on damage dice when using a two-handed or versatile weapon.',        effect:{} },
+      { label:'Protection',           desc:'When a nearby creature is attacked, use your reaction to impose disadvantage.',         effect:{} },
+    ]}, { name:'Spellcasting', desc:'Cast paladin spells using CHA as your spellcasting ability.' }],
+    3: [{ name:'Divine Health', desc:'You are immune to disease.' }, { name:'Sacred Oath', desc:'Swear your sacred oath.', choices: [
+      { label:'Oath of Devotion', desc:'Holy Warrior — Turn the Unholy, Sacred Weapon. Aura of Devotion at level 7.',               effect:{} },
+      { label:'Oath of the Ancients', desc:'Nature\'s Wrath, Turn the Faithless. Aura of Warding at level 7.',                    effect:{} },
+      { label:'Oath of Vengeance', desc:'Abjure Enemy, Vow of Enmity (advantage vs. one target). Relentless Avenger at level 7.', effect:{} },
+    ]}],
     4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'Extra Attack', desc:'Attack twice whenever you take the Attack action on your turn.' }],
   },
   druid: {
-    2: [{ name:'Wild Shape', desc:'Transform into a Beast of CR 1/4 or lower twice per short rest. Lasts 1 hour per druid level.' }, { name:'Druid Circle', desc:'Choose a subclass: Circle of the Land or Circle of the Moon.' }],
+    2: [{ name:'Wild Shape', desc:'Transform into a Beast of CR 1/4 or lower twice per short rest. Lasts 1 hour per druid level.' }, { name:'Druid Circle', desc:'Choose your druid circle.', choices: [
+      { label:'Circle of the Land', desc:'Natural Recovery — regain expended spell slots on a short rest. Bonus circle spells by terrain.', effect:{} },
+      { label:'Circle of the Moon', desc:'Combat Wild Shape — bonus action transform; CR 1 beasts at level 2, CR 3 at level 6.',           effect:{} },
+    ]}],
     3: [{ name:'3rd-Level Spells', desc:'Access to 3rd-level nature spells.' }],
     4: [{ name:'Wild Shape Improvement', desc:'Wild Shape now allows CR 1/2 beasts without flying speed.' }, { name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'Wild Shape (CR 1)', desc:'Wild Shape allows CR 1 beasts with a swimming speed.' }],
   },
   bard: {
     2: [{ name:'Jack of All Trades', desc:'Add half your proficiency bonus to any skill check you are not proficient in.' }, { name:'Song of Rest', desc:'Allies spending Hit Dice on a short rest regain 1d6 extra HP.' }],
-    3: [{ name:'Bard College', desc:'Choose a subclass: College of Lore (extra skills, cutting words) or College of Valor (combat magic).' }, { name:'Expertise', desc:'Double your proficiency bonus for two skills of your choice.' }],
+    3: [{ name:'Bard College', desc:'Choose your bard college.', choices: [
+      { label:'College of Lore',  desc:'Cutting Words — use Bardic Inspiration to subtract from an enemy\'s roll. 3 bonus skill proficiencies.', effect:{} },
+      { label:'College of Valor', desc:'Combat Inspiration — grant an ally a die to add to weapon damage or AC. Medium armor & shields.',        effect:{} },
+    ]}, { name:'Expertise', desc:'Double your proficiency bonus for two skills of your choice.' }],
     4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'Bardic Inspiration d8', desc:'Your Bardic Inspiration die becomes a d8. Font of Inspiration: regain uses on short rest.' }],
   },
   warlock: {
     2: [{ name:'Eldritch Invocations', desc:'Choose 2 Eldritch Invocations: Agonizing Blast, Devil\'s Sight, Mask of Many Faces, Misty Visions, etc.' }],
-    3: [{ name:'Pact Boon', desc:'Choose: Pact of the Chain (familiar), Pact of the Blade (summoned weapon), or Pact of the Tome (3 cantrips + ritual spells).' }],
+    3: [{ name:'Pact Boon', desc:'Choose your pact boon.', choices: [
+      { label:'Pact of the Chain', desc:'Familiar of unusual type (imp, pseudodragon, quasit, or sprite). Can attack in your stead.',       effect:{} },
+      { label:'Pact of the Blade', desc:'Summon a pact weapon of any type as a bonus action. It counts as magical for overcoming resistance.', effect:{} },
+      { label:'Pact of the Tome', desc:'Book of Shadows: gain 3 cantrips from any class list plus ritual casting of two 1st-level spells.',   effect:{} },
+    ]}],
     4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'3rd-Level Pact Slots', desc:'Your pact magic slots are now 3rd level. Gain a 3rd Eldritch Invocation.' }],
   },
@@ -204,13 +246,21 @@ const CLASS_LEVEL_FEATURES = {
   },
   monk: {
     2: [{ name:'Ki', desc:'Gain 2 Ki Points. Use for Flurry of Blows (2 bonus unarmed strikes), Patient Defense (Dodge), or Step of the Wind (Dash/Disengage).' }, { name:'Unarmored Movement', desc:'Speed increases by 10 ft while not wearing armor.' }],
-    3: [{ name:'Monastic Tradition', desc:'Choose a tradition: Way of the Open Hand, Way of Shadow, or Way of the Four Elements.' }, { name:'Deflect Missiles', desc:'Reaction: reduce ranged damage by 1d10 + DEX + monk level. At 0, catch and throw it back.' }],
+    3: [{ name:'Monastic Tradition', desc:'Choose your monastic tradition.', choices: [
+      { label:'Way of the Open Hand', desc:'Open Hand Technique — impose conditions (prone, shove, no reactions) with Flurry of Blows.', effect:{} },
+      { label:'Way of Shadow',        desc:'Shadow Arts — cast minor illusion, darkness, silence, and pass without trace with Ki.',     effect:{} },
+      { label:'Way of the Four Elements', desc:'Elemental Disciplines — spend Ki to cast spells like Burning Hands or Water Whip.',   effect:{} },
+    ]}, { name:'Deflect Missiles', desc:'Reaction: reduce ranged damage by 1d10 + DEX + monk level. At 0, catch and throw it back.' }],
     4: [{ name:'Slow Fall', desc:'Reaction: reduce falling damage by 5× monk level.' }, { name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'Extra Attack', desc:'Attack twice when you take the Attack action.' }, { name:'Stunning Strike', desc:'After hitting, spend 1 Ki: target must pass CON save (DC = 8 + WIS + prof) or be Stunned until your next turn.' }],
   },
   barbarian: {
     2: [{ name:'Reckless Attack', desc:'Advantage on STR attack rolls this turn — but enemies also have advantage against you until next turn.' }, { name:'Danger Sense', desc:'Advantage on DEX saves against visible effects (traps, spells). Must not be blinded, deafened, or incapacitated.' }],
-    3: [{ name:'Primal Path', desc:'Choose a path: Path of the Berserker, Totem Warrior, or Ancestral Guardian. Each grants rage-powered powers.' }],
+    3: [{ name:'Primal Path', desc:'Choose your primal path.', choices: [
+      { label:'Path of the Berserker',       desc:'Frenzy — bonus action attack every turn of rage; one level of exhaustion on rage end.', effect:{} },
+      { label:'Path of the Totem Warrior',   desc:'Totem Spirit — choose Bear (resistance), Eagle (Dash as bonus), or Wolf (knock prone).', effect:{} },
+      { label:'Path of the Ancestral Guardian', desc:'Ancestral Protections — spectral warriors give enemies disadvantage and grant allies resistance.', effect:{} },
+    ]}],
     4: [{ name:'Ability Score Improvement', desc:'Increase one ability score by 2, or two different scores by 1 (max 20).' }],
     5: [{ name:'Extra Attack', desc:'Attack twice when you take the Attack action.' }, { name:'Fast Movement', desc:'Speed increases by 10 ft when not wearing heavy armor.' }],
   },
@@ -2598,24 +2648,11 @@ class CharacterSystem {
     document.getElementById('levelup-avg-hint').textContent =
       `(${avg} HP guaranteed)`;
 
-    // Show new class features
-    const featuresEl = document.getElementById('levelup-features');
-    if (featuresEl) {
-      if (newFeatures.length > 0) {
-        featuresEl.innerHTML = `<div class="levelup-features-title">New Abilities</div>` +
-          newFeatures.map(f => `<div class="levelup-feature-item">
-            <div class="levelup-feature-name">${f.name}</div>
-            <div class="levelup-feature-desc">${f.desc}</div>
-          </div>`).join('');
-        featuresEl.classList.remove('hidden');
-      } else {
-        featuresEl.classList.add('hidden');
-      }
-    }
+    // ── HP state ──────────────────────────────────────────────────
     document.getElementById('levelup-hp-result').textContent = '';
     document.getElementById('levelup-hp-result').className  = 'levelup-hp-result hidden';
 
-    const rollBtn   = document.getElementById('btn-levelup-roll');
+    const rollBtn = document.getElementById('btn-levelup-roll');
     rollBtn.disabled    = false;
     rollBtn.textContent = '🎲 Roll HP';
     rollBtn._rollCount  = 0;
@@ -2624,18 +2661,66 @@ class CharacterSystem {
     confirmBtn.disabled = true;
     let hpGain = 0;
 
+    // ── Choice tracking ───────────────────────────────────────────
+    const choicesMade     = {}; // featureIndex → chosen option object
+    const requiredChoices = newFeatures.filter(f => f.choices?.length > 0).length;
+
+    const updateConfirmState = () => {
+      const choicesDone = Object.keys(choicesMade).length >= requiredChoices;
+      confirmBtn.disabled = hpGain === 0 || !choicesDone;
+    };
+
     const applyGain = (gain) => {
       hpGain = Math.max(1, gain);
       const el = document.getElementById('levelup-hp-result');
       el.textContent = `+${hpGain} HP`;
       el.className   = 'levelup-hp-result';
-      confirmBtn.disabled = false;
+      updateConfirmState();
     };
 
-    document.getElementById('btn-levelup-roll').onclick = () => {
-      const rollBtn = document.getElementById('btn-levelup-roll');
-      const rolls   = (rollBtn._rollCount = (rollBtn._rollCount || 0) + 1);
-      const roll    = Math.floor(Math.random() * hpDie) + 1;
+    // ── Feature display ───────────────────────────────────────────
+    const featuresEl = document.getElementById('levelup-features');
+    if (featuresEl) {
+      if (newFeatures.length > 0) {
+        featuresEl.innerHTML = '<div class="levelup-features-title">New Abilities</div>' +
+          newFeatures.map((f, idx) => {
+            let html = `<div class="levelup-feature-item">
+              <div class="levelup-feature-name">${f.name}</div>
+              <div class="levelup-feature-desc">${f.desc}</div>`;
+            if (f.choices?.length > 0) {
+              html += `<div class="levelup-choice-grid" data-feature="${idx}">` +
+                f.choices.map((opt, oi) =>
+                  `<button class="levelup-choice-btn" data-feature="${idx}" data-option="${oi}">
+                    <div class="levelup-choice-label">${opt.label}</div>
+                    <div class="levelup-choice-desc">${opt.desc}</div>
+                  </button>`
+                ).join('') + '</div>';
+            }
+            return html + '</div>';
+          }).join('');
+        featuresEl.classList.remove('hidden');
+
+        // Wire choice buttons
+        featuresEl.querySelectorAll('.levelup-choice-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const fi = btn.dataset.feature;
+            const oi = parseInt(btn.dataset.option);
+            featuresEl.querySelectorAll(`.levelup-choice-btn[data-feature="${fi}"]`)
+              .forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            choicesMade[fi] = newFeatures[parseInt(fi)].choices[oi];
+            updateConfirmState();
+          });
+        });
+      } else {
+        featuresEl.classList.add('hidden');
+      }
+    }
+
+    // ── Roll / avg handlers ───────────────────────────────────────
+    rollBtn.onclick = () => {
+      const rolls = (rollBtn._rollCount = (rollBtn._rollCount || 0) + 1);
+      const roll  = Math.floor(Math.random() * hpDie) + 1;
       applyGain(roll + conMod);
       if (rolls >= 2) {
         rollBtn.disabled    = true;
@@ -2643,21 +2728,34 @@ class CharacterSystem {
       }
     };
 
-    document.getElementById('btn-levelup-avg').onclick = () => {
-      applyGain(avg);
-    };
+    document.getElementById('btn-levelup-avg').onclick = () => applyGain(avg);
 
+    // ── Confirm ───────────────────────────────────────────────────
     confirmBtn.onclick = () => {
       c.maxHp     += hpGain;
       c.currentHp += hpGain;
-      
-      // Track max HP for achievements
       window.achievementSystem?.track('max_hp', c.maxHp);
-      
+
+      // Apply choices: update feature description and any direct stat effects
+      const choiceMessages = [];
+      Object.entries(choicesMade).forEach(([fi, opt]) => {
+        const feature = newFeatures[parseInt(fi)];
+        const stored  = c.features?.find(f => f.name === feature.name);
+        if (stored) stored.desc = `${opt.label} — ${opt.desc}`;
+        if (opt.effect?.ac)                c.ac               = (c.ac || 10) + opt.effect.ac;
+        if (opt.effect?.rangedAttackBonus) c.rangedAttackBonus = (c.rangedAttackBonus || 0) + opt.effect.rangedAttackBonus;
+        if (opt.effect?.addResource && c.classResources) {
+          const key = opt.effect.addResource.name.replace(/\s+/g, '_').toLowerCase();
+          c.classResources[key] = { name: opt.effect.addResource.name, current: opt.effect.addResource.max, max: opt.effect.addResource.max };
+        }
+        choiceMessages.push(`${feature.name}: ${opt.label}`);
+      });
+
       document.getElementById('modal-levelup').classList.add('hidden');
       this.updateHUD();
+      const choiceStr = choiceMessages.length ? ` (${choiceMessages.join(', ')})` : '';
       window.app.showToast(`🎉 Level ${newLevel}! +${hpGain} HP`, 'success');
-      window.aiSystem?.addSystemMessage(`🎉 ${c.name} reached Level ${newLevel} and gained ${hpGain} HP!`);
+      window.aiSystem?.addSystemMessage(`🎉 ${c.name} reached Level ${newLevel} and gained ${hpGain} HP!${choiceStr}`);
     };
 
     document.getElementById('modal-levelup').classList.remove('hidden');
