@@ -78,20 +78,30 @@ Create characters, explore atmospheric dungeons, engage in tactical combat, cast
 ### 🏆 **Achievements**
 - **Per-character milestones** — unlock achievements like "First Blood," "Boss Slayer," "Lore Hunter," "Quest Master"
 - **Progress tracking** — each saved character maintains separate achievement progress
-- **15+ achievements** — from first combat to reaching level 5 and beyond
+- **29+ achievements** — across 7 categories: Combat, Survival, Progression, Wealth, Inventory, Exploration, and Narrative
+
+### 🌍 **World State**
+- **Time of day** — Dawn, Morning, Afternoon, Dusk, Evening, Night with gameplay and audio effects
+- **Dynamic weather** — Clear, Cloudy, Rain, Storm, Fog, Snow with mechanical consequences (disadvantage on perception in rain, difficult terrain in snow)
+- **Day tracking** — campaign day counter fed to the AI for narrative continuity
+- **Weather audio** — dynamic rain and storm ambient sounds
 
 ### 🎮 **Quality of Life**
 - **Character sheets** — parchment-styled stat blocks with portrait, skills, equipment, proficiencies, and XP bar
 - **Mini HP bar** — always-visible health indicator in the game toolbar
-- **Keyboard shortcuts** — `1`-`4` (choices), `R` (roll dice), `C` (character sheet), `D` (dice), `J` (journal), `Esc` (close modals)
+- **Keyboard shortcuts** — `1`-`9` (choices), `R` (roll dice), `C` (character sheet), `D` (dice), `J` (journal), `Esc` (close modals)
 - **Scene-aware audio** — ambient music shifts dynamically (dungeon, tavern, forest, combat, boss fight, rest)
-- **Minimap** — top-down visual representation of your current location
+- **Minimap** — top-down visual with NPCs, objects, and enemies rendered on the map alongside terrain
+- **Floating combat text** — damage and healing numbers float above characters in real time
 - **Auto-update** — in-app notifications when new versions are available
 
 ### 🤖 **AI Dungeon Master**
 - **Multi-provider support** — OpenAI, Azure OpenAI, Ollama, or any OpenAI-compatible endpoint
 - **Live streaming responses** — watch the story unfold word-by-word as the AI narrates
 - **Demo mode** — fully scripted adventure (no API key required) from tavern to boss fight
+- **Campaign types** — Quick (~1 hour), Standard (3–4 hours), Epic (8+ hours), or Custom
+- **Difficulty settings** — Cozy (3d6 stats), Adventure (2d6), Hard (1d6)
+- **Scene-synced transitions** — map and audio wait for AI response before updating location
 - **Optional TTS narration** — text-to-speech with configurable voice and speed
 - **Connection test** — verify your API key and model before starting a campaign
 
@@ -212,7 +222,7 @@ Artificial-Realms/
 
 ## 📦 Release Notes
 
-### **Latest Release: v2.2.5**
+### **Latest Release: v3.0.0**
 
 Releases are built automatically via GitHub Actions when you create a new release tag.
 
@@ -318,24 +328,46 @@ Unlock milestones as you play. Achievements are **per-character** — each saved
 **Combat Achievements:**
 - ⚔ **First Blood** — Defeat your first enemy in combat
 - 🐲 **Boss Slayer** — Defeat a boss-level enemy
+- 🎯 **Critical Success** — Land a natural 20
+- 🎲 **Lucky Streak** — Roll three natural 20s in a campaign
+- 🏅 **Battle Scarred** — Win 10 combat encounters
+
+**Survival Achievements:**
 - 💀 **Survivor** — Succeed on a Death Saving Throw
-- ❤ **Iron Will** — Survive a battle with 3 HP or less
+- ❤ **Iron Will** — Survive with 3 HP or less
+- 💔 **Near Death** — Survive with exactly 1 HP
+- 🛡️ **Tough as Nails** — Reach 50 or more max HP
+- 🌙 **Well Rested** — Take a Long Rest
 
 **Progression Achievements:**
 - ⭐ **Rising Star** — Reach Level 2
 - 🏆 **Champion** — Reach Level 5
+- 👑 **Hero of Legend** — Reach Level 10
+- ✨ **Inspired** — Spend Inspiration on a roll
+
+**Wealth Achievements:**
+- 🪙 **First Coin** — Earn your first gold piece
+- 💰 **Merchant Prince** — Accumulate 100 GP
+- 💸 **Big Spender** — Spend 50 GP
+- 🛍️ **Bargain Hunter** — Sell 20 items
+
+**Inventory & Items Achievements:**
+- 🎒 **Pack Rat** — Carry 10 or more items at once
+- 📦 **Hoarder** — Carry 25 or more items
+- ⚔ **Fully Armed** — Fill 5 equipment slots
+- 🧪 **Potion Addict** — Acquire 10 consumables
+- ✨ **Enchanted** — Obtain a magic item
 
 **Exploration Achievements:**
+- 🗺️ **Explorer** — Visit 3 different locations
+- 🧭 **Cartographer** — Visit 10 different locations
+- ⛏️ **Dungeon Delver** — Enter a dungeon
+
+**Narrative Achievements:**
 - 📜 **Lore Hunter** — Discover 5 pieces of lore
 - 📋 **Quest Master** — Complete 3 quests
 - 📖 **Storyteller** — Play through 50 narrative turns
-
-**Collection Achievements:**
-- 🎒 **Pack Rat** — Carry 10 or more items at once
-
-**Other Achievements:**
-- 🌙 **Well Rested** — Take a Long Rest
-- ✨ **Inspired** — Spend Inspiration on a critical roll
+- 📚 **Epic Tale** — Play through 100 narrative turns
 
 **Viewing Achievements:**
 - Open Campaign Journal (`J` key)
@@ -359,7 +391,7 @@ Share characters across campaigns or back them up as JSON files.
 2. **What Gets Exported:**
    ```json
    {
-     "version": "2.2.5",
+     "version": "3.0.0",
      "exportedAt": "2026-04-01T15:30:00.000Z",
      "character": {
        "name": "Thorin Ironwall",
@@ -406,7 +438,7 @@ Master these hotkeys for lightning-fast gameplay:
 
 | Key | Action | Context |
 |-----|--------|---------|
-| **1**–**9** | Select numbered choice | Choice selection |
+| **1**–**9** | Select choice | Choice selection |
 | **R** | Roll dice | Open dice roller modal |
 | **C** | Character sheet | View full stat block |
 | **D** | Dice roller | Manual dice rolling |
