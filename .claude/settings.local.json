@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /c/source/fun/Artificial-Realms/src/js/*.js)",
+      "Bash(grep -n \"saveCharacter\\\\|saveGame\" c:/source/fun/Artificial-Realms/src/js/*.js)"
+    ]
+  }
+}

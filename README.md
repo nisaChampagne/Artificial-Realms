@@ -87,11 +87,12 @@ Create characters, explore atmospheric dungeons, engage in tactical combat, cast
 - **Weather audio** — dynamic rain and storm ambient sounds
 
 ### 🎮 **Quality of Life**
-- **Character sheets** — parchment-styled stat blocks with portrait, skills, equipment, proficiencies, and XP bar
+- **Character sheets** — parchment-styled stat blocks with subclass badge, level-tagged abilities, portrait, skills, equipment, proficiencies, and XP bar
+- **Subclass display** — chosen subclass appears in the sheet meta grid once selected; class features sorted by subclass → level gained → background traits
 - **Mini HP bar** — always-visible health indicator in the game toolbar
-- **Keyboard shortcuts** — `1`-`9` (choices), `R` (roll dice), `C` (character sheet), `D` (dice), `J` (journal), `Esc` (close modals)
+- **Keyboard shortcuts** — `1`-`9` (choices), `W/A/S/D` & arrow keys (map movement), `M` (minimap toggle), `C` (character sheet), `J` (journal), `I` (inventory), `Esc` (close modals)
 - **Scene-aware audio** — ambient music shifts dynamically (dungeon, tavern, forest, combat, boss fight, rest)
-- **Minimap** — top-down visual with NPCs, objects, and enemies rendered on the map alongside terrain
+- **Minimap** — living top-down canvas map that reacts to the story: named location labels, WASD/arrow movement, fog of war, footprint trail, NPC wander, weather overlay, room labels, wall collision effects, and a red pulsing combat border while enemies are active
 - **Floating combat text** — damage and healing numbers float above characters in real time
 - **Auto-update** — in-app notifications when new versions are available
 
@@ -223,6 +224,16 @@ Artificial-Realms/
 ## 📦 Release Notes
 
 ### **Latest Release: v3.0.0**
+
+**v3.0.0 Highlights:**
+- Subclass system — choose your archetype at the right level; shown on character sheet with gold badge and sorted feature display
+- Living minimap — named location labels, combat pulse border, attitude-colored NPC labels, enemy cleanup on combat end
+- Demo mode stability — scenes only change on true location transitions, not on every narrative choice
+- Wall collision interactions — bump animation, thud sound, screen flash, dust particles
+- WASD/arrow key movement with fog of war reveal; M key toggles minimap
+- Floating damage and healing text above map entities
+- Room labels via BFS flood fill; atmospheric particles per scene; weather, footprint trail, enemy/NPC wander
+- `[LOCATION:Name]` tag — AI can name the specific place ("The Tarnished Flagon") not just the scene type ("tavern")
 
 Releases are built automatically via GitHub Actions when you create a new release tag.
 
@@ -376,6 +387,63 @@ Unlock milestones as you play. Achievements are **per-character** — each saved
 
 ---
 
+### 🗺️ Living Minimap
+
+The minimap is a top-down canvas renderer that reacts dynamically to the story as it unfolds.
+
+**Navigation:**
+- Move your character with `W`/`A`/`S`/`D` or arrow keys
+- Fog of war lifts as you explore — tiles stay revealed
+- Press `M` to toggle the minimap panel on or off
+- Collision with walls produces a thud sound, directional screen flash, and dust particles
+
+**Story Connection:**
+- **Named locations** — when the AI (or demo) knows the place name, the map header shows it: "The Tarnished Flagon," "Cave Beneath the Mill," "Ritual Chamber, Greyvast Keep" instead of generic labels
+- **NPC markers** — narrative characters appear on the map with attitude-colored labels: green (Friendly), red (Hostile), amber (Captive); disappear when defeated
+- **Enemy sprites** — combat enemies wander the map; enemies and hostile NPCs are cleared automatically when `[ENEMY:clear]` fires
+- **Combat pulse** — a red vignette ring breathes around the map edges whenever an active enemy is present; vanishes when combat ends
+- **Weather overlay** — rain, storm, fog, and snow render as canvas overlays driven by world state
+- **Time of day** — dawn and dusk tints, evening and night darkness applied to the canvas
+
+**Map Layers (from bottom to top):**
+1. Terrain tiles (walls, floors, water, trees) with scene-palette colors and depth edges
+2. Map objects inferred from narrative prose (altars, tables, chests)
+3. Named landmarks and quest markers
+4. Footprint trail showing where the player has walked
+5. Enemies and NPCs with role icons and attitude glows
+6. Player sprite with bump-animation offset on wall collision
+7. Atmospheric particles (dust, embers, leaves, drips, fireflies, spirits)
+8. Weather overlay + time-of-day tint
+9. Vignette + combat pulse border
+10. Compass rose (top-right corner)
+
+**Room Labels:**
+Room detection uses BFS flood fill to identify connected floor regions. Each room is labeled based on its contents: "Treasure Room" (chest present), "Boss Chamber" (large room with enemy), "Entrance Hall" (near player start), etc.
+
+---
+
+### ⬆️ Leveling Up & Subclasses
+
+When your character gains enough XP to level up, the **Level Up modal** opens automatically.
+
+**HP Roll:**
+- Click **🎲 Roll HP** to roll your class hit die + CON modifier (up to 2 rolls)
+- Click **Take Average** for the guaranteed average result
+- You must confirm HP before the level is applied
+
+**Feature Choices (Subclasses & Styles):**
+- Features with choices (Martial Archetype, Sacred Oath, Druid Circle, etc.) appear as selectable cards
+- Click a card to choose your subclass or fighting style
+- Confirm is locked until all required choices are made
+
+**Character Sheet Display:**
+- **Subclass** appears as its own row in the identity grid (between Class and Level), hidden until chosen
+- Class features gained at level up show a **Lvl N** badge
+- Subclass abilities show a gold **Subclass** badge and a left-border highlight
+- Features are sorted: subclass abilities first → class features by level → background traits
+
+---
+
 ### 💾 Character Import/Export
 
 Share characters across campaigns or back them up as JSON files.
@@ -439,21 +507,22 @@ Master these hotkeys for lightning-fast gameplay:
 | Key | Action | Context |
 |-----|--------|---------|
 | **1**–**9** | Select choice | Choice selection |
+| **W A S D** | Move player on map | Map exploration |
+| **Arrow keys** | Move player on map | Map exploration |
+| **M** | Toggle minimap | Show / hide map panel |
 | **R** | Roll dice | Open dice roller modal |
 | **C** | Character sheet | View full stat block |
-| **D** | Dice roller | Manual dice rolling |
-| **I** | Inventory | Item management |
 | **J** | Journal | Campaign memory & quests |
-| **M** | Minimap | Toggle map visibility |
-| **S** | Settings | Audio, AI, display options |
+| **I** | Inventory | Item management |
 | **Escape** | Close modal | Return to game |
 | **Ctrl+S** | Quick save | Save to last used slot |
 | **F11** | Fullscreen | Toggle fullscreen mode |
 
 **Pro Tips:**
+- WASD and arrow keys move your character on the map and reveal fog of war — movement is blocked when a modal or input field is active
+- Wall collisions produce a thud sound, a screen flash, and a small dust burst
 - Choices can be selected by number key *before* the DM finishes typing
 - Press `Escape` repeatedly to close nested modals
-- Keyboard shortcuts work even when modals are open (except text inputs)
 
 ---
 

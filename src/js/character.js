@@ -1427,6 +1427,25 @@ class CharacterSystem {
     document.getElementById('s-class').textContent = c.class;
     document.getElementById('s-level').textContent = c.level;
     document.getElementById('s-bg').textContent    = c.background;
+
+    // Subclass — stored on c.subclass, or detected from features for older saves
+    const SUBCLASS_FEAT_NAMES = new Set([
+      'Martial Archetype','Arcane Tradition','Roguish Archetype','Ranger Conclave',
+      'Sacred Oath','Druid Circle','Bard College','Pact Boon','Monastic Tradition','Primal Path'
+    ]);
+    let subclassName = c.subclass;
+    if (!subclassName) {
+      const subFeat = (c.features || []).find(f => SUBCLASS_FEAT_NAMES.has(f.name) && !f.desc.startsWith('Choose your'));
+      if (subFeat) subclassName = subFeat.desc.split(' — ')[0];
+    }
+    const subclassRow = document.getElementById('s-subclass-row');
+    const subclassEl  = document.getElementById('s-subclass');
+    if (subclassName && subclassRow && subclassEl) {
+      subclassEl.textContent   = subclassName;
+      subclassRow.style.display = '';
+    } else if (subclassRow) {
+      subclassRow.style.display = 'none';
+    }
     // Portrait — show AI-generated image if available, otherwise SVG
     const ap = c.appearance || {};
     const frame   = document.getElementById('sheet-portrait-frame');
@@ -1749,11 +1768,25 @@ class CharacterSystem {
       };
     });
 
-    // Features
+    // Features — grouped: subclass first, then class features by level, then traits
     const fl = document.getElementById('features-list');
-    fl.innerHTML = (c.features || []).map(f =>
-      `<div class="feature-item"><div class="feature-name">${f.name}</div><div class="feature-desc">${f.desc}</div></div>`
-    ).join('');
+    const features = c.features || [];
+    const subclassFeats = features.filter(f => f.isSubclass || SUBCLASS_FEAT_NAMES.has(f.name) && !f.desc.startsWith('Choose your'));
+    const classFeats    = features.filter(f => f.level && !subclassFeats.includes(f));
+    const traitFeats    = features.filter(f => !f.level && !subclassFeats.includes(f));
+    const orderedFeats  = [...subclassFeats, ...classFeats, ...traitFeats];
+    fl.innerHTML = orderedFeats.map(f => {
+      const isSubclassFeat = f.isSubclass || (SUBCLASS_FEAT_NAMES.has(f.name) && !f.desc.startsWith('Choose your'));
+      const badge = isSubclassFeat
+        ? `<span class="feature-badge feature-badge-subclass">Subclass</span>`
+        : f.level
+          ? `<span class="feature-badge feature-badge-level">Lvl ${f.level}</span>`
+          : '';
+      return `<div class="feature-item${isSubclassFeat ? ' feature-item-subclass' : ''}">
+        <div class="feature-name-row">${badge}<span class="feature-name">${f.name}</span></div>
+        <div class="feature-desc">${f.desc}</div>
+      </div>`;
+    }).join('');
 
     // Equipment
     const el = document.getElementById('equip-list');
@@ -2619,7 +2652,7 @@ class CharacterSystem {
       // Add new class features unlocked at this level
       const newFeatures = getLevelFeatures(this.character.classId, newLevel);
       if (newFeatures.length > 0) {
-        this.character.features = [...(this.character.features || []), ...newFeatures];
+        this.character.features = [...(this.character.features || []), ...newFeatures.map(f => ({ ...f, level: newLevel }))];
       }
 
       window.achievementSystem?.track('level_up', newLevel);
@@ -2737,11 +2770,21 @@ class CharacterSystem {
       window.achievementSystem?.track('max_hp', c.maxHp);
 
       // Apply choices: update feature description and any direct stat effects
+      const SUBCLASS_FEATURE_NAMES = new Set([
+        'Martial Archetype','Arcane Tradition','Roguish Archetype','Ranger Conclave',
+        'Sacred Oath','Druid Circle','Bard College','Pact Boon','Monastic Tradition','Primal Path'
+      ]);
       const choiceMessages = [];
       Object.entries(choicesMade).forEach(([fi, opt]) => {
         const feature = newFeatures[parseInt(fi)];
         const stored  = c.features?.find(f => f.name === feature.name);
-        if (stored) stored.desc = `${opt.label} — ${opt.desc}`;
+        if (stored) {
+          stored.desc = `${opt.label} — ${opt.desc}`;
+          if (SUBCLASS_FEATURE_NAMES.has(feature.name)) {
+            stored.isSubclass = true;
+            c.subclass = opt.label;
+          }
+        }
         if (opt.effect?.ac)                c.ac               = (c.ac || 10) + opt.effect.ac;
         if (opt.effect?.rangedAttackBonus) c.rangedAttackBonus = (c.rangedAttackBonus || 0) + opt.effect.rangedAttackBonus;
         if (opt.effect?.addResource && c.classResources) {
