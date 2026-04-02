@@ -704,6 +704,11 @@ class AISystem {
       }
     }
 
+    // Passive skill scores for the DM context
+    const allProfSkills = new Set([...(c.bgSkills || []), ...(c.extraSkillProf || [])]);
+    const passivePerc = 10 + mods.wis + (allProfSkills.has('Perception')    ? c.profBonus : 0);
+    const passiveInv  = 10 + mods.int + (allProfSkills.has('Investigation') ? c.profBonus : 0);
+
     return `You are a master Dungeon Master running ${CAMPAIGN_DESC[campaignType] || CAMPAIGN_DESC.standard}
 ${campaignType === 'custom' && customDesc ? `The player has requested: "${customDesc}"` : ''}
 
@@ -716,6 +721,7 @@ HP:         ${c.currentHp}/${c.maxHp}
 AC:         ${c.ac}    Speed: ${c.speed}ft    Proficiency: +${c.profBonus}
 STR ${c.stats.str}(${modStr(mods.str)})  DEX ${c.stats.dex}(${modStr(mods.dex)})  CON ${c.stats.con}(${modStr(mods.con)})
 INT ${c.stats.int}(${modStr(mods.int)})  WIS ${c.stats.wis}(${modStr(mods.wis)})  CHA ${c.stats.cha}(${modStr(mods.cha)})
+Passive Perception: ${passivePerc}    Passive Investigation: ${passiveInv}
 Equipment:  ${(c.equipment || []).slice(0,4).join(', ')}${spellInfo}
 ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 ═══ DM INSTRUCTIONS ═══
@@ -752,6 +758,12 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
   - For concentration spells, add :C at the end: [CAST:Bless:1:C]
   - The system will consume the spell slot and track concentration automatically
   - Cantrips don't require the CAST tag since they don't use slots
+• When the player casts a spell as a RITUAL (no spell slot consumed), include: [RITUAL:SpellName]
+  - Example: "You spend 10 minutes performing the ritual. [RITUAL:Detect Magic]"
+  - Only spells with the Ritual tag can be cast this way (Detect Magic, Identify, Alarm, Find Familiar, etc.)
+  - Ritual casting takes 10 minutes — NEVER allow ritual casting during active combat
+  - Ritual casting does NOT consume a spell slot
+  - Warlocks cannot ritual cast unless they have Book of Ancient Secrets
 • When a character gains a condition, include: [CONDITION:Name:Duration]
   - Example: [CONDITION:Poisoned:3] for 3 rounds of poisoning
   - Common conditions: Poisoned, Frightened, Paralyzed, Stunned, Blinded, Restrained
@@ -807,6 +819,8 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
 • When the character gains or loses gold pieces, include [GOLD:+N] or [GOLD:-N] (e.g. [GOLD:+50]). For smaller rewards use [SILVER:+N] (silver pieces) or [COPPER:+N] (copper pieces). 10 sp = 1 gp, 10 cp = 1 sp. Use silver for tavern tips, small jobs, minor loot. Use copper for trivial finds (beggar's coin, table scraps). Use gold for meaningful treasure.
 • If the character dies, include [DEAD].
 • When the adventure concludes successfully, include [WIN].
+• Use the character's **Passive Perception** automatically: if a hidden creature, trap, or secret door has a DC at or below their Passive Perception, they notice it without needing a roll — narrate the discovery naturally. Only call for an active Perception check if the DC exceeds their passive score.
+• Use the character's **Passive Investigation** similarly for environmental clues, hidden compartments, or subtle details they would notice just by being observant in a location.
 • Keep implied D&D 5e rules: proficiency, saving throws, spell slots, etc.
 • NEVER break character or mention that you are an AI.
 • Maintain a consistent tone: dark and atmospheric for dungeons/caves, warm for taverns, epic for boss fights.
@@ -1207,6 +1221,14 @@ ${worldContext ? worldContext + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '
             const charName = window.characterSystem?.character?.name || 'You';
             const concText = requiresConcentration ? ' (Concentration)' : '';
             this._addSystemEntry(`✨ ${charName} casts ${spellName}${concText}`);
+          }
+          break;
+        }
+        case 'RITUAL': {
+          const spellName = val.trim();
+          if (spellName) {
+            const charName = window.characterSystem?.character?.name || 'You';
+            this._addSystemEntry(`🔆 ${charName} performs a ritual: <strong>${this._escapeHtml(spellName)}</strong> <span style="color:var(--text-dim)">(no slot consumed)</span>`);
           }
           break;
         }

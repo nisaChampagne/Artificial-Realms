@@ -697,6 +697,8 @@
           <div class="smg-item"><span class="smg-label">Speed</span><span class="smg-val smg-editable" id="s-speed" contenteditable="true" spellcheck="false" title="Click to edit">30 ft</span></div>
           <div class="smg-item"><span class="smg-label">Prof. Bonus</span><span class="smg-val" id="s-prof">+2</span></div>
           <div class="smg-item" style="display:none"><span class="smg-label">Spell Save DC</span><span class="smg-val" id="s-spell-save-dc">13</span></div>
+          <div class="smg-item" title="10 + Perception modifier. Used automatically for noticing hidden threats."><span class="smg-label">Passive Perception</span><span class="smg-val" id="s-passive-perception">10</span></div>
+          <div class="smg-item" title="10 + Investigation modifier. Used automatically for spotting environmental clues."><span class="smg-label">Passive Investigation</span><span class="smg-val" id="s-passive-investigation">10</span></div>
         </div>
         <div class="appear-block">
           <div class="smg-label">Appearance</div>
@@ -735,17 +737,17 @@
           <div id="class-resources-grid"></div>
         </div>
         <div class="action-economy-block" id="action-economy-block">
-          <h4>Actions This Turn</h4>
+          <h4>Actions This Turn <span style="font-size:10px;font-weight:normal;color:var(--text-dim)">(click to toggle)</span></h4>
           <div class="action-economy-grid">
-            <div class="action-pill" id="action-pill-action">
+            <div class="action-pill action-pill-clickable" id="action-pill-action" title="Click to mark Action as used/available">
               <span class="action-pill-icon">⚔️</span>
               <span class="action-pill-label">Action</span>
             </div>
-            <div class="action-pill" id="action-pill-bonus">
+            <div class="action-pill action-pill-clickable" id="action-pill-bonus" title="Click to mark Bonus Action as used/available">
               <span class="action-pill-icon">⚡</span>
               <span class="action-pill-label">Bonus</span>
             </div>
-            <div class="action-pill" id="action-pill-reaction">
+            <div class="action-pill action-pill-clickable" id="action-pill-reaction" title="Reactions trigger on enemy turns — Shield, Opportunity Attack, Counterspell, etc. Click to mark used/available.">
               <span class="action-pill-icon">🛡️</span>
               <span class="action-pill-label">Reaction</span>
             </div>
@@ -848,15 +850,15 @@
       <button class="modal-x" id="close-modal-rest">✕</button>
     </div>
     <div class="modal-body" style="gap:16px">
-      <div class="rest-option" id="rest-short">
+      <div class="rest-option" id="rest-short" title="Click to show/hide hit dice controls">
         <div class="rest-icon">⏱</div>
         <div class="rest-info">
           <div class="rest-title">Short Rest</div>
-          <div class="rest-desc">Spend up to <span id="rest-hd-count">1</span> Hit Dice to recover HP. Takes ~1 hour.</div>
+          <div class="rest-desc">Roll Hit Dice to recover HP. <strong><span id="rest-hd-count">1</span> d<span id="rest-hd-die-inline">8</span></strong> available. Takes ~1 hour.</div>
         </div>
       </div>
-      <div class="rest-hd-row hidden" id="rest-hd-row">
-        <span class="rest-hd-label">Hit Dice to spend:</span>
+      <div class="rest-hd-row" id="rest-hd-row">
+        <span class="rest-hd-label">Dice to spend:</span>
         <button class="cnt-btn" id="rest-hd-minus">−</button>
         <span id="rest-hd-val">1</span>
         <button class="cnt-btn" id="rest-hd-plus">+</button>
@@ -1060,6 +1062,11 @@
           <span class="inv-currency-unit">cp</span>
         </div>
         <button class="inv-market-btn hidden" id="btn-open-market">🏪 Visit Market</button>
+        <div class="inv-attune-bar" id="inv-attune-bar" style="display:none">
+          <span class="inv-attune-icon">✨</span>
+          <span class="inv-attune-label">Attunement:</span>
+          <span class="inv-attune-count" id="inv-attune-count">0/3</span>
+        </div>
       </div>
       <div id="inventory-items" class="inventory-list"></div>
     </div>

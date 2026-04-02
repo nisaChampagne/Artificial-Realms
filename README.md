@@ -48,7 +48,7 @@ Create characters, explore atmospheric dungeons, engage in tactical combat, cast
 
 ### ⚔️ **Combat & Dice**
 - **Initiative system** — roll initiative at combat start; turn order tracked automatically with action reset per turn
-- **Action economy** — action, bonus action, and reaction tracking with visual indicators
+- **Action economy** — action, bonus action, and **reaction** tracking with visual indicators; click any pill to manually mark it used or available (reactions trigger on *enemy* turns — Shield, Opportunity Attack, Counterspell, Hellish Rebuke)
 - **Death saving throws** — three strikes and you're out (or revived!)
 - **Attack rolls vs AC** — realistic 1d20 + modifiers against enemy Armor Class
 - **Critical hits** — double dice damage (RAW D&D 5e rules)
@@ -58,6 +58,7 @@ Create characters, explore atmospheric dungeons, engage in tactical combat, cast
 ### ✨ **Magic & Spellcasting**
 - **Spell slots** — accurate D&D 5e progression for all 9 spellcaster classes
 - **Spell consumption** — slots automatically consumed when casting; restored on long rest
+- **Ritual casting** — cast ritual-tagged spells without consuming a slot (10 minutes, no combat); DM uses `[RITUAL:SpellName]` to log it clearly
 - **Concentration tracking** — cast a concentration spell and take damage? Roll a CON save or lose the spell
 - **Spell Save DC** — auto-calculated (8 + proficiency bonus + spellcasting modifier)
 - **Class resources** — Second Wind (Fighter), Rage (Barbarian), Ki Points (Monk), Channel Divinity (Cleric), Lay on Hands (Paladin), Bardic Inspiration (Bard)
@@ -87,7 +88,10 @@ Create characters, explore atmospheric dungeons, engage in tactical combat, cast
 - **Weather audio** — dynamic rain and storm ambient sounds
 
 ### 🎮 **Quality of Life**
-- **Character sheets** — parchment-styled stat blocks with subclass badge, level-tagged abilities, portrait, skills, equipment, proficiencies, and XP bar
+- **Character sheets** — parchment-styled stat blocks with subclass badge, level-tagged abilities, portrait, skills, equipment, proficiencies, XP bar, **Passive Perception**, and **Passive Investigation**
+- **Passive scores** — Passive Perception and Passive Investigation displayed on sheet and sent to the AI; the DM uses them automatically to reveal traps, hidden creatures, and environmental clues without a roll when the DC is low enough
+- **Attunement system** — magic items requiring attunement now enforce the 3-slot cap; Attune/Unattune button in the item inspector; attunement counter in the inventory header
+- **Short rest** — hit dice controls expand automatically when the rest modal opens; no extra click required
 - **Subclass display** — chosen subclass appears in the sheet meta grid once selected; class features sorted by subclass → level gained → background traits
 - **Mini HP bar** — always-visible health indicator in the game toolbar
 - **Keyboard shortcuts** — `1`-`9` (choices), `W/A/S/D` & arrow keys (map movement), `M` (minimap toggle), `C` (character sheet), `J` (journal), `I` (inventory), `Esc` (close modals)
@@ -223,9 +227,24 @@ Artificial-Realms/
 
 ## 📦 Release Notes
 
-### **Latest Release: v3.0.0**
+### **Latest Release: v3.2.0**
 
-**v3.0.0 Highlights:**
+**v3.2.0 — Core 5e Systems Update**
+
+Five D&D 5e mechanics that were previously implicit are now explicit and surfaced in the UI:
+
+- **Reaction tracking** — Action economy pills (Action / Bonus / Reaction) are now clickable. Click any pill to manually mark it used or available. Critical for reactions like Shield, Opportunity Attack, Counterspell, and Hellish Rebuke, which trigger on *enemy* turns outside the normal turn flow.
+- **Ritual casting** — Spellcasters can cast ritual-tagged spells (Detect Magic, Identify, Find Familiar, Alarm, etc.) without consuming a spell slot. The DM uses a new `[RITUAL:SpellName]` tag; the chat log records it clearly with a distinct icon and "no slot consumed" note.
+- **Attunement system** — Magic items requiring attunement now enforce the RAW 3-slot cap. Inspect any magic item to see an Attune / Unattune button. The inventory header shows a live count (`✨ Attunement: 2/3`), turning red when all slots are full.
+- **Short rest UX** — The hit dice controls in the rest modal now auto-expand when opened (no second click required). The description shows exactly how many dice you have available. Controls collapse automatically if you have none remaining.
+- **Passive Perception & Investigation** — Both passive scores (10 + modifier) are now displayed on the character sheet and included in the AI's system prompt on every message. New DM instructions teach the AI to use them automatically — if a trap's detection DC is at or below your Passive Perception, you notice it without rolling.
+
+---
+
+### **v3.1.0**
+- Map enhancements and minimap improvements
+
+### **v3.0.0**
 - Subclass system — choose your archetype at the right level; shown on character sheet with gold badge and sorted feature display
 - Living minimap — named location labels, combat pulse border, attitude-colored NPC labels, enemy cleanup on combat end
 - Demo mode stability — scenes only change on true location transitions, not on every narrative choice
@@ -459,7 +478,7 @@ Share characters across campaigns or back them up as JSON files.
 2. **What Gets Exported:**
    ```json
    {
-     "version": "3.0.0",
+     "version": "3.2.0",
      "exportedAt": "2026-04-01T15:30:00.000Z",
      "character": {
        "name": "Thorin Ironwall",

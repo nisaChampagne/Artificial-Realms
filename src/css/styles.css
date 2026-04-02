@@ -2732,6 +2732,18 @@ input[type=range]::-webkit-slider-thumb {
   color: var(--text-mid);
   text-transform: uppercase;
 }
+.action-pill-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+.action-pill-clickable:hover {
+  border-color: var(--gold);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+.action-pill-clickable:active {
+  transform: translateY(0);
+}
 
 /* Concentration */
 .concentration-block h4, .conditions-block h4, .inspiration-block h4, .initiative-block h4 {
@@ -3728,6 +3740,45 @@ input[type=range]::-webkit-slider-thumb {
   border-radius: 3px;
   padding: 1px 5px;
 }
+.inv-attuned-tag {
+  font-size: 9px;
+  color: #c9b8e8;
+  font-family: var(--font-heading);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  background: rgba(160,106,191,0.15);
+  border: 1px solid #62388a;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.inv-needs-atune-tag {
+  font-size: 9px;
+  color: var(--text-dim);
+  font-family: var(--font-heading);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.inv-attune-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-top: 1px solid var(--border-dim);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.inv-attune-icon { font-size: 13px; }
+.inv-attune-label { font-family: var(--font-heading); letter-spacing: 0.5px; }
+.inv-attune-count {
+  font-family: var(--font-heading);
+  font-weight: bold;
+  color: #a06abf;
+}
+.inv-attune-count.attune-full { color: var(--red-lt); }
 .inv-section-head {
   font-family: var(--font-heading);
   font-size: 10px;
