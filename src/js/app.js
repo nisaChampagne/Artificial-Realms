@@ -775,6 +775,13 @@ class App {
         window.journalSystem?.open(); return;
       }
 
+      // M : toggle minimap panel
+      if ((e.key === 'm' || e.key === 'M') && openModals().length === 0) {
+        const panel = document.querySelector('.game-map-panel');
+        if (panel) panel.classList.toggle('map-hidden');
+        return;
+      }
+
       // P : perception log (no modal open)
       if ((e.key === 'p' || e.key === 'P') && openModals().length === 0) {
         this._openPerceptionLog(); return;
