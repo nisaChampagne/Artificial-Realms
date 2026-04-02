@@ -199,7 +199,12 @@ class AISystem {
       isTank: /fighter|barbarian|paladin/i.test(c.class),
       // Race features
       hasNightVision: /elf|dwarf|half-elf|tiefling|half-orc/i.test(c.race),
-      isSmallRace: /halfling|gnome/i.test(c.race)
+      isSmallRace: /halfling|gnome/i.test(c.race),
+      // Passive scores (used for automatic environmental reveals)
+      passivePerception: 10 + Math.floor(((c.stats?.wis || 10) - 10) / 2)
+        + (([...(c.bgSkills || []), ...(c.extraSkillProf || [])].includes('Perception')) ? (c.profBonus || 2) : 0),
+      passiveInvestigation: 10 + Math.floor(((c.stats?.int || 10) - 10) / 2)
+        + (([...(c.bgSkills || []), ...(c.extraSkillProf || [])].includes('Investigation')) ? (c.profBonus || 2) : 0),
     };
   }
   
@@ -317,6 +322,30 @@ class AISystem {
   
   // Add dynamic environmental details based on character perception
   _addEnvironmentalDetails(baseText, ctx) {
+    const passivePerc = ctx.passivePerception    || (10 + (ctx.mods?.wis || 0));
+    const passiveInv  = ctx.passiveInvestigation || (10 + (ctx.mods?.int || 0));
+
+    // High passive perception reveals danger automatically (no roll needed)
+    if (passivePerc >= 14 && /goblin|forest_road|cave|dungeon/i.test(baseText) && Math.random() > 0.5) {
+      const percDetails = [
+        ' Your sharp senses catch a faint scraping sound to the left — something shifting its weight.',
+        ' Without trying, you notice a tripwire strung at ankle height across the passage.',
+        ' Your eye catches a shadow moving against the grain — someone is watching the entrance.',
+        ' You spot fresh boot prints in the soft earth before anyone points them out.'
+      ];
+      baseText += percDetails[Math.floor(Math.random() * percDetails.length)];
+    }
+
+    // High passive investigation reveals environmental clues automatically
+    if (passiveInv >= 13 && /search|map|room|cave|chamber/i.test(baseText) && Math.random() > 0.6) {
+      const invDetails = [
+        ' A detail catches your eye immediately: the dust pattern on the floor shows heavy traffic to the eastern passage.',
+        ' You notice scratch marks on the stone — something was dragged through here recently.',
+        ' The mortar around one stone block is newer than the rest. Something was sealed behind it.'
+      ];
+      baseText += invDetails[Math.floor(Math.random() * invDetails.length)];
+    }
+
     if (ctx.isWise && Math.random() > 0.6) {
       const wisdomInsights = [
         ' Something feels wrong about this place.',
@@ -326,7 +355,7 @@ class AISystem {
       ];
       baseText += wisdomInsights[Math.floor(Math.random() * wisdomInsights.length)];
     }
-    
+
     if (ctx.isSmart && /ritual|magic|arcane|spell/i.test(baseText) && Math.random() > 0.7) {
       const intelligenceInsights = [
         ' Your knowledge of the arcane helps you understand the pattern.',
@@ -336,7 +365,7 @@ class AISystem {
       ];
       baseText += intelligenceInsights[Math.floor(Math.random() * intelligenceInsights.length)];
     }
-    
+
     return baseText;
   }
   
@@ -460,10 +489,26 @@ class AISystem {
     
     // Add personality to NPC interactions based on player's charisma
     if (currentState === 'brom_info' && ctx.isCharismatic) {
-      text = text.replace('Brom sets his cloth down and speaks quietly', 
+      text = text.replace('Brom sets his cloth down and speaks quietly',
         'Brom sets his cloth down and leans in, speaking with unusual candor');
     }
-    
+
+    // Ritual casting: spellcasters use Detect Magic during the rest scene
+    if (currentState === 'rest_scene' && ctx.isSpellcaster) {
+      text = text.replace(
+        'You wake to silence',
+        'During the watch you spend ten quiet minutes performing a ritual, casting your senses outward. [RITUAL:Detect Magic] The drumming pulses faintly under your boots — whatever is below radiates strong conjuration magic. You wake fully to silence'
+      );
+    }
+
+    // Reaction opportunity: spellcasters with Shield spell get a reaction prompt in boss fight
+    if (currentState === 'boss_fight' && ctx.isSpellcaster) {
+      text = text.replace(
+        '[HP:-8]',
+        '[HP:-8] *(If you have Shield prepared, you could have used your Reaction to reduce that hit — mark your Reaction used on the character sheet.)*'
+      );
+    }
+
     return text;
   }
 
@@ -574,7 +619,7 @@ class AISystem {
       boss_hard: `[SCENE:boss][MUSIC:boss][ENEMY:Hobgoblin Shaman:14:45]You fall back and make him pursue — patient discipline or a miscalculation; the shaman closes faster than expected. [ENEMY:Hobgoblin Shaman:9:45][HP:-5][DICE:d20${f(mods.con)}:Constitution:DC15]\n\nBut his focus on you pulls it from the crystal entirely. Behind him the crystal fractures with a sound like splitting glass. Vael's eyes clear — fully, completely — and she rises from the circle with the deliberateness of someone who has been waiting for exactly this moment.\n\n*"${name},"* she says, and her voice fills the chamber without effort. *"Step back."*\n\nYou step back.\n\n1. Let Vael act — trust her completely\n2. Cover her — keep the shaman's attention on you\n3. Strike the shaman one final time\n4. Destroy the crystal shards — don't leave them intact`,
 
       // victory + loop
-      victory: `[SCENE:rest][MUSIC:rest][ENEMY:clear]The shaman collapses. The green light goes out.\n\nSister Vael lowers her hands and exhales a breath she seems to have been holding for three days. She looks at you with clear grey eyes: *"Thank you."*\n\nIn the shaman's robes: a sealed letter. The Merchant's Consortium's black sun seal. Inside: a name, a route, a payment record. **Aldric Vane** paid for all of this — the goblins, the ritual, Vael's capture — four months ago. This was planned, thoroughly, by someone who knew exactly what she was protecting.\n\nGreyvast Keep still has lights in its windows. [HP:+8][XP:+500][WIN]\n\n1. Rest here before anything else\n2. Ask Vael what she was protecting — what was behind the seal\n3. Head for Greyvast immediately — catch Aldric before news arrives\n4. Get back to Brom with the letter — this is evidence`,
+      victory: `[SCENE:rest][MUSIC:rest][ENEMY:clear]The shaman collapses. The green light goes out.\n\nSister Vael lowers her hands and exhales a breath she seems to have been holding for three days. She looks at you with clear grey eyes: *"Thank you."*\n\nIn the shaman's robes: a sealed letter. The Merchant's Consortium's black sun seal. Inside: a name, a route, a payment record. **Aldric Vane** paid for all of this — the goblins, the ritual, Vael's capture — four months ago. This was planned, thoroughly, by someone who knew exactly what she was protecting.\n\nVael presses something into your hand before you can ask questions — a simple iron ring, warm from her finger. *"It helped me hold on. It may help you, too. It requires a bond to work — you'll know when you've formed it."*\n\nGreyvast Keep still has lights in its windows. [HP:+8][XP:+500][WIN]\n\n1. Rest here before anything else\n2. Ask Vael what she was protecting — what was behind the seal\n3. Head for Greyvast immediately — catch Aldric before news arrives\n4. Get back to Brom with the letter — this is evidence`,
 
       epilogue: `[SCENE:town][LOCATION:The Tarnished Flagon][MUSIC:tavern]Three days later. The **Tarnished Flagon** is warm and full again — the kind of noise that means people feel safe enough to be careless.\n\nSister Vael sits across from you, clean hands, bowl of Brom's stew, the watchful calm of someone who was underground too long. The letter is with a courier in the capital. Aldric Vane is gone — Greyvast empty when anyone reached it — but the payment record has names, and names have consequences.\n\n*"What was behind the seal?"* you asked her, that first night. She considered a long time. *"Something old. Something that shouldn't be accessible from this side of the world. Now that the ritual is broken, it will try another anchor. Within the year."*\n\nA log settles in the fire. Outside: ordinary stars, ordinary wind. [XP:+200]\n\n1. Ask where the next anchor point might be\n2. Begin preparing — this isn't over\n3. Enjoy the peace while it lasts\n4. Study the letter — look for more names in Vane's network`,
     };
@@ -601,7 +646,7 @@ class AISystem {
       shaman_observe: '[DECISION:Player observed the ritual and learned Sister Vael must be freed cleanly — killing the shaman carelessly could release what she is containing]',
       shaman_confront:'[DECISION:Player stepped into the torchlight and confronted the Hobgoblin Shaman directly][LORE:Aldric Vane warned the shaman that an adventurer would come and said they were three moves behind]',
       boss_fight:     '[COMBAT:START]',
-      victory:        '[COMBAT:END][DECISION:Player defeated the Hobgoblin Shaman and broke the ritual binding][NPC:Sister Vael:hedge-witch:Friendly][NPC:Aldric Vane:Consortium mastermind:Hostile][LORE:Aldric Vane paid the Consortium to orchestrate the goblin raids and capture Sister Vael four months ago][QUEST_DONE:Find Sister Vael][QUEST_DONE:Investigate the Goblin Raids][QUEST_DONE:Stop the Ritual at Greyvast]',
+      victory:        '[COMBAT:END][DECISION:Player defeated the Hobgoblin Shaman and broke the ritual binding][NPC:Sister Vael:hedge-witch:Friendly][NPC:Aldric Vane:Consortium mastermind:Hostile][LORE:Aldric Vane paid the Consortium to orchestrate the goblin raids and capture Sister Vael four months ago][QUEST_DONE:Find Sister Vael][QUEST_DONE:Investigate the Goblin Raids][QUEST_DONE:Stop the Ritual at Greyvast][ITEM:Ring of Protection][GOLD:+75]',
       epilogue:       '[LORE:Sister Vael warned that whatever she was containing will seek a new anchor within the year][QUEST:Track Down Aldric Vane:Aldric Vane orchestrated the attacks and is still at large — follow the evidence trail]',
     };
 
